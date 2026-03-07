@@ -149,7 +149,7 @@ export default function Index() {
           </div>
 
           <Tabs defaultValue="MICRO" className="w-full">
-            <TabsList className="mx-auto flex w-fit mb-8 border border-border bg-card p-6">
+            <TabsList className="mx-auto flex w-fit mb-8 border border-border bg-card">
               {categories.map((cat) => (
                 <TabsTrigger key={cat.value} value={cat.value} className="gap-1.5 p-2 ">
                   {cat.label}
