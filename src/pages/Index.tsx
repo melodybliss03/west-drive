@@ -86,11 +86,11 @@ export default function Index() {
             </div>
           </div>
           <a
-            href="tel:+33123456789"
+            href="tel:+330643660809"
             className="flex items-center gap-2 px-4 text-xs font-semibold text-primary hover:text-primary/80 transition-colors shrink-0 border-l border-background/10"
           >
             <Phone className="h-3.5 w-3.5" />
-            01 23 45 67 89
+            06 43 66 08 09
           </a>
         </div>
       </div>
@@ -100,7 +100,7 @@ export default function Index() {
       </div>
 
       {/* Hero */}
-      <section id="hero" className="relative min-h-[90vh] flex items-center justify-center pt-16">
+      <section id="hero" className="relative min-h-[105vh] flex items-center justify-center pt-16">
         <div className="absolute inset-0">
           <img src={heroBg} alt="Véhicules WEST DRIVE" className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-foreground/70" />
@@ -116,8 +116,8 @@ export default function Index() {
               Location voiture pas cher{" "}
               <span className="text-primary">Paris Ouest</span>
             </h1>
-            <p className="text-lg text-background/70 mb-8 max-w-xl mx-auto">
-              Puteaux, La Défense, Nanterre, Rueil-Malmaison, Bougival, Boulogne-Billancourt et environs.
+            <p className="text-lg text-background/70 mb-8 max-w-4xl mx-auto">
+              Location flexible à Puteaux, La Défense, Neuilly, Levallois, Boulogne et Hauts-de-Seine. Weekend, vacances ou remplacement : réservez en ligne en 2 minutes.
             </p>
             <a href="#vehicules">
               <Button size="lg" className="gap-2 text-base px-8">
@@ -149,9 +149,9 @@ export default function Index() {
           </div>
 
           <Tabs defaultValue="MICRO" className="w-full">
-            <TabsList className="mx-auto flex w-fit mb-8">
+            <TabsList className="mx-auto flex w-fit mb-8 border border-border bg-card p-6">
               {categories.map((cat) => (
-                <TabsTrigger key={cat.value} value={cat.value} className="gap-1.5">
+                <TabsTrigger key={cat.value} value={cat.value} className="gap-1.5 p-2 ">
                   {cat.label}
                   <span className="text-xs text-muted-foreground">({getCategorieCount(cat.value)})</span>
                 </TabsTrigger>
@@ -188,7 +188,7 @@ export default function Index() {
             <p className="text-background/60">Tout est inclus. Aucune surprise</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 contain mx-auto">
             {/* Card 1 */}
             <div className="bg-card text-foreground rounded-2xl border border-border p-8 flex flex-col">
               <div className="w-10 h-10 bg-foreground rounded-xl flex items-center justify-center mb-6">
@@ -257,7 +257,7 @@ export default function Index() {
           <div className="text-center mb-12">
             <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">Pourquoi WESTDRIVE ?</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 contain mx-auto">
             {pourquoiCards.map((card, i) => (
               <motion.div
                 key={card.titre}
@@ -339,7 +339,7 @@ export default function Index() {
           <div className="text-center mb-12">
             <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">Ce que disent nos clients</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 contain mx-auto">
             {temoignages.map((t, i) => (
               <motion.div
                 key={t.id}

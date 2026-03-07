@@ -24,7 +24,7 @@ export default function VehiculeCard({ vehicule, index = 0 }: { vehicule: Vehicu
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.1 }}
-      className="group bg-card border border-border rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300"
+      className="group bg-card border border-border rounded-lg overflow-hidden "
     >
       <div className="relative aspect-[4/3] bg-muted overflow-hidden">
         <img
@@ -34,9 +34,9 @@ export default function VehiculeCard({ vehicule, index = 0 }: { vehicule: Vehicu
           loading="lazy"
         />
         <Badge
-          className={`absolute top-3 right-3 text-xs ${
+          className={`absolute top-3 right-3 text-xs  ${
             vehicule.disponible
-              ? "bg-emerald-500/90 text-background hover:bg-emerald-500"
+              ? "bg-emerald-500/90 text-background hover:bg-emerald-500 "
               : "bg-muted-foreground/80 text-background hover:bg-muted-foreground"
           }`}
         >
