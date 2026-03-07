@@ -25,7 +25,7 @@ export default function Header() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 glass-header">
+    <header className="fixed top-10 left-0 right-0 z-50 glass-header">
       <div className="container mx-auto flex items-center justify-between h-16 px-4">
         <Link to="/" className="font-display text-xl font-bold tracking-tight" aria-label="WEST DRIVE accueil">
           WEST <span className="text-primary">DRIVE</span>
@@ -44,12 +44,7 @@ export default function Header() {
           ))}
         </nav>
 
-        <div className="hidden md:flex items-center gap-3">
-          <Link to="/connexion">
-            <Button variant="ghost" size="sm" className="font-medium">
-              Se connecter
-            </Button>
-          </Link>
+        <div className="hidden md:flex items-center">
           <Link to="/inscription">
             <Button size="sm" className="font-medium">
               Créer un compte
@@ -86,9 +81,6 @@ export default function Header() {
                 </Link>
               ))}
               <div className="flex flex-col gap-2 pt-3 border-t border-border">
-                <Link to="/connexion" onClick={() => setMobileOpen(false)}>
-                  <Button variant="outline" className="w-full">Se connecter</Button>
-                </Link>
                 <Link to="/inscription" onClick={() => setMobileOpen(false)}>
                   <Button className="w-full">Créer un compte</Button>
                 </Link>
