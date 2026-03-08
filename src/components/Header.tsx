@@ -39,16 +39,19 @@ export default function Header() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-6" aria-label="Navigation principale">
-          {navLinks.map((link) => (
-            <Link
-              key={link.label}
-              to={isHome && link.anchor ? "/" : link.href}
-              onClick={() => handleNavClick(link)}
-              className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
-            >
-              {link.label}
-            </Link>
-          ))}
+          {navLinks.map((link) => {
+            const isActive = link.href === "/" ? location.pathname === "/" : location.pathname.startsWith(link.href);
+            return (
+              <Link
+                key={link.label}
+                to={isHome && link.anchor ? "/" : link.href}
+                onClick={() => handleNavClick(link)}
+                className={`text-sm font-medium transition-colors ${isActive ? "text-primary font-semibold" : "text-foreground/70 hover:text-foreground"}`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="hidden md:flex items-center">
@@ -109,10 +112,13 @@ export default function Header() {
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
             className="md:hidden bg-background border-b border-border">
             <nav className="flex flex-col p-4 gap-3" aria-label="Navigation mobile">
-              {navLinks.map((link) => (
-                <Link key={link.label} to={isHome && link.anchor ? "/" : link.href} onClick={() => handleNavClick(link)}
-                  className="text-sm font-medium py-2 text-foreground/70 hover:text-foreground">{link.label}</Link>
-              ))}
+              {navLinks.map((link) => {
+                const isActive = link.href === "/" ? location.pathname === "/" : location.pathname.startsWith(link.href);
+                return (
+                  <Link key={link.label} to={isHome && link.anchor ? "/" : link.href} onClick={() => handleNavClick(link)}
+                    className={`text-sm font-medium py-2 ${isActive ? "text-primary font-semibold" : "text-foreground/70 hover:text-foreground"}`}>{link.label}</Link>
+                );
+              })}
               <div className="flex flex-col gap-2 pt-3 border-t border-border">
                 {user ? (
                   <>
