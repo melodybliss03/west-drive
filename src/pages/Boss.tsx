@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { useNavigate, Navigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   Car, Users, CalendarCheck, BarChart3, Plus, Edit, Trash2, Eye,
   Search, TrendingUp, TrendingDown,
   DollarSign, CheckCircle, XCircle, AlertTriangle, Truck, LogOut, Shield,
-  Eye as EyeIcon, EyeOff
+  Eye as EyeIcon, EyeOff, UserCog, Save, Mail, Phone
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +19,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { vehicules as mockVehicules, villes, type Vehicule, type Categorie, type Transmission, type Energie } from "@/data/mock";
+import { vehicules as mockVehicules, type Vehicule, type Categorie, type Transmission, type Energie } from "@/data/mock";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
 
 // ── Mock data ──
 const mockReservations = [
@@ -46,7 +59,7 @@ const mockFlotte = [
   { id: "F005", vehicule: "Mercedes Classe C", plaque: "QR-345-ST", km: 52000, dernierEntretien: "2024-12-20", prochainEntretien: "2025-03-20", etat: "en panne" },
 ];
 
-type TabKey = "kpi" | "vehicules" | "reservations" | "flotte" | "utilisateurs";
+type TabKey = "kpi" | "vehicules" | "reservations" | "flotte" | "utilisateurs" | "profil";
 
 const statColors: Record<string, string> = {
   "confirmée": "bg-emerald-500/10 text-emerald-600 border-emerald-200",
@@ -75,9 +88,104 @@ const emptyVehicle: Partial<Vehicule> = {
   note: 0, nbAvis: 0, photos: [],
 };
 
+const sidebarItems: { key: TabKey; icon: typeof BarChart3; label: string }[] = [
+  { key: "kpi", icon: BarChart3, label: "Tableau de bord" },
+  { key: "vehicules", icon: Car, label: "Véhicules" },
+  { key: "reservations", icon: CalendarCheck, label: "Réservations" },
+  { key: "flotte", icon: Truck, label: "Gestion flotte" },
+  { key: "utilisateurs", icon: Users, label: "Utilisateurs" },
+  { key: "profil", icon: UserCog, label: "Mon profil" },
+];
+
+// ═══════════════════════════════════════════════════════════
+// Admin Sidebar Component (uses Shadcn Sidebar)
+// ═══════════════════════════════════════════════════════════
+function AdminSidebar({ tab, setTab, user, onLogout }: {
+  tab: TabKey;
+  setTab: (t: TabKey) => void;
+  user: { nom: string; prenom: string; email: string };
+  onLogout: () => void;
+}) {
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
+
+  return (
+    <Sidebar collapsible="icon" className="border-r border-border bg-foreground">
+      <SidebarContent className="bg-foreground">
+        {/* Logo */}
+        <div className={`p-4 border-b border-border/20 ${collapsed ? "flex justify-center" : ""}`}>
+          {collapsed ? (
+            <span className="font-display text-lg font-bold text-primary">W</span>
+          ) : (
+            <div>
+              <h1 className="font-display text-lg font-bold text-primary-foreground">
+                WEST <span className="text-primary">DRIVE</span>
+              </h1>
+              <p className="text-xs text-primary-foreground/50 mt-0.5">Administration</p>
+            </div>
+          )}
+        </div>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-primary-foreground/40 text-[10px] uppercase tracking-wider">
+            {!collapsed && "Navigation"}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {sidebarItems.map(item => (
+                <SidebarMenuItem key={item.key}>
+                  <SidebarMenuButton
+                    onClick={() => setTab(item.key)}
+                    isActive={tab === item.key}
+                    tooltip={item.label}
+                    className={`transition-colors ${
+                      tab === item.key
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                        : "text-primary-foreground/60 hover:text-primary-foreground hover:bg-primary-foreground/10"
+                    }`}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Footer: user + logout */}
+        <div className="mt-auto p-4 border-t border-border/20">
+          {!collapsed && (
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-bold flex-shrink-0">
+                {user.prenom[0]}{user.nom[0]}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-primary-foreground truncate">{user.prenom} {user.nom}</p>
+                <p className="text-xs text-primary-foreground/50 truncate">{user.email}</p>
+              </div>
+            </div>
+          )}
+          <button
+            onClick={onLogout}
+            className={`flex items-center gap-2 text-sm text-primary-foreground/50 hover:text-primary-foreground transition-colors ${collapsed ? "justify-center w-full" : "px-1"}`}
+            title="Retour au site"
+          >
+            <LogOut className="h-4 w-4" />
+            {!collapsed && <span>Retour au site</span>}
+          </button>
+        </div>
+      </SidebarContent>
+    </Sidebar>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// Main Boss Page
+// ═══════════════════════════════════════════════════════════
 export default function Boss() {
   const navigate = useNavigate();
-  const { user, login } = useAuth();
+  const { user, login, logout } = useAuth();
   const { toast } = useToast();
   const [tab, setTab] = useState<TabKey>("kpi");
   const [vehicles, setVehicles] = useState<Vehicule[]>(mockVehicules);
@@ -90,6 +198,15 @@ export default function Boss() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [roleDialog, setRoleDialog] = useState<{ userId: string; currentRole: string } | null>(null);
   const [selectedRole, setSelectedRole] = useState("");
+
+  // ── Profile edit state ──
+  const [profileForm, setProfileForm] = useState({
+    prenom: user?.prenom || "",
+    nom: user?.nom || "",
+    email: user?.email || "",
+    telephone: "06 12 34 56 78",
+  });
+  const [profileEditing, setProfileEditing] = useState(false);
 
   // ── Admin login/register state ──
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
@@ -144,6 +261,7 @@ export default function Boss() {
       login({ nom, prenom, email: authForm.email });
       toast({ title: authMode === "register" ? "Compte admin créé !" : "Connexion réussie", description: "Bienvenue dans l'espace administration." });
       setAuthLoading(false);
+      setProfileForm({ prenom, nom, email: authForm.email, telephone: "06 12 34 56 78" });
     }, 1000);
   };
 
@@ -192,7 +310,7 @@ export default function Boss() {
                 {authMode === "register" && authForm.password.length > 0 && (
                   <div className="space-y-1.5 mt-2">
                     <div className="flex gap-1">
-                      {[1,2,3,4,5].map(i => (
+                      {[1, 2, 3, 4, 5].map(i => (
                         <div key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i <= strength ? sLabel.color : "bg-muted"}`} />
                       ))}
                     </div>
@@ -241,8 +359,9 @@ export default function Boss() {
     if (isNew) setVehicles(prev => [...prev, editVehicle as Vehicule]);
     else setVehicles(prev => prev.map(v => v.id === editVehicle.id ? editVehicle as Vehicule : v));
     setEditVehicle(null);
+    toast({ title: isNew ? "Véhicule ajouté" : "Véhicule mis à jour" });
   };
-  const deleteVehicle = (id: string) => { setVehicles(prev => prev.filter(v => v.id !== id)); setDeleteConfirm(null); };
+  const deleteVehicle = (id: string) => { setVehicles(prev => prev.filter(v => v.id !== id)); setDeleteConfirm(null); toast({ title: "Véhicule supprimé" }); };
 
   // ── Role management ──
   const openRoleDialog = (userId: string, currentRole: string) => {
@@ -256,392 +375,464 @@ export default function Boss() {
     setRoleDialog(null);
   };
 
+  // ── Profile save ──
+  const saveProfile = () => {
+    login({ nom: profileForm.nom, prenom: profileForm.prenom, email: profileForm.email });
+    setProfileEditing(false);
+    toast({ title: "Profil mis à jour", description: "Vos informations ont été enregistrées." });
+  };
+
   const filteredVehicles = vehicles.filter(v => v.nom.toLowerCase().includes(searchV.toLowerCase()) || v.marque.toLowerCase().includes(searchV.toLowerCase()));
   const filteredRes = mockReservations.filter(r => r.client.toLowerCase().includes(searchR.toLowerCase()) || r.vehicule.toLowerCase().includes(searchR.toLowerCase()));
   const filteredUsers = users.filter(u => u.nom.toLowerCase().includes(searchU.toLowerCase()) || u.email.toLowerCase().includes(searchU.toLowerCase()));
 
-  const sidebarItems: { key: TabKey; icon: typeof BarChart3; label: string }[] = [
-    { key: "kpi", icon: BarChart3, label: "Tableau de bord" },
-    { key: "vehicules", icon: Car, label: "Véhicules" },
-    { key: "reservations", icon: CalendarCheck, label: "Réservations" },
-    { key: "flotte", icon: Truck, label: "Gestion flotte" },
-    { key: "utilisateurs", icon: Users, label: "Utilisateurs" },
-  ];
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
 
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* ═══ Sidebar — fixed design system colors ═══ */}
-      <aside className="w-64 bg-foreground flex-shrink-0 hidden lg:flex flex-col">
-        <div className="p-6 border-b border-border/20">
-          <h1 className="font-display text-lg font-bold text-primary-foreground">
-            WEST <span className="text-primary">DRIVE</span>
-          </h1>
-          <p className="text-xs text-primary-foreground/50 mt-1">Administration</p>
-        </div>
-        <nav className="flex-1 p-4 space-y-1">
-          {sidebarItems.map(item => (
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-background">
+        <AdminSidebar tab={tab} setTab={setTab} user={user} onLogout={handleLogout} />
+
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Top header with sidebar trigger */}
+          <header className="h-14 flex items-center gap-4 border-b border-border bg-card px-4 flex-shrink-0">
+            <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+            <div className="flex-1" />
             <button
-              key={item.key}
-              onClick={() => setTab(item.key)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                tab === item.key
-                  ? "bg-primary text-primary-foreground"
-                  : "text-primary-foreground/60 hover:text-primary-foreground hover:bg-primary-foreground/10"
-              }`}
+              onClick={() => setTab("profil")}
+              className="flex items-center gap-2 hover:bg-muted rounded-lg px-3 py-1.5 transition-colors"
             >
-              <item.icon className="h-4 w-4" />
-              {item.label}
+              <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold">
+                {user.prenom[0]}{user.nom[0]}
+              </div>
+              <span className="text-sm font-medium hidden sm:block">{user.prenom} {user.nom}</span>
             </button>
-          ))}
-        </nav>
-        <div className="p-4 border-t border-border/20">
-          <div className="flex items-center gap-3 mb-4 px-3">
-            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-bold">
-              {user.prenom[0]}{user.nom[0]}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-primary-foreground truncate">{user.prenom} {user.nom}</p>
-              <p className="text-xs text-primary-foreground/50 truncate">{user.email}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => navigate("/")}
-            className="flex items-center gap-2 text-sm text-primary-foreground/50 hover:text-primary-foreground transition-colors px-3"
-          >
-            <LogOut className="h-4 w-4" /> Retour au site
-          </button>
-        </div>
-      </aside>
+          </header>
 
-      {/* Main */}
-      <main className="flex-1 overflow-auto">
-        {/* Mobile top bar */}
-        <div className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-card">
-          <h1 className="font-display text-lg font-bold">WEST <span className="text-primary">DRIVE</span> Admin</h1>
-          <Select value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="kpi">Tableau de bord</SelectItem>
-              <SelectItem value="vehicules">Véhicules</SelectItem>
-              <SelectItem value="reservations">Réservations</SelectItem>
-              <SelectItem value="flotte">Gestion flotte</SelectItem>
-              <SelectItem value="utilisateurs">Utilisateurs</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+          {/* Main content */}
+          <main className="flex-1 overflow-auto p-4 md:p-8">
+            <div className="max-w-7xl mx-auto space-y-6">
 
-        <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
-          {/* ═══ KPI ═══ */}
-          {tab === "kpi" && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-              <h2 className="text-2xl font-display font-bold">Tableau de bord</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {[
-                  { label: "Chiffre d'affaires", value: `${totalCA.toLocaleString()} €`, icon: DollarSign, trend: "+12%", up: true },
-                  { label: "Réservations actives", value: activeRes, icon: CalendarCheck, trend: "+3", up: true },
-                  { label: "Véhicules disponibles", value: `${availableVehicles}/${vehicles.length}`, icon: Car, trend: "", up: true },
-                  { label: "Utilisateurs inscrits", value: totalUsers, icon: Users, trend: "+2", up: true },
-                ].map((kpi, i) => (
-                  <Card key={i} className="relative overflow-hidden">
-                    <CardContent className="p-5">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="text-sm text-muted-foreground">{kpi.label}</p>
-                          <p className="text-2xl font-bold mt-1">{kpi.value}</p>
-                          {kpi.trend && (
-                            <div className="flex items-center gap-1 mt-2 text-xs">
-                              {kpi.up ? <TrendingUp className="h-3 w-3 text-emerald-500" /> : <TrendingDown className="h-3 w-3 text-destructive" />}
-                              <span className={kpi.up ? "text-emerald-600" : "text-destructive"}>{kpi.trend}</span>
-                              <span className="text-muted-foreground">ce mois</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="p-2.5 rounded-xl bg-primary/10">
-                          <kpi.icon className="h-5 w-5 text-primary" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Dernières réservations</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>ID</TableHead>
-                          <TableHead>Client</TableHead>
-                          <TableHead>Véhicule</TableHead>
-                          <TableHead>Dates</TableHead>
-                          <TableHead>Montant</TableHead>
-                          <TableHead>Statut</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {mockReservations.slice(0, 5).map(r => (
-                          <TableRow key={r.id}>
-                            <TableCell className="font-mono text-xs">{r.id}</TableCell>
-                            <TableCell className="font-medium">{r.client}</TableCell>
-                            <TableCell>{r.vehicule}</TableCell>
-                            <TableCell className="text-xs">{r.debut} → {r.fin}</TableCell>
-                            <TableCell className="font-semibold">{r.montant} €</TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className={statColors[r.statut] || ""}>{r.statut}</Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-
-          {/* ═══ VÉHICULES ═══ */}
-          {tab === "vehicules" && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <h2 className="text-2xl font-display font-bold">Véhicules</h2>
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Rechercher…" value={searchV} onChange={e => setSearchV(e.target.value)} className="pl-9 w-56" />
-                  </div>
-                  <Button onClick={openNew} className="gap-2"><Plus className="h-4 w-4" /> Ajouter</Button>
-                </div>
-              </div>
-              <Card>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Véhicule</TableHead>
-                          <TableHead>Catégorie</TableHead>
-                          <TableHead>Prix/jour</TableHead>
-                          <TableHead>Villes</TableHead>
-                          <TableHead>Statut</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredVehicles.map(v => (
-                          <TableRow key={v.id}>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium">{v.nom}</p>
-                                <p className="text-xs text-muted-foreground">{v.transmission} · {v.energie}</p>
-                              </div>
-                            </TableCell>
-                            <TableCell><Badge variant="outline">{v.categorie}</Badge></TableCell>
-                            <TableCell className="font-semibold">{v.prixJour} €</TableCell>
-                            <TableCell className="text-xs max-w-[150px] truncate">{v.villes.join(", ")}</TableCell>
-                            <TableCell>
-                              {v.disponible && v.actif ? (
-                                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-200">Disponible</Badge>
-                              ) : (
-                                <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">Indisponible</Badge>
+              {/* ═══ KPI ═══ */}
+              {tab === "kpi" && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                  <h2 className="text-2xl font-display font-bold">Tableau de bord</h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[
+                      { label: "Chiffre d'affaires", value: `${totalCA.toLocaleString()} €`, icon: DollarSign, trend: "+12%", up: true },
+                      { label: "Réservations actives", value: activeRes, icon: CalendarCheck, trend: "+3", up: true },
+                      { label: "Véhicules disponibles", value: `${availableVehicles}/${vehicles.length}`, icon: Car, trend: "", up: true },
+                      { label: "Utilisateurs inscrits", value: totalUsers, icon: Users, trend: "+2", up: true },
+                    ].map((kpi, i) => (
+                      <Card key={i} className="relative overflow-hidden">
+                        <CardContent className="p-5">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <p className="text-sm text-muted-foreground">{kpi.label}</p>
+                              <p className="text-2xl font-bold mt-1">{kpi.value}</p>
+                              {kpi.trend && (
+                                <div className="flex items-center gap-1 mt-2 text-xs">
+                                  {kpi.up ? <TrendingUp className="h-3 w-3 text-emerald-500" /> : <TrendingDown className="h-3 w-3 text-destructive" />}
+                                  <span className={kpi.up ? "text-emerald-600" : "text-destructive"}>{kpi.trend}</span>
+                                  <span className="text-muted-foreground">ce mois</span>
+                                </div>
                               )}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-1">
-                                <Button variant="ghost" size="icon" onClick={() => openEdit(v)}><Edit className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" onClick={() => setDeleteConfirm(v.id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-primary/10">
+                              <kpi.icon className="h-5 w-5 text-primary" />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
                   </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
 
-          {/* ═══ RÉSERVATIONS ═══ */}
-          {tab === "reservations" && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <h2 className="text-2xl font-display font-bold">Réservations</h2>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Rechercher…" value={searchR} onChange={e => setSearchR(e.target.value)} className="pl-9 w-56" />
-                </div>
-              </div>
-              <Card>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>ID</TableHead>
-                          <TableHead>Client</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Véhicule</TableHead>
-                          <TableHead>Début</TableHead>
-                          <TableHead>Fin</TableHead>
-                          <TableHead>Montant</TableHead>
-                          <TableHead>Statut</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredRes.map(r => (
-                          <TableRow key={r.id}>
-                            <TableCell className="font-mono text-xs">{r.id}</TableCell>
-                            <TableCell className="font-medium">{r.client}</TableCell>
-                            <TableCell className="text-xs">{r.email}</TableCell>
-                            <TableCell>{r.vehicule}</TableCell>
-                            <TableCell className="text-xs">{r.debut}</TableCell>
-                            <TableCell className="text-xs">{r.fin}</TableCell>
-                            <TableCell className="font-semibold">{r.montant} €</TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className={statColors[r.statut] || ""}>{r.statut}</Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button variant="ghost" size="icon"><Eye className="h-4 w-4" /></Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-
-          {/* ═══ FLOTTE ═══ */}
-          {tab === "flotte" && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-              <h2 className="text-2xl font-display font-bold">Gestion de flotte</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {[
-                  { label: "En bon état", count: mockFlotte.filter(f => f.etat === "bon").length, icon: CheckCircle, color: "text-emerald-500" },
-                  { label: "Entretien requis", count: mockFlotte.filter(f => f.etat === "entretien requis").length, icon: AlertTriangle, color: "text-amber-500" },
-                  { label: "En panne", count: mockFlotte.filter(f => f.etat === "en panne").length, icon: XCircle, color: "text-destructive" },
-                ].map((s, i) => (
-                  <Card key={i}>
-                    <CardContent className="p-5 flex items-center gap-4">
-                      <s.icon className={`h-8 w-8 ${s.color}`} />
-                      <div>
-                        <p className="text-2xl font-bold">{s.count}</p>
-                        <p className="text-sm text-muted-foreground">{s.label}</p>
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">Dernières réservations</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>ID</TableHead>
+                              <TableHead>Client</TableHead>
+                              <TableHead>Véhicule</TableHead>
+                              <TableHead>Dates</TableHead>
+                              <TableHead>Montant</TableHead>
+                              <TableHead>Statut</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {mockReservations.slice(0, 5).map(r => (
+                              <TableRow key={r.id}>
+                                <TableCell className="font-mono text-xs">{r.id}</TableCell>
+                                <TableCell className="font-medium">{r.client}</TableCell>
+                                <TableCell>{r.vehicule}</TableCell>
+                                <TableCell className="text-xs">{r.debut} → {r.fin}</TableCell>
+                                <TableCell className="font-semibold">{r.montant} €</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className={statColors[r.statut] || ""}>{r.statut}</Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
                       </div>
                     </CardContent>
                   </Card>
-                ))}
-              </div>
-              <Card>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Véhicule</TableHead>
-                          <TableHead>Plaque</TableHead>
-                          <TableHead>Kilométrage</TableHead>
-                          <TableHead>Dernier entretien</TableHead>
-                          <TableHead>Prochain entretien</TableHead>
-                          <TableHead>État</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {mockFlotte.map(f => (
-                          <TableRow key={f.id}>
-                            <TableCell className="font-medium">{f.vehicule}</TableCell>
-                            <TableCell className="font-mono text-xs">{f.plaque}</TableCell>
-                            <TableCell>{f.km.toLocaleString()} km</TableCell>
-                            <TableCell className="text-xs">{f.dernierEntretien}</TableCell>
-                            <TableCell className="text-xs">{f.prochainEntretien}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className={etatColors[f.etat] || ""}>{f.etat}</Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
+                </motion.div>
+              )}
 
-          {/* ═══ UTILISATEURS ═══ */}
-          {tab === "utilisateurs" && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <h2 className="text-2xl font-display font-bold">Utilisateurs</h2>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Rechercher…" value={searchU} onChange={e => setSearchU(e.target.value)} className="pl-9 w-56" />
-                </div>
-              </div>
-              <Card>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Nom</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Rôle</TableHead>
-                          <TableHead>Inscrit le</TableHead>
-                          <TableHead>Réservations</TableHead>
-                          <TableHead>Statut</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredUsers.map(u => (
-                          <TableRow key={u.id}>
-                            <TableCell className="font-medium">{u.prenom} {u.nom}</TableCell>
-                            <TableCell className="text-xs">{u.email}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className={u.type === "entreprise" ? "bg-blue-500/10 text-blue-600 border-blue-200" : ""}>
-                                {u.type}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className={roleColors[u.role] || ""}>
-                                {u.role}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-xs">{u.creeLe}</TableCell>
-                            <TableCell>{u.reservations}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className={u.statut === "actif" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200" : "bg-destructive/10 text-destructive border-destructive/20"}>
-                                {u.statut}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-1">
-                                <Button variant="ghost" size="icon" onClick={() => openRoleDialog(u.id, u.role)} title="Changer le rôle">
-                                  <Shield className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon"><Eye className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+              {/* ═══ VÉHICULES ═══ */}
+              {tab === "vehicules" && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h2 className="text-2xl font-display font-bold">Véhicules</h2>
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input placeholder="Rechercher…" value={searchV} onChange={e => setSearchV(e.target.value)} className="pl-9 w-56" />
+                      </div>
+                      <Button onClick={openNew} className="gap-2"><Plus className="h-4 w-4" /> Ajouter</Button>
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
+                  <Card>
+                    <CardContent className="p-0">
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Véhicule</TableHead>
+                              <TableHead>Catégorie</TableHead>
+                              <TableHead>Prix/jour</TableHead>
+                              <TableHead>Villes</TableHead>
+                              <TableHead>Statut</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredVehicles.map(v => (
+                              <TableRow key={v.id}>
+                                <TableCell>
+                                  <div>
+                                    <p className="font-medium">{v.nom}</p>
+                                    <p className="text-xs text-muted-foreground">{v.transmission} · {v.energie}</p>
+                                  </div>
+                                </TableCell>
+                                <TableCell><Badge variant="outline">{v.categorie}</Badge></TableCell>
+                                <TableCell className="font-semibold">{v.prixJour} €</TableCell>
+                                <TableCell className="text-xs max-w-[150px] truncate">{v.villes.join(", ")}</TableCell>
+                                <TableCell>
+                                  {v.disponible && v.actif ? (
+                                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-200">Disponible</Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">Indisponible</Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex justify-end gap-1">
+                                    <Button variant="ghost" size="icon" onClick={() => openEdit(v)}><Edit className="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="icon" onClick={() => setDeleteConfirm(v.id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+
+              {/* ═══ RÉSERVATIONS ═══ */}
+              {tab === "reservations" && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h2 className="text-2xl font-display font-bold">Réservations</h2>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input placeholder="Rechercher…" value={searchR} onChange={e => setSearchR(e.target.value)} className="pl-9 w-56" />
+                    </div>
+                  </div>
+                  <Card>
+                    <CardContent className="p-0">
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>ID</TableHead>
+                              <TableHead>Client</TableHead>
+                              <TableHead>Email</TableHead>
+                              <TableHead>Véhicule</TableHead>
+                              <TableHead>Début</TableHead>
+                              <TableHead>Fin</TableHead>
+                              <TableHead>Montant</TableHead>
+                              <TableHead>Statut</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredRes.map(r => (
+                              <TableRow key={r.id}>
+                                <TableCell className="font-mono text-xs">{r.id}</TableCell>
+                                <TableCell className="font-medium">{r.client}</TableCell>
+                                <TableCell className="text-xs">{r.email}</TableCell>
+                                <TableCell>{r.vehicule}</TableCell>
+                                <TableCell className="text-xs">{r.debut}</TableCell>
+                                <TableCell className="text-xs">{r.fin}</TableCell>
+                                <TableCell className="font-semibold">{r.montant} €</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className={statColors[r.statut] || ""}>{r.statut}</Badge>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Button variant="ghost" size="icon"><Eye className="h-4 w-4" /></Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+
+              {/* ═══ FLOTTE ═══ */}
+              {tab === "flotte" && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                  <h2 className="text-2xl font-display font-bold">Gestion de flotte</h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {[
+                      { label: "En bon état", count: mockFlotte.filter(f => f.etat === "bon").length, icon: CheckCircle, color: "text-emerald-500" },
+                      { label: "Entretien requis", count: mockFlotte.filter(f => f.etat === "entretien requis").length, icon: AlertTriangle, color: "text-amber-500" },
+                      { label: "En panne", count: mockFlotte.filter(f => f.etat === "en panne").length, icon: XCircle, color: "text-destructive" },
+                    ].map((s, i) => (
+                      <Card key={i}>
+                        <CardContent className="p-5 flex items-center gap-4">
+                          <s.icon className={`h-8 w-8 ${s.color}`} />
+                          <div>
+                            <p className="text-2xl font-bold">{s.count}</p>
+                            <p className="text-sm text-muted-foreground">{s.label}</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                  <Card>
+                    <CardContent className="p-0">
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Véhicule</TableHead>
+                              <TableHead>Plaque</TableHead>
+                              <TableHead>Kilométrage</TableHead>
+                              <TableHead>Dernier entretien</TableHead>
+                              <TableHead>Prochain entretien</TableHead>
+                              <TableHead>État</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {mockFlotte.map(f => (
+                              <TableRow key={f.id}>
+                                <TableCell className="font-medium">{f.vehicule}</TableCell>
+                                <TableCell className="font-mono text-xs">{f.plaque}</TableCell>
+                                <TableCell>{f.km.toLocaleString()} km</TableCell>
+                                <TableCell className="text-xs">{f.dernierEntretien}</TableCell>
+                                <TableCell className="text-xs">{f.prochainEntretien}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className={etatColors[f.etat] || ""}>{f.etat}</Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+
+              {/* ═══ UTILISATEURS ═══ */}
+              {tab === "utilisateurs" && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h2 className="text-2xl font-display font-bold">Utilisateurs</h2>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input placeholder="Rechercher…" value={searchU} onChange={e => setSearchU(e.target.value)} className="pl-9 w-56" />
+                    </div>
+                  </div>
+                  <Card>
+                    <CardContent className="p-0">
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Nom</TableHead>
+                              <TableHead>Email</TableHead>
+                              <TableHead>Type</TableHead>
+                              <TableHead>Rôle</TableHead>
+                              <TableHead>Inscrit le</TableHead>
+                              <TableHead>Réservations</TableHead>
+                              <TableHead>Statut</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredUsers.map(u => (
+                              <TableRow key={u.id}>
+                                <TableCell className="font-medium">{u.prenom} {u.nom}</TableCell>
+                                <TableCell className="text-xs">{u.email}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className={u.type === "entreprise" ? "bg-blue-500/10 text-blue-600 border-blue-200" : ""}>
+                                    {u.type}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className={roleColors[u.role] || ""}>
+                                    {u.role}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-xs">{u.creeLe}</TableCell>
+                                <TableCell>{u.reservations}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className={u.statut === "actif" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200" : "bg-destructive/10 text-destructive border-destructive/20"}>
+                                    {u.statut}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex justify-end gap-1">
+                                    <Button variant="ghost" size="icon" onClick={() => openRoleDialog(u.id, u.role)} title="Changer le rôle">
+                                      <Shield className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon"><Eye className="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+
+              {/* ═══ PROFIL ═══ */}
+              {tab === "profil" && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-display font-bold">Mon profil</h2>
+                    {!profileEditing ? (
+                      <Button variant="outline" className="gap-2" onClick={() => setProfileEditing(true)}>
+                        <Edit className="h-4 w-4" /> Modifier
+                      </Button>
+                    ) : (
+                      <Button className="gap-2" onClick={saveProfile}>
+                        <Save className="h-4 w-4" /> Enregistrer
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Avatar & summary */}
+                    <Card className="lg:col-span-1">
+                      <CardContent className="p-6 flex flex-col items-center text-center">
+                        <div className="h-20 w-20 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-2xl font-bold mb-4">
+                          {user.prenom[0]}{user.nom[0]}
+                        </div>
+                        <h3 className="font-display font-bold text-lg">{user.prenom} {user.nom}</h3>
+                        <p className="text-sm text-muted-foreground">{user.email}</p>
+                        <Badge className="mt-3 bg-primary/10 text-primary border-primary/20" variant="outline">Administrateur</Badge>
+                        <div className="w-full mt-6 pt-4 border-t border-border space-y-3 text-left">
+                          <div className="flex items-center gap-3 text-sm">
+                            <Mail className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">{user.email}</span>
+                          </div>
+                          <div className="flex items-center gap-3 text-sm">
+                            <Phone className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">{profileForm.telephone}</span>
+                          </div>
+                          <div className="flex items-center gap-3 text-sm">
+                            <Shield className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">Rôle : Administrateur</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Edit form */}
+                    <Card className="lg:col-span-2">
+                      <CardHeader>
+                        <CardTitle>Informations personnelles</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <Label>Prénom</Label>
+                            <Input
+                              value={profileForm.prenom}
+                              onChange={e => setProfileForm(p => ({ ...p, prenom: e.target.value }))}
+                              disabled={!profileEditing}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>Nom</Label>
+                            <Input
+                              value={profileForm.nom}
+                              onChange={e => setProfileForm(p => ({ ...p, nom: e.target.value }))}
+                              disabled={!profileEditing}
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Email</Label>
+                          <Input
+                            type="email"
+                            value={profileForm.email}
+                            onChange={e => setProfileForm(p => ({ ...p, email: e.target.value }))}
+                            disabled={!profileEditing}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Téléphone</Label>
+                          <Input
+                            type="tel"
+                            value={profileForm.telephone}
+                            onChange={e => setProfileForm(p => ({ ...p, telephone: e.target.value }))}
+                            disabled={!profileEditing}
+                          />
+                        </div>
+                        {profileEditing && (
+                          <div className="flex gap-3 pt-2">
+                            <Button onClick={saveProfile} className="gap-2">
+                              <Save className="h-4 w-4" /> Enregistrer
+                            </Button>
+                            <Button variant="outline" onClick={() => {
+                              setProfileEditing(false);
+                              setProfileForm({ prenom: user.prenom, nom: user.nom, email: user.email, telephone: profileForm.telephone });
+                            }}>
+                              Annuler
+                            </Button>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+          </main>
         </div>
-      </main>
+      </div>
 
       {/* ═══ Vehicle Edit Dialog ═══ */}
       <Dialog open={!!editVehicle} onOpenChange={() => setEditVehicle(null)}>
@@ -779,6 +970,6 @@ export default function Boss() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </SidebarProvider>
   );
 }
