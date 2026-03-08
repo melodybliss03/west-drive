@@ -77,7 +77,7 @@ const emptyVehicle: Partial<Vehicule> = {
 
 export default function Boss() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, login } = useAuth();
   const { toast } = useToast();
   const [tab, setTab] = useState<TabKey>("kpi");
   const [vehicles, setVehicles] = useState<Vehicule[]>(mockVehicules);
