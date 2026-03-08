@@ -19,12 +19,12 @@ const transmissionLabels: Record<string, string> = {
 };
 
 export default function VehiculeCard({ vehicule, index = 0 }: { vehicule: Vehicule; index?: number }) {
-  return (
+  const cardContent = (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.1 }}
-      className="group bg-card border border-border rounded-lg overflow-hidden "
+      className="group bg-card border border-border rounded-2xl overflow-hidden"
     >
       <div className="relative aspect-[4/3] bg-muted overflow-hidden">
         <img
@@ -34,9 +34,9 @@ export default function VehiculeCard({ vehicule, index = 0 }: { vehicule: Vehicu
           loading="lazy"
         />
         <Badge
-          className={`absolute top-3 right-3 text-xs  ${
+          className={`absolute top-3 right-3 text-xs ${
             vehicule.disponible
-              ? "bg-emerald-500/90 text-background hover:bg-emerald-500 "
+              ? "bg-emerald-500/90 text-background hover:bg-emerald-500"
               : "bg-muted-foreground/80 text-background hover:bg-muted-foreground"
           }`}
         >
@@ -82,13 +82,19 @@ export default function VehiculeCard({ vehicule, index = 0 }: { vehicule: Vehicu
             <span className="text-2xl font-display font-bold text-primary">{vehicule.prixJour}&euro;</span>
             <span className="text-sm text-muted-foreground"> /jour</span>
           </div>
-          <Link to={`/vehicules/${vehicule.id}`}>
-            <Button size="sm" disabled={!vehicule.disponible}>
-              Réserver
+          {vehicule.disponible ? (
+            <Link to={`/vehicules/${vehicule.id}`}>
+              <Button size="sm">Réserver</Button>
+            </Link>
+          ) : (
+            <Button size="sm" disabled>
+              Indisponible
             </Button>
-          </Link>
+          )}
         </div>
       </div>
     </motion.div>
   );
+
+  return cardContent;
 }

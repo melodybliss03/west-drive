@@ -9,6 +9,11 @@ import VehiculeDetail from "./pages/VehiculeDetail";
 import Resultats from "./pages/Resultats";
 import FAQ from "./pages/FAQ";
 import Contact from "./pages/Contact";
+import Inscription from "./pages/Inscription";
+import Connexion from "./pages/Connexion";
+import Espace from "./pages/Espace";
+import Particulier from "./pages/Particulier";
+import Entreprise from "./pages/Entreprise";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +31,11 @@ const App = () => (
           <Route path="/resultats" element={<Resultats />} />
           <Route path="/faq" element={<FAQ />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/inscription" element={<Inscription />} />
+          <Route path="/connexion" element={<Connexion />} />
+          <Route path="/espace" element={<Espace />} />
+          <Route path="/particulier" element={<Particulier />} />
+          <Route path="/entreprise" element={<Entreprise />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

@@ -24,6 +24,7 @@ import {
 import type { Categorie } from "@/data/mock";
 import heroBg from "@/assets/hero-bg.jpg";
 import TopBar from "@/components/TopBar";
+import ScrollToTop from "@/components/ScrollToTop";
 
 const categories: { value: Categorie; label: string }[] = [
   { value: "MICRO", label: "Micro" },
@@ -406,6 +407,7 @@ export default function Index() {
       </section>
 
       <Footer />
+      <ScrollToTop />
     </div>
   );
 }
