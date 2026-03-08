@@ -6,6 +6,10 @@ import bmwSerie3 from "@/assets/vehicles/bmw-serie3.jpg";
 import mercedesClasseC from "@/assets/vehicles/mercedes-classec.jpg";
 import peugeot3008 from "@/assets/vehicles/peugeot-3008.jpg";
 import audiQ5 from "@/assets/vehicles/audi-q5.jpg";
+import citroenC1 from "@/assets/vehicles/citroen-c1.jpg";
+import vwGolf from "@/assets/vehicles/vw-golf.jpg";
+import audiA4 from "@/assets/vehicles/audi-a4.jpg";
+import renaultCaptur from "@/assets/vehicles/renault-captur.jpg";
 
 export const vehicleImages: Record<string, string> = {
   "1": peugeot108,
@@ -16,4 +20,8 @@ export const vehicleImages: Record<string, string> = {
   "6": mercedesClasseC,
   "7": peugeot3008,
   "8": audiQ5,
+  "9": citroenC1,
+  "10": vwGolf,
+  "11": audiA4,
+  "12": renaultCaptur,
 };
