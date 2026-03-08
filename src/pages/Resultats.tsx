@@ -11,6 +11,7 @@ import VehiculeCard from "@/components/VehiculeCard";
 import { searchVehicules, villes, vehicules, haversineDistance } from "@/data/mock";
 import type { Categorie } from "@/data/mock";
 import TopBar from "@/components/TopBar";
+import ScrollToTop from "@/components/ScrollToTop";
 
 export default function Resultats() {
   const [searchParams] = useSearchParams();
