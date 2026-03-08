@@ -119,43 +119,63 @@ export default function Particulier() {
         </div>
       </section>
 
-      {/* Tarifs comparaison */}
+      {/* Comparaison */}
       <section className="py-20 bg-secondary">
-        <div className="max-w-5xl mx-auto px-4">
+        <div className="max-w-4xl mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">Comparaison des tarifs</h2>
-            <p className="text-muted-foreground">Tarifs à partir de — catégorie Micro. Tous risques inclus.</p>
+            <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">Pourquoi choisir WestDrive ?</h2>
+            <p className="text-muted-foreground">Comparez et faites le bon choix.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {tarifs.map((t) => (
-              <div
-                key={t.nom}
-                className={`rounded-2xl p-8 flex flex-col ${t.highlight ? "bg-primary text-primary-foreground ring-2 ring-primary" : "bg-card border border-border"}`}
-              >
-                <h3 className="font-display font-bold text-lg mb-1">{t.nom}</h3>
-                <p className={`text-sm mb-4 ${t.highlight ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{t.desc}</p>
-                <div className="flex items-baseline gap-1 mb-6">
-                  <span className="text-4xl font-display font-bold">{t.prix}€</span>
-                  <span className={`text-sm ${t.highlight ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{t.unite}</span>
-                </div>
-                <ul className="space-y-2.5 flex-1">
-                  {t.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-sm">
-                      <Check className={`h-4 w-4 flex-shrink-0 ${t.highlight ? "text-primary-foreground" : "text-primary"}`} />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link to="/vehicules" className="mt-6">
-                  <Button
-                    className={`w-full ${t.highlight ? "bg-primary-foreground text-primary hover:bg-primary-foreground/90" : ""}`}
-                    variant={t.highlight ? "secondary" : "default"}
-                  >
-                    Réserver
-                  </Button>
-                </Link>
-              </div>
-            ))}
+          <div className="rounded-2xl overflow-hidden border border-border bg-card">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="p-4 text-left font-semibold text-muted-foreground">Critère</th>
+                  <th className="p-4 text-center font-semibold text-muted-foreground">Autopartage</th>
+                  <th className="p-4 text-center font-semibold text-primary bg-primary/5">WestDrive</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ["Prix affiché", "50€", "Clair"],
+                  ["Prix réel", "60-75€", "Fixe"],
+                  ["Frais cachés", "OUI", "Non"],
+                  ["Transparence", "Moyenne", "100%"],
+                  ["Assurance", "À vérifier", "Incluse"],
+                  ["Support", "Chat", "Direct"],
+                ].map(([critere, auto, west], i) => (
+                  <tr key={i} className="border-b border-border last:border-0">
+                    <td className="p-4 font-medium">{critere}</td>
+                    <td className="p-4 text-center text-muted-foreground">{auto}</td>
+                    <td className="p-4 text-center font-semibold text-primary bg-primary/5">{west}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA avec image */}
+      <section
+        className="relative py-28 bg-cover bg-center"
+        style={{ backgroundImage: "url('/west.jpg')" }}
+      >
+        <div className="absolute inset-0 bg-foreground/75" />
+        <div className="relative max-w-3xl mx-auto px-4 text-center text-background">
+          <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">Prêt à prendre la route ?</h2>
+          <p className="text-background/70 text-lg mb-8">Réservez votre véhicule en quelques clics et profitez d'une expérience sans stress.</p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link to="/vehicules">
+              <Button size="lg" className="gap-2 text-base px-8">
+                Voir nos véhicules <ChevronRight className="h-4 w-4" />
+              </Button>
+            </Link>
+            <DevisDialog defaultType="particulier">
+              <Button size="lg" variant="outline" className="gap-2 text-base px-8 border-background/20 text-background hover:bg-background/10">
+                Demander un devis
+              </Button>
+            </DevisDialog>
           </div>
         </div>
       </section>
