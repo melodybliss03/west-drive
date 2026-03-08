@@ -248,14 +248,14 @@ export default function Index() {
                 Tarifs sur mesure selon vos besoins
               </h3>
               <div className="mt-auto pt-4">
-                <Link to="/contact">
+                <DevisDialog>
                   <Button
                     variant="ghost"
                     className="text-primary-foreground underline underline-offset-4 hover:text-primary-foreground/80 px-0 font-semibold"
                   >
-                    Demander une devis personnalisé
+                    Demander un devis personnalisé
                   </Button>
-                </Link>
+                </DevisDialog>
               </div>
             </div>
           </div>
