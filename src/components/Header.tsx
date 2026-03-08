@@ -39,16 +39,19 @@ export default function Header() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-6" aria-label="Navigation principale">
-          {navLinks.map((link) => (
-            <Link
-              key={link.label}
-              to={isHome && link.anchor ? "/" : link.href}
-              onClick={() => handleNavClick(link)}
-              className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
-            >
-              {link.label}
-            </Link>
-          ))}
+          {navLinks.map((link) => {
+            const isActive = link.href === "/" ? location.pathname === "/" : location.pathname.startsWith(link.href);
+            return (
+              <Link
+                key={link.label}
+                to={isHome && link.anchor ? "/" : link.href}
+                onClick={() => handleNavClick(link)}
+                className={`text-sm font-medium transition-colors ${isActive ? "text-primary font-semibold" : "text-foreground/70 hover:text-foreground"}`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="hidden md:flex items-center">
