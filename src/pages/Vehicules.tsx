@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ShieldCheck, Settings, Headset } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -92,8 +93,43 @@ export default function Vehicules() {
                 Aucun véhicule ne correspond à vos critères.
               </div>
             )}
-          </Tabs>
+        </Tabs>
         </div>
+
+        {/* Inclusions section */}
+        <section className="max-w-5xl mx-auto px-4 py-16">
+          <h2 className="font-display text-2xl md:text-3xl font-bold text-center mb-10">Tous nos véhicules incluent</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                icon: ShieldCheck,
+                title: "Assurance tous risques",
+                description: "Tous nos véhicules sont couverts par une assurance tous risques avec franchise zéro.",
+              },
+              {
+                icon: Settings,
+                title: "Entretien régulier",
+                description: "Véhicules entretenus régulièrement et contrôlés avant chaque location.",
+              },
+              {
+                icon: Headset,
+                title: "Assistance 24/7",
+                description: "Une équipe disponible 7j/7 pour vous assister en cas de besoin.",
+              },
+            ].map((item) => (
+              <div
+                key={item.title}
+                className="rounded-2xl border border-border bg-card p-6 flex flex-col gap-3"
+              >
+                <div className="flex items-center gap-2">
+                  <item.icon className="h-5 w-5 text-foreground" />
+                  <h3 className="font-display font-bold text-lg">{item.title}</h3>
+                </div>
+                <p className="text-muted-foreground text-sm">{item.description}</p>
+              </div>
+            ))}
+          </div>
+        </section>
       </main>
       <Footer />
       <ScrollToTop />
