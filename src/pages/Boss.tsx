@@ -4,7 +4,7 @@ import {
   Car, Users, CalendarCheck, BarChart3, Plus, Edit, Trash2, Eye,
   Search, TrendingUp, TrendingDown,
   DollarSign, CheckCircle, XCircle, AlertTriangle, Truck, LogOut, Shield,
-  Eye as EyeIcon, EyeOff, UserCog, Save, Mail, Phone
+  Eye as EyeIcon, EyeOff, UserCog, Save, Mail, Phone, ArrowRight, UserPlus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -41,12 +42,16 @@ const mockReservations = [
   { id: "R003", client: "Marie Laurent", email: "marie@mail.com", vehicule: "Renault Clio V", debut: "2025-03-08", fin: "2025-03-10", statut: "terminée", montant: 110 },
   { id: "R004", client: "Entreprise ABC", email: "contact@abc.com", vehicule: "Audi Q5", debut: "2025-03-20", fin: "2025-03-25", statut: "en attente", montant: 600 },
   { id: "R005", client: "Paul Leroy", email: "paul@mail.com", vehicule: "Mercedes Classe C", debut: "2025-03-05", fin: "2025-03-07", statut: "annulée", montant: 210 },
+  { id: "R006", client: "Claire Morel", email: "claire@mail.com", vehicule: "Peugeot 3008", debut: "2025-03-15", fin: "2025-03-18", statut: "confirmée", montant: 285 },
+  { id: "R007", client: "Lucas Bernard", email: "lucas@mail.com", vehicule: "Fiat 500", debut: "2025-03-11", fin: "2025-03-13", statut: "en cours", montant: 90 },
+  { id: "R008", client: "Emma Petit", email: "emma@mail.com", vehicule: "Peugeot 308", debut: "2025-03-14", fin: "2025-03-16", statut: "confirmée", montant: 130 },
+  { id: "R009", client: "Hugo Roux", email: "hugo@mail.com", vehicule: "Renault Clio V", debut: "2025-03-09", fin: "2025-03-11", statut: "terminée", montant: 110 },
 ];
 
 const mockUsers = [
   { id: "U001", nom: "Martin", prenom: "Sophie", email: "sophie@mail.com", type: "particulier", creeLe: "2025-01-15", reservations: 3, statut: "actif", role: "client" as string },
   { id: "U002", nom: "Dubois", prenom: "Thomas", email: "thomas@mail.com", type: "particulier", creeLe: "2025-02-01", reservations: 1, statut: "actif", role: "client" as string },
-  { id: "U003", nom: "Laurent", prenom: "Marie", email: "marie@mail.com", type: "particulier", creeLe: "2024-12-10", reservations: 5, statut: "actif", role: "gestionnaire" as string },
+  { id: "U003", nom: "Laurent", prenom: "Marie", email: "marie@mail.com", type: "particulier", creeLe: "2024-12-10", reservations: 5, statut: "actif", role: "client" as string },
   { id: "U004", nom: "Entreprise ABC", prenom: "—", email: "contact@abc.com", type: "entreprise", creeLe: "2025-01-20", reservations: 8, statut: "actif", role: "client" as string },
   { id: "U005", nom: "Leroy", prenom: "Paul", email: "paul@mail.com", type: "particulier", creeLe: "2025-03-01", reservations: 0, statut: "suspendu", role: "client" as string },
 ];
@@ -57,6 +62,23 @@ const mockFlotte = [
   { id: "F003", vehicule: "BMW Série 3", plaque: "IJ-789-KL", km: 45000, dernierEntretien: "2025-01-20", prochainEntretien: "2025-04-20", etat: "entretien requis" },
   { id: "F004", vehicule: "Audi Q5", plaque: "MN-012-OP", km: 32000, dernierEntretien: "2025-02-10", prochainEntretien: "2025-05-10", etat: "bon" },
   { id: "F005", vehicule: "Mercedes Classe C", plaque: "QR-345-ST", km: 52000, dernierEntretien: "2024-12-20", prochainEntretien: "2025-03-20", etat: "en panne" },
+];
+
+// ── Team members (mock) ──
+interface TeamMember {
+  id: string;
+  nom: string;
+  prenom: string;
+  email: string;
+  role: string;
+  permissions: string[];
+  dateAttribution: string;
+}
+
+const initialTeamMembers: TeamMember[] = [
+  { id: "T001", nom: "Durand", prenom: "Alice", email: "alice@westdrive.fr", role: "gestionnaire", permissions: ["vehicules", "reservations", "flotte"], dateAttribution: "2025-01-10" },
+  { id: "T002", nom: "Moreau", prenom: "Julien", email: "julien@westdrive.fr", role: "support", permissions: ["reservations", "utilisateurs"], dateAttribution: "2025-02-15" },
+  { id: "T003", nom: "Garcia", prenom: "Léa", email: "lea@westdrive.fr", role: "comptable", permissions: ["reservations", "kpi"], dateAttribution: "2025-03-01" },
 ];
 
 type TabKey = "kpi" | "vehicules" | "reservations" | "flotte" | "utilisateurs" | "profil";
@@ -78,8 +100,18 @@ const etatColors: Record<string, string> = {
 const roleColors: Record<string, string> = {
   "admin": "bg-primary/10 text-primary border-primary/20",
   "gestionnaire": "bg-blue-500/10 text-blue-600 border-blue-200",
+  "support": "bg-emerald-500/10 text-emerald-600 border-emerald-200",
+  "comptable": "bg-amber-500/10 text-amber-600 border-amber-200",
   "client": "bg-muted text-muted-foreground border-border",
 };
+
+const allPermissions = [
+  { key: "kpi", label: "Tableau de bord / KPI" },
+  { key: "vehicules", label: "Gestion des véhicules" },
+  { key: "reservations", label: "Gestion des réservations" },
+  { key: "flotte", label: "Gestion de la flotte" },
+  { key: "utilisateurs", label: "Gestion des utilisateurs" },
+];
 
 const emptyVehicle: Partial<Vehicule> = {
   nom: "", marque: "", modele: "", annee: 2024, categorie: "COMPACTE",
@@ -98,7 +130,7 @@ const sidebarItems: { key: TabKey; icon: typeof BarChart3; label: string }[] = [
 ];
 
 // ═══════════════════════════════════════════════════════════
-// Admin Sidebar Component (uses Shadcn Sidebar)
+// Admin Sidebar Component
 // ═══════════════════════════════════════════════════════════
 function AdminSidebar({ tab, setTab, user, onLogout }: {
   tab: TabKey;
@@ -112,7 +144,6 @@ function AdminSidebar({ tab, setTab, user, onLogout }: {
   return (
     <Sidebar collapsible="icon" className="border-r border-border bg-foreground">
       <SidebarContent className="bg-foreground">
-        {/* Logo */}
         <div className={`p-4 border-b border-border/20 ${collapsed ? "flex justify-center" : ""}`}>
           {collapsed ? (
             <span className="font-display text-lg font-bold text-primary">W</span>
@@ -153,7 +184,6 @@ function AdminSidebar({ tab, setTab, user, onLogout }: {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Footer: user + logout */}
         <div className="mt-auto p-4 border-t border-border/20">
           {!collapsed && (
             <div className="flex items-center gap-3 mb-3">
@@ -196,8 +226,12 @@ export default function Boss() {
   const [searchR, setSearchR] = useState("");
   const [searchU, setSearchU] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [roleDialog, setRoleDialog] = useState<{ userId: string; currentRole: string } | null>(null);
-  const [selectedRole, setSelectedRole] = useState("");
+
+  // ── Team members state ──
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialTeamMembers);
+  const [newMemberEmail, setNewMemberEmail] = useState("");
+  const [newMemberRole, setNewMemberRole] = useState("");
+  const [newMemberPermissions, setNewMemberPermissions] = useState<string[]>([]);
 
   // ── Profile edit state ──
   const [profileForm, setProfileForm] = useState({
@@ -316,11 +350,11 @@ export default function Boss() {
                     </div>
                     <p className="text-xs text-muted-foreground">Force : <span className="font-medium">{sLabel.text}</span></p>
                     <ul className="text-xs text-muted-foreground space-y-0.5">
-                      <li className={authForm.password.length >= 12 ? "text-emerald-600" : ""}>• Min. 12 caractères</li>
-                      <li className={/[A-Z]/.test(authForm.password) ? "text-emerald-600" : ""}>• Une majuscule</li>
-                      <li className={/[a-z]/.test(authForm.password) ? "text-emerald-600" : ""}>• Une minuscule</li>
-                      <li className={/[0-9]/.test(authForm.password) ? "text-emerald-600" : ""}>• Un chiffre</li>
-                      <li className={/[^A-Za-z0-9]/.test(authForm.password) ? "text-emerald-600" : ""}>• Un caractère spécial</li>
+                      <li className={authForm.password.length >= 12 ? "text-emerald-600" : ""}>Min. 12 caractères</li>
+                      <li className={/[A-Z]/.test(authForm.password) ? "text-emerald-600" : ""}>Une majuscule</li>
+                      <li className={/[a-z]/.test(authForm.password) ? "text-emerald-600" : ""}>Une minuscule</li>
+                      <li className={/[0-9]/.test(authForm.password) ? "text-emerald-600" : ""}>Un chiffre</li>
+                      <li className={/[^A-Za-z0-9]/.test(authForm.password) ? "text-emerald-600" : ""}>Un caractère spécial</li>
                     </ul>
                   </div>
                 )}
@@ -363,16 +397,31 @@ export default function Boss() {
   };
   const deleteVehicle = (id: string) => { setVehicles(prev => prev.filter(v => v.id !== id)); setDeleteConfirm(null); toast({ title: "Véhicule supprimé" }); };
 
-  // ── Role management ──
-  const openRoleDialog = (userId: string, currentRole: string) => {
-    setRoleDialog({ userId, currentRole });
-    setSelectedRole(currentRole);
+  // ── Add team member ──
+  const addTeamMember = () => {
+    if (!newMemberEmail.trim() || !newMemberRole) {
+      toast({ title: "Erreur", description: "Veuillez remplir l'email et le rôle.", variant: "destructive" });
+      return;
+    }
+    const newMember: TeamMember = {
+      id: `T-${Date.now()}`,
+      nom: newMemberEmail.split("@")[0],
+      prenom: "",
+      email: newMemberEmail,
+      role: newMemberRole,
+      permissions: newMemberPermissions,
+      dateAttribution: new Date().toISOString().split("T")[0],
+    };
+    setTeamMembers(prev => [...prev, newMember]);
+    setNewMemberEmail("");
+    setNewMemberRole("");
+    setNewMemberPermissions([]);
+    toast({ title: "Membre ajouté", description: `${newMemberEmail} a été ajouté avec le rôle "${newMemberRole}".` });
   };
-  const saveRole = () => {
-    if (!roleDialog) return;
-    setUsers(prev => prev.map(u => u.id === roleDialog.userId ? { ...u, role: selectedRole } : u));
-    toast({ title: "Rôle mis à jour", description: `Le rôle a été changé en "${selectedRole}".` });
-    setRoleDialog(null);
+
+  const removeTeamMember = (id: string) => {
+    setTeamMembers(prev => prev.filter(m => m.id !== id));
+    toast({ title: "Membre retiré" });
   };
 
   // ── Profile save ──
@@ -391,13 +440,19 @@ export default function Boss() {
     navigate("/");
   };
 
+  const togglePermission = (key: string) => {
+    setNewMemberPermissions(prev =>
+      prev.includes(key) ? prev.filter(p => p !== key) : [...prev, key]
+    );
+  };
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
         <AdminSidebar tab={tab} setTab={setTab} user={user} onLogout={handleLogout} />
 
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Top header with sidebar trigger */}
+          {/* Top header */}
           <header className="h-14 flex items-center gap-4 border-b border-border bg-card px-4 flex-shrink-0">
             <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
             <div className="flex-1" />
@@ -413,78 +468,129 @@ export default function Boss() {
           </header>
 
           {/* Main content */}
-          <main className="flex-1 overflow-auto p-4 md:p-8">
+          <main className="flex-1 overflow-auto p-4 md:p-6">
             <div className="max-w-7xl mx-auto space-y-6">
 
-              {/* ═══ KPI ═══ */}
+              {/* ═══ KPI / DASHBOARD ═══ */}
               {tab === "kpi" && (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-                  <h2 className="text-2xl font-display font-bold">Tableau de bord</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <h2 className="text-2xl font-display font-bold">Dashboard</h2>
+                      <p className="text-sm text-muted-foreground">Vue d'ensemble de l'activité</p>
+                    </div>
+                  </div>
+
+                  {/* Stat cards row */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     {[
                       { label: "Chiffre d'affaires", value: `${totalCA.toLocaleString()} €`, icon: DollarSign, trend: "+12%", up: true },
                       { label: "Réservations actives", value: activeRes, icon: CalendarCheck, trend: "+3", up: true },
-                      { label: "Véhicules disponibles", value: `${availableVehicles}/${vehicles.length}`, icon: Car, trend: "", up: true },
-                      { label: "Utilisateurs inscrits", value: totalUsers, icon: Users, trend: "+2", up: true },
+                      { label: "Véhicules dispo.", value: `${availableVehicles}/${vehicles.length}`, icon: Car, trend: "", up: true },
+                      { label: "Utilisateurs", value: totalUsers, icon: Users, trend: "+2", up: true },
                     ].map((kpi, i) => (
-                      <Card key={i} className="relative overflow-hidden">
-                        <CardContent className="p-5">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <p className="text-sm text-muted-foreground">{kpi.label}</p>
-                              <p className="text-2xl font-bold mt-1">{kpi.value}</p>
-                              {kpi.trend && (
-                                <div className="flex items-center gap-1 mt-2 text-xs">
-                                  {kpi.up ? <TrendingUp className="h-3 w-3 text-emerald-500" /> : <TrendingDown className="h-3 w-3 text-destructive" />}
-                                  <span className={kpi.up ? "text-emerald-600" : "text-destructive"}>{kpi.trend}</span>
-                                  <span className="text-muted-foreground">ce mois</span>
-                                </div>
-                              )}
+                      <Card key={i} className="border border-border">
+                        <CardContent className="p-4 md:p-5">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2.5 rounded-xl bg-muted">
+                              <kpi.icon className="h-5 w-5 text-foreground" />
                             </div>
-                            <div className="p-2.5 rounded-xl bg-primary/10">
-                              <kpi.icon className="h-5 w-5 text-primary" />
+                            <div className="min-w-0">
+                              <p className="text-xs text-muted-foreground truncate">{kpi.label}</p>
+                              <p className="text-xl font-bold">{kpi.value}</p>
                             </div>
                           </div>
+                          {kpi.trend && (
+                            <div className="flex items-center gap-1 mt-3 text-xs">
+                              {kpi.up ? <TrendingUp className="h-3 w-3 text-emerald-500" /> : <TrendingDown className="h-3 w-3 text-destructive" />}
+                              <span className={kpi.up ? "text-emerald-600" : "text-destructive"}>{kpi.trend}</span>
+                              <span className="text-muted-foreground">ce mois</span>
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     ))}
                   </div>
 
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-lg">Dernières réservations</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>ID</TableHead>
-                              <TableHead>Client</TableHead>
-                              <TableHead>Véhicule</TableHead>
-                              <TableHead>Dates</TableHead>
-                              <TableHead>Montant</TableHead>
-                              <TableHead>Statut</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {mockReservations.slice(0, 5).map(r => (
-                              <TableRow key={r.id}>
-                                <TableCell className="font-mono text-xs">{r.id}</TableCell>
-                                <TableCell className="font-medium">{r.client}</TableCell>
-                                <TableCell>{r.vehicule}</TableCell>
-                                <TableCell className="text-xs">{r.debut} → {r.fin}</TableCell>
-                                <TableCell className="font-semibold">{r.montant} €</TableCell>
-                                <TableCell>
-                                  <Badge variant="outline" className={statColors[r.statut] || ""}>{r.statut}</Badge>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  {/* Two-column layout: Reservations + Team */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Recent Reservations - left 2 cols */}
+                    <Card className="lg:col-span-2">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            Réservations récentes
+                            <span className="text-sm font-normal text-muted-foreground">({String(mockReservations.length).padStart(2, "0")})</span>
+                          </CardTitle>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-primary gap-1 text-xs"
+                            onClick={() => setTab("reservations")}
+                          >
+                            Voir tout <ArrowRight className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {mockReservations.slice(0, 5).map(r => (
+                            <div key={r.id} className="flex items-center gap-4 p-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors">
+                              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground flex-shrink-0">
+                                <Car className="h-4 w-4" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{r.client}</p>
+                                <p className="text-xs text-muted-foreground">{r.vehicule} · {r.debut}</p>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <p className="text-sm font-bold">{r.montant} €</p>
+                                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${statColors[r.statut] || ""}`}>{r.statut}</Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Team members with roles - right col */}
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-lg">Équipe & Rôles</CardTitle>
+                        <p className="text-xs text-muted-foreground">Membres avec un rôle attribué</p>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {teamMembers.map(member => (
+                            <div key={member.id} className="flex items-center gap-3 p-3 rounded-xl bg-muted/40">
+                              <div className="h-9 w-9 rounded-full bg-foreground flex items-center justify-center text-background text-xs font-bold flex-shrink-0">
+                                {member.prenom ? member.prenom[0] : member.nom[0]}{member.nom[member.nom.length > 1 ? 1 : 0]}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">
+                                  {member.prenom ? `${member.prenom} ${member.nom}` : member.email}
+                                </p>
+                                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 mt-0.5 ${roleColors[member.role] || "bg-muted text-muted-foreground border-border"}`}>
+                                  {member.role}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                          {teamMembers.length === 0 && (
+                            <p className="text-sm text-muted-foreground text-center py-4">Aucun membre assigné</p>
+                          )}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full mt-4 gap-1 text-xs"
+                          onClick={() => setTab("profil")}
+                        >
+                          <UserPlus className="h-3.5 w-3.5" /> Gérer les rôles
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </div>
                 </motion.div>
               )}
 
@@ -510,7 +616,7 @@ export default function Boss() {
                               <TableHead>Véhicule</TableHead>
                               <TableHead>Catégorie</TableHead>
                               <TableHead>Prix/jour</TableHead>
-                              <TableHead>Villes</TableHead>
+                              <TableHead className="hidden md:table-cell">Villes</TableHead>
                               <TableHead>Statut</TableHead>
                               <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
@@ -526,7 +632,7 @@ export default function Boss() {
                                 </TableCell>
                                 <TableCell><Badge variant="outline">{v.categorie}</Badge></TableCell>
                                 <TableCell className="font-semibold">{v.prixJour} €</TableCell>
-                                <TableCell className="text-xs max-w-[150px] truncate">{v.villes.join(", ")}</TableCell>
+                                <TableCell className="text-xs max-w-[150px] truncate hidden md:table-cell">{v.villes.join(", ")}</TableCell>
                                 <TableCell>
                                   {v.disponible && v.actif ? (
                                     <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-200">Disponible</Badge>
@@ -568,10 +674,10 @@ export default function Boss() {
                             <TableRow>
                               <TableHead>ID</TableHead>
                               <TableHead>Client</TableHead>
-                              <TableHead>Email</TableHead>
+                              <TableHead className="hidden md:table-cell">Email</TableHead>
                               <TableHead>Véhicule</TableHead>
-                              <TableHead>Début</TableHead>
-                              <TableHead>Fin</TableHead>
+                              <TableHead className="hidden sm:table-cell">Début</TableHead>
+                              <TableHead className="hidden sm:table-cell">Fin</TableHead>
                               <TableHead>Montant</TableHead>
                               <TableHead>Statut</TableHead>
                               <TableHead className="text-right">Actions</TableHead>
@@ -582,10 +688,10 @@ export default function Boss() {
                               <TableRow key={r.id}>
                                 <TableCell className="font-mono text-xs">{r.id}</TableCell>
                                 <TableCell className="font-medium">{r.client}</TableCell>
-                                <TableCell className="text-xs">{r.email}</TableCell>
+                                <TableCell className="text-xs hidden md:table-cell">{r.email}</TableCell>
                                 <TableCell>{r.vehicule}</TableCell>
-                                <TableCell className="text-xs">{r.debut}</TableCell>
-                                <TableCell className="text-xs">{r.fin}</TableCell>
+                                <TableCell className="text-xs hidden sm:table-cell">{r.debut}</TableCell>
+                                <TableCell className="text-xs hidden sm:table-cell">{r.fin}</TableCell>
                                 <TableCell className="font-semibold">{r.montant} €</TableCell>
                                 <TableCell>
                                   <Badge variant="outline" className={statColors[r.statut] || ""}>{r.statut}</Badge>
@@ -632,9 +738,9 @@ export default function Boss() {
                             <TableRow>
                               <TableHead>Véhicule</TableHead>
                               <TableHead>Plaque</TableHead>
-                              <TableHead>Kilométrage</TableHead>
-                              <TableHead>Dernier entretien</TableHead>
-                              <TableHead>Prochain entretien</TableHead>
+                              <TableHead className="hidden sm:table-cell">Kilométrage</TableHead>
+                              <TableHead className="hidden md:table-cell">Dernier entretien</TableHead>
+                              <TableHead className="hidden md:table-cell">Prochain entretien</TableHead>
                               <TableHead>État</TableHead>
                             </TableRow>
                           </TableHeader>
@@ -643,9 +749,9 @@ export default function Boss() {
                               <TableRow key={f.id}>
                                 <TableCell className="font-medium">{f.vehicule}</TableCell>
                                 <TableCell className="font-mono text-xs">{f.plaque}</TableCell>
-                                <TableCell>{f.km.toLocaleString()} km</TableCell>
-                                <TableCell className="text-xs">{f.dernierEntretien}</TableCell>
-                                <TableCell className="text-xs">{f.prochainEntretien}</TableCell>
+                                <TableCell className="hidden sm:table-cell">{f.km.toLocaleString()} km</TableCell>
+                                <TableCell className="text-xs hidden md:table-cell">{f.dernierEntretien}</TableCell>
+                                <TableCell className="text-xs hidden md:table-cell">{f.prochainEntretien}</TableCell>
                                 <TableCell>
                                   <Badge variant="outline" className={etatColors[f.etat] || ""}>{f.etat}</Badge>
                                 </TableCell>
@@ -677,9 +783,8 @@ export default function Boss() {
                             <TableRow>
                               <TableHead>Nom</TableHead>
                               <TableHead>Email</TableHead>
-                              <TableHead>Type</TableHead>
-                              <TableHead>Rôle</TableHead>
-                              <TableHead>Inscrit le</TableHead>
+                              <TableHead className="hidden sm:table-cell">Type</TableHead>
+                              <TableHead className="hidden md:table-cell">Inscrit le</TableHead>
                               <TableHead>Réservations</TableHead>
                               <TableHead>Statut</TableHead>
                               <TableHead className="text-right">Actions</TableHead>
@@ -690,17 +795,12 @@ export default function Boss() {
                               <TableRow key={u.id}>
                                 <TableCell className="font-medium">{u.prenom} {u.nom}</TableCell>
                                 <TableCell className="text-xs">{u.email}</TableCell>
-                                <TableCell>
+                                <TableCell className="hidden sm:table-cell">
                                   <Badge variant="outline" className={u.type === "entreprise" ? "bg-blue-500/10 text-blue-600 border-blue-200" : ""}>
                                     {u.type}
                                   </Badge>
                                 </TableCell>
-                                <TableCell>
-                                  <Badge variant="outline" className={roleColors[u.role] || ""}>
-                                    {u.role}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-xs">{u.creeLe}</TableCell>
+                                <TableCell className="text-xs hidden md:table-cell">{u.creeLe}</TableCell>
                                 <TableCell>{u.reservations}</TableCell>
                                 <TableCell>
                                   <Badge variant="outline" className={u.statut === "actif" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200" : "bg-destructive/10 text-destructive border-destructive/20"}>
@@ -709,9 +809,6 @@ export default function Boss() {
                                 </TableCell>
                                 <TableCell className="text-right">
                                   <div className="flex justify-end gap-1">
-                                    <Button variant="ghost" size="icon" onClick={() => openRoleDialog(u.id, u.role)} title="Changer le rôle">
-                                      <Shield className="h-4 w-4" />
-                                    </Button>
                                     <Button variant="ghost" size="icon"><Eye className="h-4 w-4" /></Button>
                                     <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                                   </div>
@@ -827,6 +924,103 @@ export default function Boss() {
                       </CardContent>
                     </Card>
                   </div>
+
+                  {/* ═══ ATTRIBUTION DES RÔLES (dans le profil admin) ═══ */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Shield className="h-5 w-5 text-primary" />
+                        Attribution des rôles — Équipe West Drive
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        Attribuez un rôle et des permissions aux membres de votre équipe.
+                      </p>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Add new member form */}
+                      <div className="rounded-xl border border-border p-4 space-y-4 bg-muted/30">
+                        <p className="text-sm font-medium">Ajouter un membre</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="space-y-1.5">
+                            <Label>Email du membre</Label>
+                            <Input
+                              type="email"
+                              placeholder="nom@westdrive.fr"
+                              value={newMemberEmail}
+                              onChange={e => setNewMemberEmail(e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>Rôle</Label>
+                            <Select value={newMemberRole} onValueChange={setNewMemberRole}>
+                              <SelectTrigger><SelectValue placeholder="Choisir un rôle" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="gestionnaire">Gestionnaire</SelectItem>
+                                <SelectItem value="support">Support client</SelectItem>
+                                <SelectItem value="comptable">Comptable</SelectItem>
+                                <SelectItem value="admin">Administrateur</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex items-end">
+                            <Button onClick={addTeamMember} className="w-full gap-2">
+                              <UserPlus className="h-4 w-4" /> Attribuer
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Permissions</Label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                            {allPermissions.map(perm => (
+                              <label key={perm.key} className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-lg hover:bg-muted transition-colors">
+                                <Checkbox
+                                  checked={newMemberPermissions.includes(perm.key)}
+                                  onCheckedChange={() => togglePermission(perm.key)}
+                                />
+                                <span>{perm.label}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Existing team members */}
+                      <div className="space-y-3">
+                        <p className="text-sm font-medium text-muted-foreground">Membres actuels ({teamMembers.length})</p>
+                        {teamMembers.map(member => (
+                          <div key={member.id} className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:shadow-sm transition-shadow">
+                            <div className="h-10 w-10 rounded-full bg-foreground flex items-center justify-center text-background text-sm font-bold flex-shrink-0">
+                              {member.prenom ? member.prenom[0] : member.nom[0]}{member.nom[member.nom.length > 1 ? 1 : 0]}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium">
+                                {member.prenom ? `${member.prenom} ${member.nom}` : member.email}
+                              </p>
+                              <p className="text-xs text-muted-foreground">{member.email}</p>
+                            </div>
+                            <Badge variant="outline" className={`${roleColors[member.role] || ""} flex-shrink-0`}>
+                              {member.role}
+                            </Badge>
+                            <div className="hidden sm:flex flex-wrap gap-1 max-w-[200px]">
+                              {member.permissions.map(p => (
+                                <span key={p} className="text-[10px] bg-muted px-1.5 py-0.5 rounded">
+                                  {allPermissions.find(ap => ap.key === p)?.label || p}
+                                </span>
+                              ))}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive hover:text-destructive flex-shrink-0"
+                              onClick={() => removeTeamMember(member.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
                 </motion.div>
               )}
             </div>
@@ -933,40 +1127,6 @@ export default function Boss() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Annuler</Button>
             <Button variant="destructive" onClick={() => deleteConfirm && deleteVehicle(deleteConfirm)}>Supprimer</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ═══ Role assignment dialog ═══ */}
-      <Dialog open={!!roleDialog} onOpenChange={() => setRoleDialog(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-primary" />
-              Attribuer un rôle
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <p className="text-sm text-muted-foreground">
-              Sélectionnez le rôle à attribuer à cet utilisateur.
-            </p>
-            <Select value={selectedRole} onValueChange={setSelectedRole}>
-              <SelectTrigger><SelectValue placeholder="Choisir un rôle" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="client">Client</SelectItem>
-                <SelectItem value="gestionnaire">Gestionnaire</SelectItem>
-                <SelectItem value="admin">Administrateur</SelectItem>
-              </SelectContent>
-            </Select>
-            <div className="rounded-lg bg-muted p-3 text-xs text-muted-foreground space-y-1">
-              <p><strong className="text-foreground">Client</strong> — Accès standard (réservation, espace perso)</p>
-              <p><strong className="text-foreground">Gestionnaire</strong> — Gestion des véhicules et réservations</p>
-              <p><strong className="text-foreground">Administrateur</strong> — Accès complet au dashboard</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRoleDialog(null)}>Annuler</Button>
-            <Button onClick={saveRole}>Enregistrer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
