@@ -24,27 +24,33 @@ const solutions = [
   { icon: MapPin, title: "Livraison sur site", desc: "Nous livrons directement sur votre lieu de travail dans toute notre zone de couverture." },
 ];
 
-const tarifs = [
+const formules = [
   {
-    nom: "Ponctuel",
-    prix: "Sur devis",
-    desc: "Location à la demande",
-    features: ["Tarifs B2B négociés", "Assurance incluse", "Assistance 24h/24"],
+    nom: "Entreprises La Défense",
+    desc: "Déplacements salariés, missions, séminaires. Facturation simplifiée et contrats sur-mesure.",
+    features: ["Facturation centralisée", "Tarifs dégressifs", "Reporting mensuel"],
+    btnLabel: "En savoir plus",
+    btnVariant: "outline" as const,
     highlight: false,
+    link: "/contact",
   },
   {
-    nom: "Flotte",
-    prix: "Sur devis",
-    desc: "3+ véhicules en simultané",
-    features: ["Tarifs dégressifs", "Gestion multi-conducteurs", "Facturation unique", "Interlocuteur dédié"],
+    nom: "Professionnels Mobiles",
+    desc: "Infirmiers, commerciaux, consultants, artisans : ne laissez jamais une panne stopper votre activité.",
+    features: ["Disponibilité sous 2h", "Facturation professionnelle", "Tarifs dégressifs"],
+    btnLabel: "Découvrir",
+    btnVariant: "default" as const,
     highlight: true,
+    link: "/vehicules",
   },
   {
-    nom: "Longue durée",
-    prix: "Sur devis",
-    desc: "Engagement 3+ mois",
-    features: ["Meilleur tarif garanti", "Kilométrage illimité", "Véhicule de remplacement", "Livraison incluse", "Facturation mensuelle"],
+    nom: "Partenariats Professionnels",
+    desc: "Assurances, garages, assistance : offrez la mobilité à vos clients avec notre solution clé en main.",
+    features: ["Tarifs négociés", "Facturation dédiée", "Service prioritaire"],
+    btnLabel: "Devenir partenaire",
+    btnVariant: "default" as const,
     highlight: false,
+    link: "/contact",
   },
 ];
 
