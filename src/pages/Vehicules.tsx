@@ -7,6 +7,7 @@ import VehiculeCard from "@/components/VehiculeCard";
 import { vehicules, getVehiculesByCategorie } from "@/data/mock";
 import type { Categorie, Transmission, Energie } from "@/data/mock";
 import TopBar from "@/components/TopBar";
+import ScrollToTop from "@/components/ScrollToTop";
 
 const categories: { value: Categorie; label: string }[] = [
   { value: "MICRO", label: "Micro" },
