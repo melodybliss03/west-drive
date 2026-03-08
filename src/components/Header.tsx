@@ -6,8 +6,9 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const navLinks = [
   { label: "Accueil", href: "/", anchor: "#hero" },
+  { label: "Particulier", href: "/particulier", anchor: null },
+  { label: "Entreprise", href: "/entreprise", anchor: null },
   { label: "Nos Véhicules", href: "/vehicules", anchor: "#vehicules" },
-  { label: "Tarifs", href: "/#tarifs", anchor: "#tarifs" },
   { label: "Nous contacter", href: "/contact", anchor: "#contact" },
 ];
 
@@ -31,7 +32,7 @@ export default function Header() {
           WEST <span className="text-primary">DRIVE</span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-8" aria-label="Navigation principale">
+        <nav className="hidden md:flex items-center gap-6" aria-label="Navigation principale">
           {navLinks.map((link) => (
             <Link
               key={link.label}
