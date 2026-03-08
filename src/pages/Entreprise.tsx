@@ -204,9 +204,9 @@ export default function Entreprise() {
           <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">Parlons de votre projet</h2>
           <p className="text-background/70 mb-8">Recevez un devis personnalisé en moins de 24h.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link to="/contact">
+            <DevisDialog defaultType="entreprise">
               <Button size="lg" className="gap-2 px-8">Demander un devis <ChevronRight className="h-4 w-4" /></Button>
-            </Link>
+            </DevisDialog>
             <Link to="/inscription">
               <Button size="lg" variant="outline" className="gap-2 px-8 border-background/20 text-background hover:bg-background/10">
                 Créer un compte pro

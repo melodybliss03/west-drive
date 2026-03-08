@@ -81,11 +81,11 @@ export default function Particulier() {
                   Voir nos véhicules <ChevronRight className="h-4 w-4" />
                 </Button>
               </Link>
-              <Link to="/contact">
+              <DevisDialog defaultType="particulier">
                 <Button size="lg" variant="outline" className="gap-2 text-base px-8 border-background/20 text-background hover:bg-background/10">
                   Demander un devis
                 </Button>
-              </Link>
+              </DevisDialog>
             </div>
           </motion.div>
         </div>
