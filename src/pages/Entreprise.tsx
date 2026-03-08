@@ -73,11 +73,11 @@ export default function Entreprise() {
               Flotte dédiée, facturation simplifiée et interlocuteur unique. Optimisez la mobilité de vos équipes avec WEST DRIVE.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link to="/contact">
+              <DevisDialog defaultType="entreprise">
                 <Button size="lg" className="gap-2 text-base px-8">
                   Demander un devis <ChevronRight className="h-4 w-4" />
                 </Button>
-              </Link>
+              </DevisDialog>
               <a href="tel:+330643660809">
                 <Button size="lg" variant="outline" className="gap-2 text-base px-8 border-background/20 text-background hover:bg-background/10">
                   06 43 66 08 09
