@@ -455,16 +455,28 @@ export default function Boss() {
           {/* Top header */}
           <header className="h-14 flex items-center gap-4 border-b border-border bg-card px-4 flex-shrink-0">
             <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
-            <div className="flex-1" />
-            <button
-              onClick={() => setTab("profil")}
-              className="flex items-center gap-2 hover:bg-muted rounded-lg px-3 py-1.5 transition-colors"
-            >
-              <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold">
-                {user.prenom[0]}{user.nom[0]}
-              </div>
-              <span className="text-sm font-medium hidden sm:block">{user.prenom} {user.nom}</span>
-            </button>
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher..."
+                className="pl-9 h-9 bg-muted/50 border-transparent focus-visible:border-border"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <button className="relative p-2 rounded-lg hover:bg-muted transition-colors" aria-label="Notifications">
+                <Bell className="h-5 w-5 text-muted-foreground" />
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
+              </button>
+              <button
+                onClick={() => setTab("profil")}
+                className="flex items-center gap-2 hover:bg-muted rounded-lg px-3 py-1.5 transition-colors"
+              >
+                <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold">
+                  {user.prenom[0]}{user.nom[0]}
+                </div>
+                <span className="text-sm font-medium hidden sm:block">{user.prenom} {user.nom}</span>
+              </button>
+            </div>
           </header>
 
           {/* Main content */}
