@@ -8,6 +8,7 @@ import VehiculeCard from "@/components/VehiculeCard";
 import { getVehiculeById, vehicules } from "@/data/mock";
 import { vehicleImages } from "@/data/vehicleImages";
 import TopBar from "@/components/TopBar";
+import ScrollToTop from "@/components/ScrollToTop";
 
 const energieLabels: Record<string, string> = {
   ESSENCE: "Essence", DIESEL: "Diesel", HYBRIDE: "Hybride", ELECTRIQUE: "Électrique",
