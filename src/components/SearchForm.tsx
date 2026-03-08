@@ -38,6 +38,7 @@ export default function SearchForm({ defaultValues, compact }: SearchFormProps) 
     if (fin) params.set("fin", fin);
     if (type) params.set("type", type);
     navigate(`/resultats?${params.toString()}`);
+  };
 
   return (
     <form onSubmit={handleSubmit} className={`${compact ? "space-y-3" : "space-y-4"}`}>
