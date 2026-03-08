@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import DevisDialog from "@/components/DevisDialog";
 import { motion } from "framer-motion";
 import { ChevronRight, Check, Car, Shield, Clock, CreditCard, Headphones, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";

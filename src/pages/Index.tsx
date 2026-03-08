@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import DevisDialog from "@/components/DevisDialog";
 import { motion } from "framer-motion";
 import { Star, ChevronRight, Check, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
