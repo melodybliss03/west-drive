@@ -142,14 +142,14 @@ export default function Entreprise() {
                     </li>
                   ))}
                 </ul>
-                <Link to="/contact" className="mt-6">
+                <DevisDialog defaultType="entreprise">
                   <Button
                     className={`w-full ${t.highlight ? "bg-primary-foreground text-primary hover:bg-primary-foreground/90" : ""}`}
                     variant={t.highlight ? "secondary" : "default"}
                   >
                     Demander un devis
                   </Button>
-                </Link>
+                </DevisDialog>
               </div>
             ))}
           </div>
