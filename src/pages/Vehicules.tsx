@@ -96,6 +96,7 @@ export default function Vehicules() {
         </div>
       </main>
       <Footer />
+      <ScrollToTop />
     </div>
   );
 }

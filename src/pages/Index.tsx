@@ -407,6 +407,7 @@ export default function Index() {
       </section>
 
       <Footer />
+      <ScrollToTop />
     </div>
   );
 }

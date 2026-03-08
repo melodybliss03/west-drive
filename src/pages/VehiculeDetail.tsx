@@ -143,6 +143,7 @@ export default function VehiculeDetail() {
         </div>
       </main>
       <Footer />
+      <ScrollToTop />
     </div>
   );
 }

@@ -111,6 +111,7 @@ export default function Resultats() {
         </div>
       </main>
       <Footer />
+      <ScrollToTop />
     </div>
   );
 }
