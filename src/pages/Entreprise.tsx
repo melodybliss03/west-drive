@@ -24,27 +24,33 @@ const solutions = [
   { icon: MapPin, title: "Livraison sur site", desc: "Nous livrons directement sur votre lieu de travail dans toute notre zone de couverture." },
 ];
 
-const tarifs = [
+const formules = [
   {
-    nom: "Ponctuel",
-    prix: "Sur devis",
-    desc: "Location à la demande",
-    features: ["Tarifs B2B négociés", "Assurance incluse", "Assistance 24h/24"],
+    nom: "Entreprises La Défense",
+    desc: "Déplacements salariés, missions, séminaires. Facturation simplifiée et contrats sur-mesure.",
+    features: ["Facturation centralisée", "Tarifs dégressifs", "Reporting mensuel"],
+    btnLabel: "En savoir plus",
+    btnVariant: "outline" as const,
     highlight: false,
+    link: "/contact",
   },
   {
-    nom: "Flotte",
-    prix: "Sur devis",
-    desc: "3+ véhicules en simultané",
-    features: ["Tarifs dégressifs", "Gestion multi-conducteurs", "Facturation unique", "Interlocuteur dédié"],
+    nom: "Professionnels Mobiles",
+    desc: "Infirmiers, commerciaux, consultants, artisans : ne laissez jamais une panne stopper votre activité.",
+    features: ["Disponibilité sous 2h", "Facturation professionnelle", "Tarifs dégressifs"],
+    btnLabel: "Découvrir",
+    btnVariant: "default" as const,
     highlight: true,
+    link: "/vehicules",
   },
   {
-    nom: "Longue durée",
-    prix: "Sur devis",
-    desc: "Engagement 3+ mois",
-    features: ["Meilleur tarif garanti", "Kilométrage illimité", "Véhicule de remplacement", "Livraison incluse", "Facturation mensuelle"],
+    nom: "Partenariats Professionnels",
+    desc: "Assurances, garages, assistance : offrez la mobilité à vos clients avec notre solution clé en main.",
+    features: ["Tarifs négociés", "Facturation dédiée", "Service prioritaire"],
+    btnLabel: "Devenir partenaire",
+    btnVariant: "default" as const,
     highlight: false,
+    link: "/contact",
   },
 ];
 
@@ -116,7 +122,7 @@ export default function Entreprise() {
         </div>
       </section>
 
-      {/* Tarifs comparaison */}
+      {/* Formules entreprise */}
       <section className="py-20 bg-secondary">
         <div className="max-w-5xl mx-auto px-4">
           <div className="text-center mb-12">
@@ -124,34 +130,64 @@ export default function Entreprise() {
             <p className="text-muted-foreground">Tarifs personnalisés selon vos besoins et votre volume.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {tarifs.map((t) => (
+            {formules.map((t) => (
               <div
                 key={t.nom}
-                className={`rounded-2xl p-8 flex flex-col ${t.highlight ? "bg-primary text-primary-foreground ring-2 ring-primary" : "bg-card border border-border"}`}
+                className={`rounded-2xl p-8 flex flex-col text-center ${t.highlight ? "border-2 border-primary bg-card" : "bg-card border border-border"}`}
               >
-                <h3 className="font-display font-bold text-lg mb-1">{t.nom}</h3>
-                <p className={`text-sm mb-4 ${t.highlight ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{t.desc}</p>
-                <div className="mb-6">
-                  <span className="text-2xl font-display font-bold">{t.prix}</span>
-                </div>
-                <ul className="space-y-2.5 flex-1">
+                <h3 className="font-display font-bold text-xl mb-3">{t.nom}</h3>
+                <p className="text-sm text-muted-foreground mb-6 leading-relaxed">{t.desc}</p>
+                <ul className="space-y-2.5 flex-1 mb-8 text-left">
                   {t.features.map((f) => (
                     <li key={f} className="flex items-center gap-2 text-sm">
-                      <Check className={`h-4 w-4 flex-shrink-0 ${t.highlight ? "text-primary-foreground" : "text-primary"}`} />
+                      <Check className="h-4 w-4 flex-shrink-0 text-primary" />
                       {f}
                     </li>
                   ))}
                 </ul>
-                <DevisDialog defaultType="entreprise">
-                  <Button
-                    className={`w-full ${t.highlight ? "bg-primary-foreground text-primary hover:bg-primary-foreground/90" : ""}`}
-                    variant={t.highlight ? "secondary" : "default"}
-                  >
-                    Demander un devis
-                  </Button>
-                </DevisDialog>
+                {t.btnLabel === "Devenir partenaire" ? (
+                  <Link to={t.link}>
+                    <Button className="w-full" variant={t.btnVariant}>
+                      {t.btnLabel}
+                    </Button>
+                  </Link>
+                ) : t.btnVariant === "outline" ? (
+                  <DevisDialog defaultType="entreprise">
+                    <Button className="w-full" variant="outline">
+                      {t.btnLabel}
+                    </Button>
+                  </DevisDialog>
+                ) : (
+                  <Link to={t.link}>
+                    <Button className="w-full">
+                      {t.btnLabel}
+                    </Button>
+                  </Link>
+                )}
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA avec image background */}
+      <section className="relative py-24 overflow-hidden">
+        <div className="absolute inset-0">
+          <img src="/west.jpg" alt="" className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-foreground/80" />
+        </div>
+        <div className="relative max-w-3xl mx-auto px-4 text-center text-background">
+          <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">Simplifiez la mobilité de votre entreprise</h2>
+          <p className="text-background/70 text-lg mb-8">Un interlocuteur dédié, une facturation unique, des véhicules toujours disponibles.</p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <DevisDialog defaultType="entreprise">
+              <Button size="lg" className="gap-2 px-8 text-base">Demander un devis <ChevronRight className="h-4 w-4" /></Button>
+            </DevisDialog>
+            <Link to="/vehicules">
+              <Button size="lg" variant="outline" className="gap-2 px-8 text-base border-background/20 text-background hover:bg-background/10">
+                Voir nos véhicules
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
