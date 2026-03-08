@@ -26,7 +26,7 @@ export default function Header() {
 
   return (
     <header className="fixed top-10 left-0 right-0 z-50 glass-header">
-      <div className="container mx-auto flex items-center justify-between h-16 px-4">
+      <div className="max-w-5xl mx-auto flex items-center justify-between h-20 px-4">
         <Link to="/" className="font-display text-xl font-bold tracking-tight" aria-label="WEST DRIVE accueil">
           WEST <span className="text-primary">DRIVE</span>
         </Link>

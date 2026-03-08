@@ -7,6 +7,7 @@ import Footer from "@/components/Footer";
 import VehiculeCard from "@/components/VehiculeCard";
 import { getVehiculeById, vehicules } from "@/data/mock";
 import { vehicleImages } from "@/data/vehicleImages";
+import TopBar from "@/components/TopBar";
 
 const energieLabels: Record<string, string> = {
   ESSENCE: "Essence", DIESEL: "Diesel", HYBRIDE: "Hybride", ELECTRIQUE: "Électrique",
@@ -20,7 +21,7 @@ export default function VehiculeDetail() {
     return (
       <div className="min-h-screen">
         <Header />
-        <div className="pt-24 pb-16 container mx-auto px-4 text-center">
+        <div className="pt-24 pb-16 max-w-5xl mx-auto px-4 text-center">
           <h1 className="font-display text-2xl font-bold mb-4">Véhicule introuvable</h1>
           <Link to="/vehicules"><Button variant="outline">Retour au catalogue</Button></Link>
         </div>
@@ -35,9 +36,10 @@ export default function VehiculeDetail() {
 
   return (
     <div className="min-h-screen">
+      <TopBar />
       <Header />
-      <main className="pt-24 pb-16">
-        <div className="container mx-auto px-4">
+      <main className="pt-40 pb-16">
+        <div className="max-w-5xl mx-auto px-4">
           <Link to="/vehicules" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6">
             <ArrowLeft className="h-4 w-4" /> Retour au catalogue
           </Link>

@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import TopBar from "@/components/TopBar";
 
 export default function Contact() {
   const { toast } = useToast();
@@ -23,9 +24,10 @@ export default function Contact() {
 
   return (
     <div className="min-h-screen">
+      <TopBar />
       <Header />
-      <main className="pt-24 pb-16">
-        <div className="container mx-auto px-4 max-w-5xl">
+      <main className="pt-40 pb-16">
+        <div className="max-w-5xl mx-auto px-4">
           <h1 className="font-display text-3xl md:text-4xl font-bold mb-2">Nous contacter</h1>
           <p className="text-muted-foreground mb-10">Une question ? N'hésitez pas à nous écrire.</p>
 
@@ -62,21 +64,21 @@ export default function Contact() {
                 <MapPin className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="font-semibold text-sm">Adresse</p>
-                  <p className="text-sm text-muted-foreground">12 Rue de la République, 92800 Puteaux</p>
+                  <p className="text-sm text-muted-foreground">Paris Ouest île-de-France</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <Phone className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="font-semibold text-sm">Téléphone</p>
-                  <p className="text-sm text-muted-foreground">01 23 45 67 89</p>
+                  <p className="text-sm text-muted-foreground">06 43 66 08 09</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <Mail className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="font-semibold text-sm">Email</p>
-                  <p className="text-sm text-muted-foreground">contact@westdrive.fr</p>
+                  <p className="text-sm text-muted-foreground">contact@pariswestdrive.fr</p>
                 </div>
               </div>
             </div>

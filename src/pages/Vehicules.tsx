@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import VehiculeCard from "@/components/VehiculeCard";
 import { vehicules, getVehiculesByCategorie } from "@/data/mock";
 import type { Categorie, Transmission, Energie } from "@/data/mock";
+import TopBar from "@/components/TopBar";
 
 const categories: { value: Categorie; label: string }[] = [
   { value: "MICRO", label: "Micro" },
@@ -34,9 +35,10 @@ export default function Vehicules() {
 
   return (
     <div className="min-h-screen">
+      <TopBar />
       <Header />
-      <main className="pt-24 pb-16">
-        <div className="container mx-auto px-4">
+      <main className="pt-40 pb-16">
+        <div className="max-w-5xl mx-auto px-4">
           <h1 className="font-display text-3xl md:text-4xl font-bold mb-2">Nos Véhicules</h1>
           <p className="text-muted-foreground mb-8">Découvrez notre flotte disponible en Île-de-France.</p>
 

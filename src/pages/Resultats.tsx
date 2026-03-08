@@ -10,6 +10,7 @@ import SearchForm from "@/components/SearchForm";
 import VehiculeCard from "@/components/VehiculeCard";
 import { searchVehicules, villes, vehicules, haversineDistance } from "@/data/mock";
 import type { Categorie } from "@/data/mock";
+import TopBar from "@/components/TopBar";
 
 export default function Resultats() {
   const [searchParams] = useSearchParams();
@@ -46,9 +47,10 @@ export default function Resultats() {
 
   return (
     <div className="min-h-screen">
+      <TopBar />
       <Header />
-      <main className="pt-24 pb-16">
-        <div className="container mx-auto px-4">
+      <main className="pt-40 pb-16">
+        <div className="max-w-5xl mx-auto px-4">
           {/* Recap */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
             <div>
