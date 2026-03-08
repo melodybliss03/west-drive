@@ -310,7 +310,7 @@ export default function Index() {
               Nous opérons dans un rayon de 20 km autour de Puteaux.
             </p>
           </div>
-          <div className="max-w-5xl mx-auto rounded-2xl overflow-hidden border border-border shadow-lg mb-10">
+          <div className="relative max-w-5xl mx-auto rounded-2xl overflow-hidden border border-border shadow-lg mb-10">
             <iframe
               title="Zone de couverture WEST DRIVE"
               src="https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d42000!2d2.2384!3d48.8847!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sfr!2sfr!4v1700000000000!5m2!1sfr!2sfr"
@@ -321,6 +321,30 @@ export default function Index() {
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
             />
+            {/* Zone markers overlaid on map */}
+            {[
+              { label: "92", name: "Hauts-de-Seine", top: "45%", left: "48%" },
+              { label: "75", name: "Paris Ouest", top: "40%", left: "58%" },
+              { label: "95", name: "Val-d'Oise", top: "22%", left: "45%" },
+              { label: "78", name: "Yvelines", top: "48%", left: "28%" },
+            ].map((zone, i) => (
+              <motion.div
+                key={i}
+                initial={{ scale: 0, opacity: 0 }}
+                whileInView={{ scale: 1, opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.3 + i * 0.15, type: "spring", stiffness: 200 }}
+                className="absolute z-10 flex flex-col items-center pointer-events-none"
+                style={{ top: zone.top, left: zone.left }}
+              >
+                <div className="bg-primary rounded-full p-2 shadow-lg shadow-primary/40 border-2 border-primary-foreground">
+                  <Car className="h-5 w-5 text-primary-foreground" />
+                </div>
+                <div className="mt-1 bg-foreground/90 text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap shadow-md">
+                  {zone.name}
+                </div>
+              </motion.div>
+            ))}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
