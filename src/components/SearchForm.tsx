@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, MapPin, Calendar, Car } from "lucide-react";
+import { Search, MapPin, Calendar, Car, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,9 +23,15 @@ export default function SearchForm({ defaultValues, compact }: SearchFormProps) 
   const [debut, setDebut] = useState(defaultValues?.debut || "");
   const [fin, setFin] = useState(defaultValues?.fin || "");
   const [type, setType] = useState(defaultValues?.type || "");
+  const [error, setError] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!ville || !debut || !fin) {
+      setError("Veuillez renseigner la ville, la date de début et la date de fin.");
+      return;
+    }
+    setError("");
     const params = new URLSearchParams();
     if (ville) params.set("ville", ville);
     if (debut) params.set("debut", debut);
@@ -100,6 +106,13 @@ export default function SearchForm({ defaultValues, compact }: SearchFormProps) 
           </Select>
         </div>
       </div>
+
+      {error && (
+        <div className="flex items-center gap-2 text-destructive text-sm font-medium">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {error}
+        </div>
+      )}
 
       <Button type="submit" className="w-full sm:w-auto gap-2 px-8" size="lg">
         <Search className="h-4 w-4" />
