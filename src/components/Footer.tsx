@@ -1,19 +1,66 @@
 import { Link } from "react-router-dom";
-import { MapPin, Phone, Mail } from "lucide-react";
+import { MapPin, Phone, Mail, User, Instagram, Facebook } from "lucide-react";
 
 export default function Footer() {
   return (
     <footer>
+      {/* Contact info bar — like reference image */}
+      <div className="bg-foreground">
+        <div className="max-w-5xl mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {/* Support & Email */}
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center flex-shrink-0">
+                <User className="h-7 w-7 text-primary" />
+              </div>
+              <div>
+                <h4 className="font-display font-semibold text-background text-sm">Support & Email</h4>
+                <p className="text-background/60 text-sm">contact@westdrive.fr</p>
+              </div>
+            </div>
+
+            {/* Customer Support */}
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center flex-shrink-0">
+                <Phone className="h-7 w-7 text-primary" />
+              </div>
+              <div>
+                <h4 className="font-display font-semibold text-background text-sm">Support Client</h4>
+                <p className="text-background/60 text-sm">06 43 66 08 09</p>
+              </div>
+            </div>
+
+            {/* Our Location */}
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center flex-shrink-0">
+                <MapPin className="h-7 w-7 text-primary" />
+              </div>
+              <div>
+                <h4 className="font-display font-semibold text-background text-sm">Notre Adresse</h4>
+                <p className="text-background/60 text-sm">12 Rue de la République, 92800 Puteaux</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Separator */}
+      <div className="bg-foreground">
+        <div className="max-w-5xl mx-auto px-4">
+          <div className="h-px bg-background/10" />
+        </div>
+      </div>
+
       {/* Main footer */}
       <div className="bg-foreground text-background">
-        <div className="max-w-5xl mx-auto px-4 py-16">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-10">
+        <div className="max-w-5xl mx-auto px-4 py-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
             {/* Brand */}
-            <div className="md:col-span-2">
+            <div>
               <h3 className="font-display text-2xl font-bold mb-4">
                 WEST <span className="text-primary">DRIVE</span>
               </h3>
-              <p className="text-sm text-background/60 leading-relaxed max-w-xs">
+              <p className="text-sm text-background/60 leading-relaxed">
                 Location de véhicules en Île-de-France. Qualité, transparence et proximité.
               </p>
               <p className="text-xs text-background/40 mt-4">WEST DRIVE, 2025.</p>
@@ -40,21 +87,27 @@ export default function Footer() {
               </ul>
             </div>
 
-            {/* Contact */}
+            {/* Réseaux sociaux */}
             <div>
-              <h4 className="font-display font-semibold mb-4 text-background/80 text-sm uppercase tracking-wider">Contact</h4>
+              <h4 className="font-display font-semibold mb-4 text-background/80 text-sm uppercase tracking-wider">Réseaux sociaux</h4>
               <ul className="space-y-3 text-sm text-background/60">
-                <li className="flex items-start gap-2">
-                  <MapPin className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
-                  <span>12 Rue de la République, 92800 Puteaux</span>
+                <li>
+                  <a href="https://instagram.com/westdrive" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-primary transition-colors">
+                    <Instagram className="h-4 w-4 text-primary flex-shrink-0" />
+                    <span>Instagram</span>
+                  </a>
                 </li>
-                <li className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-primary flex-shrink-0" />
-                  <span>06 43 66 08 09</span>
+                <li>
+                  <a href="https://facebook.com/westdrive" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-primary transition-colors">
+                    <Facebook className="h-4 w-4 text-primary flex-shrink-0" />
+                    <span>Facebook</span>
+                  </a>
                 </li>
-                <li className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-primary flex-shrink-0" />
-                  <span>contact@westdrive.fr</span>
+                <li>
+                  <a href="https://tiktok.com/@westdrive" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-primary transition-colors">
+                    <svg className="h-4 w-4 text-primary flex-shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.88-2.88 2.89 2.89 0 0 1 2.88-2.88c.28 0 .56.04.81.11v-3.5a6.37 6.37 0 0 0-.81-.05A6.34 6.34 0 0 0 3.15 15.2a6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.34-6.34V8.69a8.27 8.27 0 0 0 3.76.92V6.18a4.77 4.77 0 0 1-.01.51z"/></svg>
+                    <span>TikTok</span>
+                  </a>
                 </li>
               </ul>
             </div>
@@ -62,7 +115,7 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* Bottom bar — accent colored like reference */}
+      {/* Bottom bar */}
       <div className="bg-primary">
         <div className="max-w-5xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="text-sm text-primary-foreground font-medium">
