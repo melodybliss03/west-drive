@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import TopBar from "@/components/TopBar";
+import ScrollToTop from "@/components/ScrollToTop";
 
 export default function Contact() {
   const { toast } = useToast();
