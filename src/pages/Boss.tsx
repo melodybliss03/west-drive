@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import {
   Car, Users, CalendarCheck, BarChart3, Plus, Edit, Trash2, Eye,
-  ChevronDown, Search, Filter, Download, TrendingUp, TrendingDown,
-  DollarSign, Clock, CheckCircle, XCircle, AlertTriangle, Truck, LogOut
+  Search, TrendingUp, TrendingDown,
+  DollarSign, CheckCircle, XCircle, AlertTriangle, Truck, LogOut, Shield
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,10 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 import { vehicules as mockVehicules, villes, type Vehicule, type Categorie, type Transmission, type Energie } from "@/data/mock";
 
 // ── Mock data ──
@@ -29,11 +30,11 @@ const mockReservations = [
 ];
 
 const mockUsers = [
-  { id: "U001", nom: "Martin", prenom: "Sophie", email: "sophie@mail.com", type: "particulier", creeLe: "2025-01-15", reservations: 3, statut: "actif" },
-  { id: "U002", nom: "Dubois", prenom: "Thomas", email: "thomas@mail.com", type: "particulier", creeLe: "2025-02-01", reservations: 1, statut: "actif" },
-  { id: "U003", nom: "Laurent", prenom: "Marie", email: "marie@mail.com", type: "particulier", creeLe: "2024-12-10", reservations: 5, statut: "actif" },
-  { id: "U004", nom: "Entreprise ABC", prenom: "—", email: "contact@abc.com", type: "entreprise", creeLe: "2025-01-20", reservations: 8, statut: "actif" },
-  { id: "U005", nom: "Leroy", prenom: "Paul", email: "paul@mail.com", type: "particulier", creeLe: "2025-03-01", reservations: 0, statut: "suspendu" },
+  { id: "U001", nom: "Martin", prenom: "Sophie", email: "sophie@mail.com", type: "particulier", creeLe: "2025-01-15", reservations: 3, statut: "actif", role: "client" as string },
+  { id: "U002", nom: "Dubois", prenom: "Thomas", email: "thomas@mail.com", type: "particulier", creeLe: "2025-02-01", reservations: 1, statut: "actif", role: "client" as string },
+  { id: "U003", nom: "Laurent", prenom: "Marie", email: "marie@mail.com", type: "particulier", creeLe: "2024-12-10", reservations: 5, statut: "actif", role: "gestionnaire" as string },
+  { id: "U004", nom: "Entreprise ABC", prenom: "—", email: "contact@abc.com", type: "entreprise", creeLe: "2025-01-20", reservations: 8, statut: "actif", role: "client" as string },
+  { id: "U005", nom: "Leroy", prenom: "Paul", email: "paul@mail.com", type: "particulier", creeLe: "2025-03-01", reservations: 0, statut: "suspendu", role: "client" as string },
 ];
 
 const mockFlotte = [
@@ -60,6 +61,12 @@ const etatColors: Record<string, string> = {
   "en panne": "bg-destructive/10 text-destructive border-destructive/20",
 };
 
+const roleColors: Record<string, string> = {
+  "admin": "bg-primary/10 text-primary border-primary/20",
+  "gestionnaire": "bg-blue-500/10 text-blue-600 border-blue-200",
+  "client": "bg-muted text-muted-foreground border-border",
+};
+
 const emptyVehicle: Partial<Vehicule> = {
   nom: "", marque: "", modele: "", annee: 2024, categorie: "COMPACTE",
   transmission: "MANUELLE", energie: "ESSENCE", nbPlaces: 5, kmInclus: 200,
@@ -69,19 +76,29 @@ const emptyVehicle: Partial<Vehicule> = {
 
 export default function Boss() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [tab, setTab] = useState<TabKey>("kpi");
   const [vehicles, setVehicles] = useState<Vehicule[]>(mockVehicules);
+  const [users, setUsers] = useState(mockUsers);
   const [editVehicle, setEditVehicle] = useState<Partial<Vehicule> | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [searchV, setSearchV] = useState("");
   const [searchR, setSearchR] = useState("");
   const [searchU, setSearchU] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [roleDialog, setRoleDialog] = useState<{ userId: string; currentRole: string } | null>(null);
+  const [selectedRole, setSelectedRole] = useState("");
+
+  // ── Auth guard ──
+  if (!user) {
+    return <Navigate to="/connexion" replace />;
+  }
 
   // ── KPI data ──
   const totalCA = mockReservations.filter(r => r.statut !== "annulée").reduce((s, r) => s + r.montant, 0);
   const activeRes = mockReservations.filter(r => ["confirmée", "en cours"].includes(r.statut)).length;
-  const totalUsers = mockUsers.length;
+  const totalUsers = users.length;
   const availableVehicles = vehicles.filter(v => v.disponible && v.actif).length;
 
   // ── Vehicle CRUD ──
@@ -95,38 +112,70 @@ export default function Boss() {
   };
   const deleteVehicle = (id: string) => { setVehicles(prev => prev.filter(v => v.id !== id)); setDeleteConfirm(null); };
 
+  // ── Role management ──
+  const openRoleDialog = (userId: string, currentRole: string) => {
+    setRoleDialog({ userId, currentRole });
+    setSelectedRole(currentRole);
+  };
+  const saveRole = () => {
+    if (!roleDialog) return;
+    setUsers(prev => prev.map(u => u.id === roleDialog.userId ? { ...u, role: selectedRole } : u));
+    toast({ title: "Rôle mis à jour", description: `Le rôle a été changé en "${selectedRole}".` });
+    setRoleDialog(null);
+  };
+
   const filteredVehicles = vehicles.filter(v => v.nom.toLowerCase().includes(searchV.toLowerCase()) || v.marque.toLowerCase().includes(searchV.toLowerCase()));
   const filteredRes = mockReservations.filter(r => r.client.toLowerCase().includes(searchR.toLowerCase()) || r.vehicule.toLowerCase().includes(searchR.toLowerCase()));
-  const filteredUsers = mockUsers.filter(u => u.nom.toLowerCase().includes(searchU.toLowerCase()) || u.email.toLowerCase().includes(searchU.toLowerCase()));
+  const filteredUsers = users.filter(u => u.nom.toLowerCase().includes(searchU.toLowerCase()) || u.email.toLowerCase().includes(searchU.toLowerCase()));
+
+  const sidebarItems: { key: TabKey; icon: typeof BarChart3; label: string }[] = [
+    { key: "kpi", icon: BarChart3, label: "Tableau de bord" },
+    { key: "vehicules", icon: Car, label: "Véhicules" },
+    { key: "reservations", icon: CalendarCheck, label: "Réservations" },
+    { key: "flotte", icon: Truck, label: "Gestion flotte" },
+    { key: "utilisateurs", icon: Users, label: "Utilisateurs" },
+  ];
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-sidebar-background text-sidebar-foreground flex-shrink-0 hidden lg:flex flex-col">
-        <div className="p-6 border-b border-sidebar-border">
-          <h1 className="font-display text-lg font-bold">WEST <span className="text-primary">DRIVE</span></h1>
-          <p className="text-xs text-sidebar-foreground/50 mt-1">Administration</p>
+      {/* ═══ Sidebar — fixed design system colors ═══ */}
+      <aside className="w-64 bg-foreground flex-shrink-0 hidden lg:flex flex-col">
+        <div className="p-6 border-b border-border/20">
+          <h1 className="font-display text-lg font-bold text-primary-foreground">
+            WEST <span className="text-primary">DRIVE</span>
+          </h1>
+          <p className="text-xs text-primary-foreground/50 mt-1">Administration</p>
         </div>
         <nav className="flex-1 p-4 space-y-1">
-          {([
-            { key: "kpi" as TabKey, icon: BarChart3, label: "Tableau de bord" },
-            { key: "vehicules" as TabKey, icon: Car, label: "Véhicules" },
-            { key: "reservations" as TabKey, icon: CalendarCheck, label: "Réservations" },
-            { key: "flotte" as TabKey, icon: Truck, label: "Gestion flotte" },
-            { key: "utilisateurs" as TabKey, icon: Users, label: "Utilisateurs" },
-          ]).map(item => (
+          {sidebarItems.map(item => (
             <button
               key={item.key}
               onClick={() => setTab(item.key)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${tab === item.key ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"}`}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                tab === item.key
+                  ? "bg-primary text-primary-foreground"
+                  : "text-primary-foreground/60 hover:text-primary-foreground hover:bg-primary-foreground/10"
+              }`}
             >
               <item.icon className="h-4 w-4" />
               {item.label}
             </button>
           ))}
         </nav>
-        <div className="p-4 border-t border-sidebar-border">
-          <button onClick={() => navigate("/")} className="flex items-center gap-2 text-sm text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors">
+        <div className="p-4 border-t border-border/20">
+          <div className="flex items-center gap-3 mb-4 px-3">
+            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-bold">
+              {user.prenom[0]}{user.nom[0]}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-primary-foreground truncate">{user.prenom} {user.nom}</p>
+              <p className="text-xs text-primary-foreground/50 truncate">{user.email}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate("/")}
+            className="flex items-center gap-2 text-sm text-primary-foreground/50 hover:text-primary-foreground transition-colors px-3"
+          >
             <LogOut className="h-4 w-4" /> Retour au site
           </button>
         </div>
@@ -184,7 +233,6 @@ export default function Boss() {
                 ))}
               </div>
 
-              {/* Recent reservations */}
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg">Dernières réservations</CardTitle>
@@ -413,6 +461,7 @@ export default function Boss() {
                           <TableHead>Nom</TableHead>
                           <TableHead>Email</TableHead>
                           <TableHead>Type</TableHead>
+                          <TableHead>Rôle</TableHead>
                           <TableHead>Inscrit le</TableHead>
                           <TableHead>Réservations</TableHead>
                           <TableHead>Statut</TableHead>
@@ -429,6 +478,11 @@ export default function Boss() {
                                 {u.type}
                               </Badge>
                             </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={roleColors[u.role] || ""}>
+                                {u.role}
+                              </Badge>
+                            </TableCell>
                             <TableCell className="text-xs">{u.creeLe}</TableCell>
                             <TableCell>{u.reservations}</TableCell>
                             <TableCell>
@@ -438,6 +492,9 @@ export default function Boss() {
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => openRoleDialog(u.id, u.role)} title="Changer le rôle">
+                                  <Shield className="h-4 w-4" />
+                                </Button>
                                 <Button variant="ghost" size="icon"><Eye className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                               </div>
@@ -553,6 +610,40 @@ export default function Boss() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Annuler</Button>
             <Button variant="destructive" onClick={() => deleteConfirm && deleteVehicle(deleteConfirm)}>Supprimer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══ Role assignment dialog ═══ */}
+      <Dialog open={!!roleDialog} onOpenChange={() => setRoleDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-primary" />
+              Attribuer un rôle
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Sélectionnez le rôle à attribuer à cet utilisateur.
+            </p>
+            <Select value={selectedRole} onValueChange={setSelectedRole}>
+              <SelectTrigger><SelectValue placeholder="Choisir un rôle" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="client">Client</SelectItem>
+                <SelectItem value="gestionnaire">Gestionnaire</SelectItem>
+                <SelectItem value="admin">Administrateur</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="rounded-lg bg-muted p-3 text-xs text-muted-foreground space-y-1">
+              <p><strong className="text-foreground">Client</strong> — Accès standard (réservation, espace perso)</p>
+              <p><strong className="text-foreground">Gestionnaire</strong> — Gestion des véhicules et réservations</p>
+              <p><strong className="text-foreground">Administrateur</strong> — Accès complet au dashboard</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRoleDialog(null)}>Annuler</Button>
+            <Button onClick={saveRole}>Enregistrer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
