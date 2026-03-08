@@ -3,7 +3,8 @@ import { useNavigate, Navigate } from "react-router-dom";
 import {
   Car, Users, CalendarCheck, BarChart3, Plus, Edit, Trash2, Eye,
   Search, TrendingUp, TrendingDown,
-  DollarSign, CheckCircle, XCircle, AlertTriangle, Truck, LogOut, Shield
+  DollarSign, CheckCircle, XCircle, AlertTriangle, Truck, LogOut, Shield,
+  Eye as EyeIcon, EyeOff
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

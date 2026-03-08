@@ -310,7 +310,7 @@ export default function Index() {
               Nous opérons dans un rayon de 20 km autour de Puteaux.
             </p>
           </div>
-          <div className="max-w-5xl mx-auto rounded-2xl overflow-hidden border border-border shadow-lg">
+          <div className="max-w-5xl mx-auto rounded-2xl overflow-hidden border border-border shadow-lg mb-10">
             <iframe
               title="Zone de couverture WEST DRIVE"
               src="https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d42000!2d2.2384!3d48.8847!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sfr!2sfr!4v1700000000000!5m2!1sfr!2sfr"
@@ -322,14 +322,69 @@ export default function Index() {
               referrerPolicy="no-referrer-when-downgrade"
             />
           </div>
-          <div className="flex flex-wrap justify-center gap-1 mt-8">
-            {villes.map((v) => (
-              <span
-                key={v.id}
-                className="px-2 py-2 bg-card border border-border rounded-sm text-sm text-muted-foreground"
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[
+              {
+                title: "Zone 1 : Hauts-de-Seine (92)",
+                subtitle: "Cœur de marché — 0 à 15 km",
+                groups: [
+                  { label: "Proximité immédiate (0-5 km)", cities: ["Courbevoie", "Nanterre", "Neuilly-sur-Seine", "Levallois-Perret", "Suresnes", "Rueil-Malmaison", "La Défense"] },
+                  { label: "Distance moyenne (5-10 km)", cities: ["Colombes", "Asnières-sur-Seine", "Bois-Colombes", "Clichy", "Gennevilliers", "Villeneuve-la-Garenne", "Boulogne-Billancourt", "Issy-les-Moulineaux", "Saint-Cloud", "Garches", "Vaucresson"] },
+                  { label: "Zone étendue (10-15 km)", cities: ["Argenteuil", "Bezons", "Houilles", "Sartrouville", "Chatou", "Croissy-sur-Seine", "Le Vésinet", "Clamart", "Meudon", "Sèvres", "Chaville", "Ville-d'Avray"] },
+                ],
+              },
+              {
+                title: "Zone 2 : Paris Ouest (75)",
+                subtitle: "Arrondissements Ouest",
+                groups: [
+                  { label: "Arrondissements couverts", cities: ["16e arr. (Trocadéro, Passy, Auteuil)", "17e arr. (Batignolles, Ternes)", "8e arr. (Champs-Élysées, Madeleine)", "15e arr. (Grenelle, Javel)", "7e arr. (Invalides, Tour Eiffel)"] },
+                ],
+              },
+              {
+                title: "Zone 3 : Val-d'Oise (95)",
+                subtitle: "Nord — 10 à 20 km",
+                groups: [
+                  { label: "Communes desservies", cities: ["Cormeilles-en-Parisis", "La Frette-sur-Seine", "Herblay", "Montigny-lès-Cormeilles", "Franconville"] },
+                ],
+              },
+              {
+                title: "Zone 4 : Yvelines (78)",
+                subtitle: "Ouest — 10 à 20 km",
+                groups: [
+                  { label: "Communes desservies", cities: ["Le Pecq", "Montesson", "Carrières-sur-Seine", "Maisons-Laffitte", "Poissy", "Saint-Germain-en-Laye"] },
+                ],
+              },
+            ].map((zone, zi) => (
+              <motion.div
+                key={zi}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: zi * 0.1 }}
+                className="bg-card rounded-2xl border border-border p-6"
               >
-                {v.nom}
-              </span>
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="p-2 rounded-xl bg-primary/10">
+                    <Car className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="font-display font-bold text-base">{zone.title}</h3>
+                </div>
+                <p className="text-xs text-muted-foreground mb-4 ml-12">{zone.subtitle}</p>
+                {zone.groups.map((group, gi) => (
+                  <div key={gi} className="mb-3 last:mb-0">
+                    <p className="text-xs font-semibold text-foreground/70 mb-1.5">{group.label}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {group.cities.map((city) => (
+                        <span key={city} className="inline-flex items-center gap-1 px-2.5 py-1 bg-secondary border border-border rounded-lg text-xs text-muted-foreground">
+                          <Car className="h-3 w-3 text-primary" />
+                          {city}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </motion.div>
             ))}
           </div>
         </div>
