@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import DevisDialog from "@/components/DevisDialog";
 import { motion } from "framer-motion";
 import { ChevronRight, Check, Car, Shield, Clock, CreditCard, Headphones, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -80,11 +81,11 @@ export default function Particulier() {
                   Voir nos véhicules <ChevronRight className="h-4 w-4" />
                 </Button>
               </Link>
-              <Link to="/contact">
+              <DevisDialog defaultType="particulier">
                 <Button size="lg" variant="outline" className="gap-2 text-base px-8 border-background/20 text-background hover:bg-background/10">
                   Demander un devis
                 </Button>
-              </Link>
+              </DevisDialog>
             </div>
           </motion.div>
         </div>

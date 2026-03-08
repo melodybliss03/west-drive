@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import DevisDialog from "@/components/DevisDialog";
 import { motion } from "framer-motion";
 import { ChevronRight, Check, Building2, Users, FileText, Zap, Headphones, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -72,11 +73,11 @@ export default function Entreprise() {
               Flotte dédiée, facturation simplifiée et interlocuteur unique. Optimisez la mobilité de vos équipes avec WEST DRIVE.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link to="/contact">
+              <DevisDialog defaultType="entreprise">
                 <Button size="lg" className="gap-2 text-base px-8">
                   Demander un devis <ChevronRight className="h-4 w-4" />
                 </Button>
-              </Link>
+              </DevisDialog>
               <a href="tel:+330643660809">
                 <Button size="lg" variant="outline" className="gap-2 text-base px-8 border-background/20 text-background hover:bg-background/10">
                   06 43 66 08 09
@@ -141,14 +142,14 @@ export default function Entreprise() {
                     </li>
                   ))}
                 </ul>
-                <Link to="/contact" className="mt-6">
+                <DevisDialog defaultType="entreprise">
                   <Button
                     className={`w-full ${t.highlight ? "bg-primary-foreground text-primary hover:bg-primary-foreground/90" : ""}`}
                     variant={t.highlight ? "secondary" : "default"}
                   >
                     Demander un devis
                   </Button>
-                </Link>
+                </DevisDialog>
               </div>
             ))}
           </div>
@@ -203,9 +204,9 @@ export default function Entreprise() {
           <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">Parlons de votre projet</h2>
           <p className="text-background/70 mb-8">Recevez un devis personnalisé en moins de 24h.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link to="/contact">
+            <DevisDialog defaultType="entreprise">
               <Button size="lg" className="gap-2 px-8">Demander un devis <ChevronRight className="h-4 w-4" /></Button>
-            </Link>
+            </DevisDialog>
             <Link to="/inscription">
               <Button size="lg" variant="outline" className="gap-2 px-8 border-background/20 text-background hover:bg-background/10">
                 Créer un compte pro

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import DevisDialog from "@/components/DevisDialog";
 import { motion } from "framer-motion";
 import { Star, ChevronRight, Check, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -109,12 +110,12 @@ export default function Index() {
               Boulogne et Hauts-de-Seine. Weekend, vacances ou remplacement :
               réservez en ligne en 2 minutes.
             </p>
-            <a href="#vehicules">
+            <DevisDialog>
               <Button size="lg" className="gap-2 text-base px-8">
                 Demander un devis
                 <ChevronRight className="h-4 w-4" />
               </Button>
-            </a>
+            </DevisDialog>
           </motion.div>
 
           <motion.div
@@ -248,14 +249,14 @@ export default function Index() {
                 Tarifs sur mesure selon vos besoins
               </h3>
               <div className="mt-auto pt-4">
-                <Link to="/contact">
+                <DevisDialog>
                   <Button
                     variant="ghost"
                     className="text-primary-foreground underline underline-offset-4 hover:text-primary-foreground/80 px-0 font-semibold"
                   >
-                    Demander une devis personnalisé
+                    Demander un devis personnalisé
                   </Button>
-                </Link>
+                </DevisDialog>
               </div>
             </div>
           </div>
