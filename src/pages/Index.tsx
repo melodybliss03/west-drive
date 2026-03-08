@@ -126,6 +126,29 @@ export default function Index() {
           >
             <SearchForm />
           </motion.div>
+
+          {/* Social proof */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.6 }}
+            className="mt-6 flex flex-wrap items-center justify-center gap-6 md:gap-10 text-background/80 text-sm"
+          >
+            <div className="flex items-center gap-2">
+              <Star className="h-4 w-4 text-primary fill-primary" />
+              <span className="font-semibold text-background">4.9</span>
+              <span>Depuis 2024</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Phone className="h-4 w-4 text-background/70" />
+              <span>Support direct</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Car className="h-4 w-4 text-background/70" />
+              <span className="font-semibold text-background">2,000+</span>
+              <span>locations pros</span>
+            </div>
+          </motion.div>
         </div>
       </section>
 
