@@ -109,12 +109,12 @@ export default function Index() {
               Boulogne et Hauts-de-Seine. Weekend, vacances ou remplacement :
               réservez en ligne en 2 minutes.
             </p>
-            <a href="#vehicules">
+            <DevisDialog>
               <Button size="lg" className="gap-2 text-base px-8">
                 Demander un devis
                 <ChevronRight className="h-4 w-4" />
               </Button>
-            </a>
+            </DevisDialog>
           </motion.div>
 
           <motion.div
