@@ -107,6 +107,13 @@ export default function SearchForm({ defaultValues, compact }: SearchFormProps) 
         </div>
       </div>
 
+      {error && (
+        <div className="flex items-center gap-2 text-destructive text-sm font-medium">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {error}
+        </div>
+      )}
+
       <Button type="submit" className="w-full sm:w-auto gap-2 px-8" size="lg">
         <Search className="h-4 w-4" />
         Rechercher
