@@ -4,8 +4,10 @@ import {
   Car, Users, CalendarCheck, BarChart3, Plus, Edit, Trash2, Eye,
   Search, TrendingUp, TrendingDown, Bell,
   DollarSign, CheckCircle, XCircle, AlertTriangle, Truck, LogOut, Shield,
-  Eye as EyeIcon, EyeOff, UserCog, Save, Mail, Phone, ArrowRight, UserPlus
+  Eye as EyeIcon, EyeOff, UserCog, Save, Mail, Phone, ArrowRight, UserPlus,
+  MapPin, Clock, CreditCard
 } from "lucide-react";
+import { vehicleImages } from "@/data/vehicleImages";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -37,16 +39,29 @@ import {
 
 // ── Mock data ──
 const mockReservations = [
-  { id: "R001", client: "Sophie Martin", email: "sophie@mail.com", vehicule: "Peugeot 108", debut: "2025-03-10", fin: "2025-03-15", statut: "confirmée", montant: 175 },
-  { id: "R002", client: "Thomas Dubois", email: "thomas@mail.com", vehicule: "BMW Série 3", debut: "2025-03-12", fin: "2025-03-14", statut: "en cours", montant: 190 },
-  { id: "R003", client: "Marie Laurent", email: "marie@mail.com", vehicule: "Renault Clio V", debut: "2025-03-08", fin: "2025-03-10", statut: "terminée", montant: 110 },
-  { id: "R004", client: "Entreprise ABC", email: "contact@abc.com", vehicule: "Audi Q5", debut: "2025-03-20", fin: "2025-03-25", statut: "en attente", montant: 600 },
-  { id: "R005", client: "Paul Leroy", email: "paul@mail.com", vehicule: "Mercedes Classe C", debut: "2025-03-05", fin: "2025-03-07", statut: "annulée", montant: 210 },
-  { id: "R006", client: "Claire Morel", email: "claire@mail.com", vehicule: "Peugeot 3008", debut: "2025-03-15", fin: "2025-03-18", statut: "confirmée", montant: 285 },
-  { id: "R007", client: "Lucas Bernard", email: "lucas@mail.com", vehicule: "Fiat 500", debut: "2025-03-11", fin: "2025-03-13", statut: "en cours", montant: 90 },
-  { id: "R008", client: "Emma Petit", email: "emma@mail.com", vehicule: "Peugeot 308", debut: "2025-03-14", fin: "2025-03-16", statut: "confirmée", montant: 130 },
-  { id: "R009", client: "Hugo Roux", email: "hugo@mail.com", vehicule: "Renault Clio V", debut: "2025-03-09", fin: "2025-03-11", statut: "terminée", montant: 110 },
+  { id: "R001", client: "Sophie Martin", email: "sophie@mail.com", telephone: "06 12 34 56 78", vehicule: "Peugeot 108", vehiculeId: "1", debut: "2025-03-10", fin: "2025-03-15", statut: "confirmée", montant: 175, caution: 500, ville: "Puteaux" },
+  { id: "R002", client: "Thomas Dubois", email: "thomas@mail.com", telephone: "06 23 45 67 89", vehicule: "BMW Série 3", vehiculeId: "5", debut: "2025-03-12", fin: "2025-03-14", statut: "en cours", montant: 190, caution: 1500, ville: "La Défense" },
+  { id: "R003", client: "Marie Laurent", email: "marie@mail.com", telephone: "06 34 56 78 90", vehicule: "Renault Clio V", vehiculeId: "3", debut: "2025-03-08", fin: "2025-03-10", statut: "terminée", montant: 110, caution: 600, ville: "Nanterre" },
+  { id: "R004", client: "Entreprise ABC", email: "contact@abc.com", telephone: "01 23 45 67 89", vehicule: "Audi Q5", vehiculeId: "8", debut: "2025-03-20", fin: "2025-03-25", statut: "en attente", montant: 600, caution: 2000, ville: "Rueil-Malmaison" },
+  { id: "R005", client: "Paul Leroy", email: "paul@mail.com", telephone: "06 45 67 89 01", vehicule: "Mercedes Classe C", vehiculeId: "6", debut: "2025-03-05", fin: "2025-03-07", statut: "annulée", montant: 210, caution: 1500, ville: "La Défense" },
+  { id: "R006", client: "Claire Morel", email: "claire@mail.com", telephone: "06 56 78 90 12", vehicule: "Peugeot 3008", vehiculeId: "7", debut: "2025-03-15", fin: "2025-03-18", statut: "confirmée", montant: 285, caution: 1000, ville: "Puteaux" },
+  { id: "R007", client: "Lucas Bernard", email: "lucas@mail.com", telephone: "06 67 89 01 23", vehicule: "Fiat 500", vehiculeId: "2", debut: "2025-03-11", fin: "2025-03-13", statut: "en cours", montant: 90, caution: 400, ville: "Bougival" },
+  { id: "R008", client: "Emma Petit", email: "emma@mail.com", telephone: "06 78 90 12 34", vehicule: "Peugeot 308", vehiculeId: "4", debut: "2025-03-14", fin: "2025-03-16", statut: "confirmée", montant: 130, caution: 700, ville: "Suresnes" },
+  { id: "R009", client: "Hugo Roux", email: "hugo@mail.com", telephone: "06 89 01 23 45", vehicule: "Renault Clio V", vehiculeId: "3", debut: "2025-03-09", fin: "2025-03-11", statut: "terminée", montant: 110, caution: 600, ville: "Nanterre" },
 ];
+
+// Vehicle name to ID mapping for images
+const vehicleNameToId: Record<string, string> = {
+  "Peugeot 108": "1", "Fiat 500": "2", "Renault Clio V": "3", "Peugeot 308": "4",
+  "BMW Série 3": "5", "Mercedes Classe C": "6", "Peugeot 3008": "7", "Audi Q5": "8",
+  "Citroën C1": "9", "Volkswagen Golf 8": "10", "Audi A4": "11", "Renault Captur": "12",
+};
+
+const getVehicleImage = (name: string, id?: string): string | undefined => {
+  if (id && vehicleImages[id]) return vehicleImages[id];
+  const mappedId = vehicleNameToId[name];
+  return mappedId ? vehicleImages[mappedId] : undefined;
+};
 
 const mockUsers = [
   { id: "U001", nom: "Martin", prenom: "Sophie", email: "sophie@mail.com", type: "particulier", creeLe: "2025-01-15", reservations: 3, statut: "actif", role: "client" as string },
@@ -226,6 +241,8 @@ export default function Boss() {
   const [searchR, setSearchR] = useState("");
   const [searchU, setSearchU] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [selectedReservation, setSelectedReservation] = useState<typeof mockReservations[0] | null>(null);
+  const [reservations, setReservations] = useState(mockReservations);
 
   // ── Team members state ──
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialTeamMembers);
@@ -432,7 +449,7 @@ export default function Boss() {
   };
 
   const filteredVehicles = vehicles.filter(v => v.nom.toLowerCase().includes(searchV.toLowerCase()) || v.marque.toLowerCase().includes(searchV.toLowerCase()));
-  const filteredRes = mockReservations.filter(r => r.client.toLowerCase().includes(searchR.toLowerCase()) || r.vehicule.toLowerCase().includes(searchR.toLowerCase()));
+  const filteredRes = reservations.filter(r => r.client.toLowerCase().includes(searchR.toLowerCase()) || r.vehicule.toLowerCase().includes(searchR.toLowerCase()));
   const filteredUsers = users.filter(u => u.nom.toLowerCase().includes(searchU.toLowerCase()) || u.email.toLowerCase().includes(searchU.toLowerCase()));
 
   const handleLogout = () => {
@@ -546,11 +563,17 @@ export default function Boss() {
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-3">
-                          {mockReservations.slice(0, 5).map(r => (
+                          {reservations.slice(0, 5).map(r => {
+                            const img = getVehicleImage(r.vehicule, r.vehiculeId);
+                            return (
                             <div key={r.id} className="flex items-center gap-4 p-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors">
-                              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground flex-shrink-0">
-                                <Car className="h-4 w-4" />
-                              </div>
+                              {img ? (
+                                <img src={img} alt={r.vehicule} className="h-10 w-10 rounded-full object-cover flex-shrink-0" />
+                              ) : (
+                                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground flex-shrink-0">
+                                  <Car className="h-4 w-4" />
+                                </div>
+                              )}
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium truncate">{r.client}</p>
                                 <p className="text-xs text-muted-foreground">{r.vehicule} · {r.debut}</p>
@@ -560,7 +583,8 @@ export default function Boss() {
                                 <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${statColors[r.statut] || ""}`}>{r.statut}</Badge>
                               </div>
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </CardContent>
                     </Card>
@@ -634,12 +658,21 @@ export default function Boss() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {filteredVehicles.map(v => (
+                            {filteredVehicles.map(v => {
+                              const img = vehicleImages[v.id];
+                              return (
                               <TableRow key={v.id}>
                                 <TableCell>
-                                  <div>
-                                    <p className="font-medium">{v.nom}</p>
-                                    <p className="text-xs text-muted-foreground">{v.transmission} · {v.energie}</p>
+                                  <div className="flex items-center gap-3">
+                                    {img ? (
+                                      <img src={img} alt={v.nom} className="h-10 w-10 rounded-lg object-cover flex-shrink-0" />
+                                    ) : (
+                                      <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0"><Car className="h-4 w-4 text-muted-foreground" /></div>
+                                    )}
+                                    <div>
+                                      <p className="font-medium">{v.nom}</p>
+                                      <p className="text-xs text-muted-foreground">{v.transmission} · {v.energie}</p>
+                                    </div>
                                   </div>
                                 </TableCell>
                                 <TableCell><Badge variant="outline">{v.categorie}</Badge></TableCell>
@@ -659,7 +692,8 @@ export default function Boss() {
                                   </div>
                                 </TableCell>
                               </TableRow>
-                            ))}
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       </div>
@@ -691,28 +725,42 @@ export default function Boss() {
                               <TableHead className="hidden sm:table-cell">Début</TableHead>
                               <TableHead className="hidden sm:table-cell">Fin</TableHead>
                               <TableHead>Montant</TableHead>
+                              <TableHead>Caution</TableHead>
                               <TableHead>Statut</TableHead>
                               <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {filteredRes.map(r => (
+                            {filteredRes.map(r => {
+                              const img = getVehicleImage(r.vehicule, r.vehiculeId);
+                              return (
                               <TableRow key={r.id}>
                                 <TableCell className="font-mono text-xs">{r.id}</TableCell>
                                 <TableCell className="font-medium">{r.client}</TableCell>
                                 <TableCell className="text-xs hidden md:table-cell">{r.email}</TableCell>
-                                <TableCell>{r.vehicule}</TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    {img ? (
+                                      <img src={img} alt={r.vehicule} className="h-8 w-8 rounded-lg object-cover flex-shrink-0" />
+                                    ) : (
+                                      <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0"><Car className="h-3 w-3 text-muted-foreground" /></div>
+                                    )}
+                                    <span>{r.vehicule}</span>
+                                  </div>
+                                </TableCell>
                                 <TableCell className="text-xs hidden sm:table-cell">{r.debut}</TableCell>
                                 <TableCell className="text-xs hidden sm:table-cell">{r.fin}</TableCell>
                                 <TableCell className="font-semibold">{r.montant} €</TableCell>
+                                <TableCell className="font-semibold">{r.caution} €</TableCell>
                                 <TableCell>
                                   <Badge variant="outline" className={statColors[r.statut] || ""}>{r.statut}</Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  <Button variant="ghost" size="icon"><Eye className="h-4 w-4" /></Button>
+                                  <Button variant="ghost" size="icon" onClick={() => setSelectedReservation(r)}><Eye className="h-4 w-4" /></Button>
                                 </TableCell>
                               </TableRow>
-                            ))}
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       </div>
@@ -757,9 +805,20 @@ export default function Boss() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {mockFlotte.map(f => (
+                            {mockFlotte.map(f => {
+                              const img = getVehicleImage(f.vehicule);
+                              return (
                               <TableRow key={f.id}>
-                                <TableCell className="font-medium">{f.vehicule}</TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    {img ? (
+                                      <img src={img} alt={f.vehicule} className="h-8 w-8 rounded-lg object-cover flex-shrink-0" />
+                                    ) : (
+                                      <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0"><Car className="h-3 w-3 text-muted-foreground" /></div>
+                                    )}
+                                    <span className="font-medium">{f.vehicule}</span>
+                                  </div>
+                                </TableCell>
                                 <TableCell className="font-mono text-xs">{f.plaque}</TableCell>
                                 <TableCell className="hidden sm:table-cell">{f.km.toLocaleString()} km</TableCell>
                                 <TableCell className="text-xs hidden md:table-cell">{f.dernierEntretien}</TableCell>
@@ -768,7 +827,8 @@ export default function Boss() {
                                   <Badge variant="outline" className={etatColors[f.etat] || ""}>{f.etat}</Badge>
                                 </TableCell>
                               </TableRow>
-                            ))}
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       </div>
@@ -1140,6 +1200,115 @@ export default function Boss() {
             <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Annuler</Button>
             <Button variant="destructive" onClick={() => deleteConfirm && deleteVehicle(deleteConfirm)}>Supprimer</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══ Reservation Detail Modal ═══ */}
+      <Dialog open={!!selectedReservation} onOpenChange={() => setSelectedReservation(null)}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Détails de la réservation {selectedReservation?.id}</DialogTitle>
+          </DialogHeader>
+          {selectedReservation && (() => {
+            const img = getVehicleImage(selectedReservation.vehicule, selectedReservation.vehiculeId);
+            return (
+              <div className="space-y-5">
+                {/* Vehicle info */}
+                <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/40">
+                  {img ? (
+                    <img src={img} alt={selectedReservation.vehicule} className="h-16 w-16 rounded-xl object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="h-16 w-16 rounded-xl bg-muted flex items-center justify-center flex-shrink-0"><Car className="h-6 w-6 text-muted-foreground" /></div>
+                  )}
+                  <div>
+                    <p className="font-display font-bold text-lg">{selectedReservation.vehicule}</p>
+                    <Badge variant="outline" className={statColors[selectedReservation.statut] || ""}>{selectedReservation.statut}</Badge>
+                  </div>
+                </div>
+
+                {/* Client info */}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Client</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span>{selectedReservation.client}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span>{selectedReservation.email}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span>{selectedReservation.telephone}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span>{selectedReservation.ville}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dates */}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Période</p>
+                  <div className="flex items-center gap-3 text-sm">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span>{selectedReservation.debut} → {selectedReservation.fin}</span>
+                  </div>
+                </div>
+
+                {/* Financial */}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Financier</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 rounded-xl bg-muted/40 text-center">
+                      <p className="text-xs text-muted-foreground">Montant</p>
+                      <p className="text-lg font-bold">{selectedReservation.montant} €</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-muted/40 text-center">
+                      <p className="text-xs text-muted-foreground">Caution</p>
+                      <p className="text-lg font-bold">{selectedReservation.caution} €</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Gérer la réservation</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedReservation.statut === "en attente" && (
+                      <Button size="sm" className="gap-1" onClick={() => {
+                        setReservations(prev => prev.map(r => r.id === selectedReservation.id ? { ...r, statut: "confirmée" } : r));
+                        setSelectedReservation({ ...selectedReservation, statut: "confirmée" });
+                        toast({ title: "Réservation confirmée" });
+                      }}>
+                        <CheckCircle className="h-3.5 w-3.5" /> Confirmer
+                      </Button>
+                    )}
+                    {["confirmée", "en attente"].includes(selectedReservation.statut) && (
+                      <Button size="sm" variant="destructive" className="gap-1" onClick={() => {
+                        setReservations(prev => prev.map(r => r.id === selectedReservation.id ? { ...r, statut: "annulée" } : r));
+                        setSelectedReservation({ ...selectedReservation, statut: "annulée" });
+                        toast({ title: "Réservation annulée" });
+                      }}>
+                        <XCircle className="h-3.5 w-3.5" /> Annuler
+                      </Button>
+                    )}
+                    {selectedReservation.statut === "en cours" && (
+                      <Button size="sm" variant="outline" className="gap-1" onClick={() => {
+                        setReservations(prev => prev.map(r => r.id === selectedReservation.id ? { ...r, statut: "terminée" } : r));
+                        setSelectedReservation({ ...selectedReservation, statut: "terminée" });
+                        toast({ title: "Réservation terminée" });
+                      }}>
+                        <CheckCircle className="h-3.5 w-3.5" /> Terminer
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </SidebarProvider>
