@@ -1202,6 +1202,115 @@ export default function Boss() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ═══ Reservation Detail Modal ═══ */}
+      <Dialog open={!!selectedReservation} onOpenChange={() => setSelectedReservation(null)}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Détails de la réservation {selectedReservation?.id}</DialogTitle>
+          </DialogHeader>
+          {selectedReservation && (() => {
+            const img = getVehicleImage(selectedReservation.vehicule, selectedReservation.vehiculeId);
+            return (
+              <div className="space-y-5">
+                {/* Vehicle info */}
+                <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/40">
+                  {img ? (
+                    <img src={img} alt={selectedReservation.vehicule} className="h-16 w-16 rounded-xl object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="h-16 w-16 rounded-xl bg-muted flex items-center justify-center flex-shrink-0"><Car className="h-6 w-6 text-muted-foreground" /></div>
+                  )}
+                  <div>
+                    <p className="font-display font-bold text-lg">{selectedReservation.vehicule}</p>
+                    <Badge variant="outline" className={statColors[selectedReservation.statut] || ""}>{selectedReservation.statut}</Badge>
+                  </div>
+                </div>
+
+                {/* Client info */}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Client</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span>{selectedReservation.client}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span>{selectedReservation.email}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span>{selectedReservation.telephone}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span>{selectedReservation.ville}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dates */}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Période</p>
+                  <div className="flex items-center gap-3 text-sm">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span>{selectedReservation.debut} → {selectedReservation.fin}</span>
+                  </div>
+                </div>
+
+                {/* Financial */}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Financier</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 rounded-xl bg-muted/40 text-center">
+                      <p className="text-xs text-muted-foreground">Montant</p>
+                      <p className="text-lg font-bold">{selectedReservation.montant} €</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-muted/40 text-center">
+                      <p className="text-xs text-muted-foreground">Caution</p>
+                      <p className="text-lg font-bold">{selectedReservation.caution} €</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Gérer la réservation</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedReservation.statut === "en attente" && (
+                      <Button size="sm" className="gap-1" onClick={() => {
+                        setReservations(prev => prev.map(r => r.id === selectedReservation.id ? { ...r, statut: "confirmée" } : r));
+                        setSelectedReservation({ ...selectedReservation, statut: "confirmée" });
+                        toast({ title: "Réservation confirmée" });
+                      }}>
+                        <CheckCircle className="h-3.5 w-3.5" /> Confirmer
+                      </Button>
+                    )}
+                    {["confirmée", "en attente"].includes(selectedReservation.statut) && (
+                      <Button size="sm" variant="destructive" className="gap-1" onClick={() => {
+                        setReservations(prev => prev.map(r => r.id === selectedReservation.id ? { ...r, statut: "annulée" } : r));
+                        setSelectedReservation({ ...selectedReservation, statut: "annulée" });
+                        toast({ title: "Réservation annulée" });
+                      }}>
+                        <XCircle className="h-3.5 w-3.5" /> Annuler
+                      </Button>
+                    )}
+                    {selectedReservation.statut === "en cours" && (
+                      <Button size="sm" variant="outline" className="gap-1" onClick={() => {
+                        setReservations(prev => prev.map(r => r.id === selectedReservation.id ? { ...r, statut: "terminée" } : r));
+                        setSelectedReservation({ ...selectedReservation, statut: "terminée" });
+                        toast({ title: "Réservation terminée" });
+                      }}>
+                        <CheckCircle className="h-3.5 w-3.5" /> Terminer
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 }
