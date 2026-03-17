@@ -725,28 +725,42 @@ export default function Boss() {
                               <TableHead className="hidden sm:table-cell">Début</TableHead>
                               <TableHead className="hidden sm:table-cell">Fin</TableHead>
                               <TableHead>Montant</TableHead>
+                              <TableHead>Caution</TableHead>
                               <TableHead>Statut</TableHead>
                               <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {filteredRes.map(r => (
+                            {filteredRes.map(r => {
+                              const img = getVehicleImage(r.vehicule, r.vehiculeId);
+                              return (
                               <TableRow key={r.id}>
                                 <TableCell className="font-mono text-xs">{r.id}</TableCell>
                                 <TableCell className="font-medium">{r.client}</TableCell>
                                 <TableCell className="text-xs hidden md:table-cell">{r.email}</TableCell>
-                                <TableCell>{r.vehicule}</TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    {img ? (
+                                      <img src={img} alt={r.vehicule} className="h-8 w-8 rounded-lg object-cover flex-shrink-0" />
+                                    ) : (
+                                      <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0"><Car className="h-3 w-3 text-muted-foreground" /></div>
+                                    )}
+                                    <span>{r.vehicule}</span>
+                                  </div>
+                                </TableCell>
                                 <TableCell className="text-xs hidden sm:table-cell">{r.debut}</TableCell>
                                 <TableCell className="text-xs hidden sm:table-cell">{r.fin}</TableCell>
                                 <TableCell className="font-semibold">{r.montant} €</TableCell>
+                                <TableCell className="font-semibold">{r.caution} €</TableCell>
                                 <TableCell>
                                   <Badge variant="outline" className={statColors[r.statut] || ""}>{r.statut}</Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  <Button variant="ghost" size="icon"><Eye className="h-4 w-4" /></Button>
+                                  <Button variant="ghost" size="icon" onClick={() => setSelectedReservation(r)}><Eye className="h-4 w-4" /></Button>
                                 </TableCell>
                               </TableRow>
-                            ))}
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       </div>
