@@ -563,11 +563,17 @@ export default function Boss() {
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-3">
-                          {mockReservations.slice(0, 5).map(r => (
+                          {reservations.slice(0, 5).map(r => {
+                            const img = getVehicleImage(r.vehicule, r.vehiculeId);
+                            return (
                             <div key={r.id} className="flex items-center gap-4 p-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors">
-                              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground flex-shrink-0">
-                                <Car className="h-4 w-4" />
-                              </div>
+                              {img ? (
+                                <img src={img} alt={r.vehicule} className="h-10 w-10 rounded-full object-cover flex-shrink-0" />
+                              ) : (
+                                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground flex-shrink-0">
+                                  <Car className="h-4 w-4" />
+                                </div>
+                              )}
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium truncate">{r.client}</p>
                                 <p className="text-xs text-muted-foreground">{r.vehicule} · {r.debut}</p>
@@ -577,7 +583,8 @@ export default function Boss() {
                                 <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${statColors[r.statut] || ""}`}>{r.statut}</Badge>
                               </div>
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </CardContent>
                     </Card>
