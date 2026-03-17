@@ -827,7 +827,8 @@ export default function Boss() {
                                   <Badge variant="outline" className={etatColors[f.etat] || ""}>{f.etat}</Badge>
                                 </TableCell>
                               </TableRow>
-                            ))}
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       </div>
