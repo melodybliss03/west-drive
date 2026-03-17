@@ -658,12 +658,21 @@ export default function Boss() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {filteredVehicles.map(v => (
+                            {filteredVehicles.map(v => {
+                              const img = vehicleImages[v.id];
+                              return (
                               <TableRow key={v.id}>
                                 <TableCell>
-                                  <div>
-                                    <p className="font-medium">{v.nom}</p>
-                                    <p className="text-xs text-muted-foreground">{v.transmission} · {v.energie}</p>
+                                  <div className="flex items-center gap-3">
+                                    {img ? (
+                                      <img src={img} alt={v.nom} className="h-10 w-10 rounded-lg object-cover flex-shrink-0" />
+                                    ) : (
+                                      <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0"><Car className="h-4 w-4 text-muted-foreground" /></div>
+                                    )}
+                                    <div>
+                                      <p className="font-medium">{v.nom}</p>
+                                      <p className="text-xs text-muted-foreground">{v.transmission} · {v.energie}</p>
+                                    </div>
                                   </div>
                                 </TableCell>
                                 <TableCell><Badge variant="outline">{v.categorie}</Badge></TableCell>
