@@ -4,8 +4,10 @@ import {
   Car, Users, CalendarCheck, BarChart3, Plus, Edit, Trash2, Eye,
   Search, TrendingUp, TrendingDown, Bell,
   DollarSign, CheckCircle, XCircle, AlertTriangle, Truck, LogOut, Shield,
-  Eye as EyeIcon, EyeOff, UserCog, Save, Mail, Phone, ArrowRight, UserPlus
+  Eye as EyeIcon, EyeOff, UserCog, Save, Mail, Phone, ArrowRight, UserPlus,
+  MapPin, Clock, CreditCard
 } from "lucide-react";
+import { vehicleImages } from "@/data/vehicleImages";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
