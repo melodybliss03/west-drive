@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import type { Vehicule } from "@/data/mock";
 import { vehicleImages } from "@/data/vehicleImages";
 import { motion } from "framer-motion";
+import ReservationDialog from "@/components/ReservationDialog";
 
 const energieLabels: Record<string, string> = {
   ESSENCE: "Essence",
@@ -45,11 +46,17 @@ export default function VehiculeCard({ vehicule, index = 0 }: { vehicule: Vehicu
       </div>
 
       <div className="p-4 space-y-3">
-        <div>
-          <h3 className="font-display font-semibold text-lg leading-tight">{vehicule.nom}</h3>
-          <p className="text-sm text-muted-foreground">
-            {vehicule.categorie.charAt(0) + vehicule.categorie.slice(1).toLowerCase()} &middot; {vehicule.annee}
-          </p>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h3 className="font-display font-semibold text-lg leading-tight">{vehicule.nom}</h3>
+            <p className="text-sm text-muted-foreground">
+              {vehicule.categorie.charAt(0) + vehicule.categorie.slice(1).toLowerCase()} &middot; {vehicule.annee}
+            </p>
+          </div>
+          <div className="text-right shrink-0">
+            <span className="text-2xl font-display font-bold text-primary">{vehicule.prixJour}&euro;</span>
+            <span className="text-sm text-muted-foreground"> /jour</span>
+          </div>
         </div>
 
         <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -77,17 +84,16 @@ export default function VehiculeCard({ vehicule, index = 0 }: { vehicule: Vehicu
           </div>
         </div>
 
-        <div className="flex items-end justify-between pt-2 border-t border-border">
-          <div>
-            <span className="text-2xl font-display font-bold text-primary">{vehicule.prixJour}&euro;</span>
-            <span className="text-sm text-muted-foreground"> /jour</span>
-          </div>
+        <div className="flex items-center gap-2 pt-2 border-t border-border">
+          <Link to={`/vehicules/${vehicule.id}`} className="flex-1">
+            <Button variant="outline" size="sm" className="w-full">Détail</Button>
+          </Link>
           {vehicule.disponible ? (
-            <Link to={`/vehicules/${vehicule.id}`}>
-              <Button size="sm">Réserver</Button>
-            </Link>
+            <ReservationDialog vehiculeName={vehicule.nom}>
+              <Button size="sm" className="flex-1">Réserver</Button>
+            </ReservationDialog>
           ) : (
-            <Button size="sm" disabled>
+            <Button size="sm" disabled className="flex-1">
               Indisponible
             </Button>
           )}
