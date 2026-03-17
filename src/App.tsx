@@ -18,6 +18,7 @@ import Entreprise from "./pages/Entreprise";
 import Devis from "./pages/Devis";
 import NotFound from "./pages/NotFound";
 import Boss from "./pages/Boss";
+import { AutoScrollToTop } from "./components/AutoScrollToTop";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+        <AutoScrollToTop/>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/vehicules" element={<Vehicules />} />
