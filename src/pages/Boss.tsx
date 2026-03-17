@@ -805,9 +805,20 @@ export default function Boss() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {mockFlotte.map(f => (
+                            {mockFlotte.map(f => {
+                              const img = getVehicleImage(f.vehicule);
+                              return (
                               <TableRow key={f.id}>
-                                <TableCell className="font-medium">{f.vehicule}</TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    {img ? (
+                                      <img src={img} alt={f.vehicule} className="h-8 w-8 rounded-lg object-cover flex-shrink-0" />
+                                    ) : (
+                                      <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0"><Car className="h-3 w-3 text-muted-foreground" /></div>
+                                    )}
+                                    <span className="font-medium">{f.vehicule}</span>
+                                  </div>
+                                </TableCell>
                                 <TableCell className="font-mono text-xs">{f.plaque}</TableCell>
                                 <TableCell className="hidden sm:table-cell">{f.km.toLocaleString()} km</TableCell>
                                 <TableCell className="text-xs hidden md:table-cell">{f.dernierEntretien}</TableCell>
