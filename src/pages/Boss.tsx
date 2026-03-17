@@ -241,6 +241,8 @@ export default function Boss() {
   const [searchR, setSearchR] = useState("");
   const [searchU, setSearchU] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [selectedReservation, setSelectedReservation] = useState<typeof mockReservations[0] | null>(null);
+  const [reservations, setReservations] = useState(mockReservations);
 
   // ── Team members state ──
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialTeamMembers);
