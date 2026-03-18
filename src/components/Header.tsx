@@ -10,7 +10,7 @@ const navLinks = [
   { label: "Particulier", href: "/particulier", anchor: null },
   { label: "Entreprise", href: "/entreprise", anchor: null },
   { label: "Nos Véhicules", href: "/vehicules", anchor: null },
-  { label: "Nous contacter", href: "/contact", anchor: "#contact" },
+  { label: "Nous contacter", href: "/contact", anchor: null },
 ];
 
 export default function Header() {
