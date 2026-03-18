@@ -17,7 +17,7 @@ import Particulier from "./pages/Particulier";
 import Entreprise from "./pages/Entreprise";
 import Devis from "./pages/Devis";
 import NotFound from "./pages/NotFound";
-import Boss from "./pages/Boss";
+import Boss from "./pages/admin";
 import { AutoScrollToTop } from "./components/AutoScrollToTop";
 
 const queryClient = new QueryClient();
