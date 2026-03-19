@@ -67,11 +67,32 @@ export default function ReservationDialog({ children, vehiculeName, vehiculeCate
     e.preventDefault();
     if (!validate()) return;
     setLoading(true);
+
+    const dateDebut = new Date(form.dateDebut);
+    const dateFin = new Date(form.dateFin);
+    const nbJours = Math.max(1, Math.ceil((dateFin.getTime() - dateDebut.getTime()) / (1000 * 60 * 60 * 24)));
+    const prixJour = vehiculePrixJour || 50;
+    const total = nbJours * prixJour;
+    const reservationId = `WD-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`;
+
     setTimeout(() => {
       setLoading(false);
-      setSuccess(true);
-      toast({ title: "Réservation envoyée !", description: "Nous vous confirmerons sous 24h." });
-    }, 1500);
+      setOpen(false);
+      navigate("/checkout", {
+        state: {
+          vehiculeName: vehiculeName || "Véhicule",
+          categorie: vehiculeCategorie || "COMPACTE",
+          dateDebut: form.dateDebut,
+          dateFin: form.dateFin,
+          prixJour,
+          nbJours,
+          total,
+          reservationId,
+          email: form.email,
+          nom: form.nom,
+        },
+      });
+    }, 500);
   };
 
   const reset = () => {

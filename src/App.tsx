@@ -16,6 +16,7 @@ import Espace from "./pages/Espace";
 import Particulier from "./pages/Particulier";
 import Entreprise from "./pages/Entreprise";
 import Devis from "./pages/Devis";
+import Checkout from "./pages/Checkout";
 import NotFound from "./pages/NotFound";
 import Boss from "./pages/admin";
 import { AutoScrollToTop } from "./components/AutoScrollToTop";
