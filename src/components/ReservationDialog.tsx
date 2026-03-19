@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { User, Building2, Send } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { User, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -18,15 +19,18 @@ const villes = ["Puteaux", "La Défense", "Neuilly-sur-Seine", "Levallois-Perret
 interface ReservationDialogProps {
   children: React.ReactNode;
   vehiculeName?: string;
+  vehiculeCategorie?: string;
+  vehiculePrixJour?: number;
 }
 
-export default function ReservationDialog({ children, vehiculeName }: ReservationDialogProps) {
+export default function ReservationDialog({ children, vehiculeName, vehiculeCategorie, vehiculePrixJour }: ReservationDialogProps) {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<ClientType>("particulier");
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [success, setSuccess] = useState(false);
+  
 
   const [form, setForm] = useState({
     nom: "", email: "", telephone: "",
@@ -63,15 +67,35 @@ export default function ReservationDialog({ children, vehiculeName }: Reservatio
     e.preventDefault();
     if (!validate()) return;
     setLoading(true);
+
+    const dateDebut = new Date(form.dateDebut);
+    const dateFin = new Date(form.dateFin);
+    const nbJours = Math.max(1, Math.ceil((dateFin.getTime() - dateDebut.getTime()) / (1000 * 60 * 60 * 24)));
+    const prixJour = vehiculePrixJour || 50;
+    const total = nbJours * prixJour;
+    const reservationId = `WD-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`;
+
     setTimeout(() => {
       setLoading(false);
-      setSuccess(true);
-      toast({ title: "Réservation envoyée !", description: "Nous vous confirmerons sous 24h." });
-    }, 1500);
+      setOpen(false);
+      navigate("/checkout", {
+        state: {
+          vehiculeName: vehiculeName || "Véhicule",
+          categorie: vehiculeCategorie || "COMPACTE",
+          dateDebut: form.dateDebut,
+          dateFin: form.dateFin,
+          prixJour,
+          nbJours,
+          total,
+          reservationId,
+          email: form.email,
+          nom: form.nom,
+        },
+      });
+    }, 500);
   };
 
   const reset = () => {
-    setSuccess(false);
     setForm({ nom: "", email: "", telephone: "", nomEntreprise: "", siret: "", ville: "", dateDebut: "", heureDebut: "", dateFin: "", heureFin: "" });
     setErrors({});
   };
@@ -88,16 +112,6 @@ export default function ReservationDialog({ children, vehiculeName }: Reservatio
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        {success ? (
-          <div className="text-center py-8">
-            <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-5">
-              <Send className="h-6 w-6 text-primary" />
-            </div>
-            <DialogTitle className="font-display text-2xl font-bold mb-2">Réservation envoyée !</DialogTitle>
-            <p className="text-muted-foreground mb-6">Notre équipe vous confirmera sous 24h.</p>
-            <Button onClick={reset}>Nouvelle réservation</Button>
-          </div>
-        ) : (
           <>
             <DialogHeader>
               <DialogTitle className="font-display text-xl font-bold">
@@ -202,7 +216,6 @@ export default function ReservationDialog({ children, vehiculeName }: Reservatio
               </Button>
             </form>
           </>
-        )}
       </DialogContent>
     </Dialog>
   );
