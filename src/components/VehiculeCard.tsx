@@ -89,7 +89,7 @@ export default function VehiculeCard({ vehicule, index = 0 }: { vehicule: Vehicu
             <Button variant="outline" size="sm" className="w-full">Détail</Button>
           </Link>
           {vehicule.disponible ? (
-            <ReservationDialog vehiculeName={vehicule.nom}>
+            <ReservationDialog vehiculeName={vehicule.nom} vehiculeCategorie={vehicule.categorie} vehiculePrixJour={vehicule.prixJour}>
               <Button size="sm" className="flex-1">Réserver</Button>
             </ReservationDialog>
           ) : (
