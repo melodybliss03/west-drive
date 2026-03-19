@@ -96,7 +96,6 @@ export default function ReservationDialog({ children, vehiculeName, vehiculeCate
   };
 
   const reset = () => {
-    setSuccess(false);
     setForm({ nom: "", email: "", telephone: "", nomEntreprise: "", siret: "", ville: "", dateDebut: "", heureDebut: "", dateFin: "", heureFin: "" });
     setErrors({});
   };
