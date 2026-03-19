@@ -23,8 +23,9 @@ interface ReservationDialogProps {
   vehiculePrixJour?: number;
 }
 
-export default function ReservationDialog({ children, vehiculeName }: ReservationDialogProps) {
+export default function ReservationDialog({ children, vehiculeName, vehiculeCategorie, vehiculePrixJour }: ReservationDialogProps) {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<ClientType>("particulier");
   const [loading, setLoading] = useState(false);
