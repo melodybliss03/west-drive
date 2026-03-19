@@ -112,7 +112,6 @@ export default function ReservationDialog({ children, vehiculeName, vehiculeCate
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <>
             <DialogHeader>
               <DialogTitle className="font-display text-xl font-bold">
                 Réserver{vehiculeName ? ` — ${vehiculeName}` : ""}
@@ -215,7 +214,6 @@ export default function ReservationDialog({ children, vehiculeName, vehiculeCate
                 {loading ? "Envoi en cours..." : "Confirmer ma réservation"}
               </Button>
             </form>
-          </>
       </DialogContent>
     </Dialog>
   );

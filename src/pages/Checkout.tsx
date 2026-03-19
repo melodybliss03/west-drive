@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, CreditCard, Lock, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,25 @@ type Devise = "FCFA" | "EUR";
 
 const TAUX_CONVERSION = 655.957;
 const FRAIS_CONVERSION = 0.0375;
+
+// Pays utilisant le FCFA
+const paysFCFA = [
+  "Togo", "Bénin", "Côte d'Ivoire", "Sénégal", "Cameroun",
+  "Gabon", "Mali", "Burkina Faso", "Niger", "Guinée", "Congo",
+  "Tchad", "Centrafrique", "Guinée-Bissau", "Guinée équatoriale",
+];
+
+const tousLesPays = [
+  "Togo", "Bénin", "Côte d'Ivoire", "Sénégal", "Cameroun",
+  "Gabon", "Mali", "Burkina Faso", "Niger", "Guinée", "Congo",
+  "Tchad", "Centrafrique", "Guinée-Bissau", "Guinée équatoriale",
+  "France", "Belgique", "Suisse", "Canada", "Allemagne", "Espagne",
+  "Italie", "Portugal", "Pays-Bas", "Luxembourg",
+];
+
+function getDeviseFromPays(pays: string): Devise {
+  return paysFCFA.includes(pays) ? "FCFA" : "EUR";
+}
 
 export default function Checkout() {
   const location = useLocation();
@@ -27,7 +46,6 @@ export default function Checkout() {
     nom: string;
   } | null;
 
-  const [devise, setDevise] = useState<Devise>("FCFA");
   const [codePromo, setCodePromo] = useState("");
   const [showPromo, setShowPromo] = useState(false);
   const [saveInfo, setSaveInfo] = useState(false);
@@ -35,13 +53,18 @@ export default function Checkout() {
   const [success, setSuccess] = useState(false);
 
   const [cardForm, setCardForm] = useState({
-    email: reservation?.email || "",
     numero: "",
     expiration: "",
     cvc: "",
-    titulaire: reservation?.nom || "",
     pays: "Togo",
   });
+
+  const [devise, setDevise] = useState<Devise>(() => getDeviseFromPays("Togo"));
+
+  // Auto-switch devise when country changes
+  useEffect(() => {
+    setDevise(getDeviseFromPays(cardForm.pays));
+  }, [cardForm.pays]);
 
   if (!reservation) {
     return (
@@ -55,8 +78,12 @@ export default function Checkout() {
   }
 
   const totalEUR = reservation.total;
+  const prixJourEUR = reservation.prixJour;
   const totalFCFA = Math.round(totalEUR * TAUX_CONVERSION * (1 + FRAIS_CONVERSION));
+  const prixJourFCFA = Math.round(prixJourEUR * TAUX_CONVERSION * (1 + FRAIS_CONVERSION));
+
   const montantAffiche = devise === "FCFA" ? totalFCFA.toLocaleString("fr-FR") + " FCFA" : totalEUR.toFixed(2) + " €";
+  const prixJourAffiche = devise === "FCFA" ? prixJourFCFA.toLocaleString("fr-FR") + " FCFA" : prixJourEUR.toFixed(2) + " €";
 
   const formatCardNumber = (value: string) => {
     const v = value.replace(/\D/g, "").slice(0, 16);
@@ -89,7 +116,7 @@ export default function Checkout() {
           <h1 className="text-2xl font-bold text-foreground">Paiement confirmé !</h1>
           <p className="text-muted-foreground">
             Votre réservation <span className="font-semibold">{reservation.reservationId}</span> a été confirmée.
-            Un email de confirmation a été envoyé à <span className="font-semibold">{cardForm.email}</span>.
+            Un email de confirmation a été envoyé à <span className="font-semibold">{reservation.email}</span>.
           </p>
           <Button onClick={() => navigate("/")} className="mt-4">Retour à l'accueil</Button>
         </div>
@@ -110,30 +137,25 @@ export default function Checkout() {
             <span>West Drive</span>
           </button>
 
-          {/* Currency selector */}
+          {/* Vehicle info */}
           <div className="mb-6">
-            <p className="text-sm font-medium text-foreground mb-3">Choisissez une devise :</p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setDevise("FCFA")}
-                className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${
-                  devise === "FCFA"
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-card border-border text-foreground hover:border-primary/50"
-                }`}
-              >
-                {totalFCFA.toLocaleString("fr-FR")} FCFA
-              </button>
-              <button
-                onClick={() => setDevise("EUR")}
-                className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${
-                  devise === "EUR"
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-card border-border text-foreground hover:border-primary/50"
-                }`}
-              >
-                {totalEUR.toFixed(2)} €
-              </button>
+            <h2 className="text-lg font-semibold text-foreground">{reservation.vehiculeName}</h2>
+            <p className="text-sm text-muted-foreground">
+              Catégorie : {reservation.categorie} · {prixJourAffiche}/jour · {reservation.nbJours} jour{reservation.nbJours > 1 ? "s" : ""}
+            </p>
+          </div>
+
+          {/* Currency auto-info */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2">
+              <span className={`px-4 py-2 rounded-full text-sm font-medium border bg-primary text-primary-foreground border-primary`}>
+                {devise === "FCFA"
+                  ? totalFCFA.toLocaleString("fr-FR") + " FCFA"
+                  : totalEUR.toFixed(2) + " €"}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                Devise basée sur : <span className="font-medium text-foreground">{cardForm.pays}</span>
+              </span>
             </div>
             {devise === "FCFA" && (
               <p className="text-xs text-muted-foreground mt-2">
@@ -148,11 +170,14 @@ export default function Checkout() {
             <div className="flex justify-between items-start">
               <div>
                 <p className="font-medium text-foreground">
-                  Location véhicule {reservation.categorie}
+                  Location — {reservation.vehiculeName}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Réservation {reservation.reservationId} — Du {new Date(reservation.dateDebut).toLocaleDateString("fr-FR")} au{" "}
+                  Réf. {reservation.reservationId} — Du {new Date(reservation.dateDebut).toLocaleDateString("fr-FR")} au{" "}
                   {new Date(reservation.dateFin).toLocaleDateString("fr-FR")}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {prixJourAffiche} × {reservation.nbJours} jour{reservation.nbJours > 1 ? "s" : ""}
                 </p>
               </div>
               <p className="font-medium text-foreground whitespace-nowrap">{montantAffiche}</p>
@@ -195,6 +220,13 @@ export default function Checkout() {
                 <span className="text-foreground">{montantAffiche}</span>
               </div>
             </div>
+
+            {/* Client info summary */}
+            <div className="border-t border-border pt-4 space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Client</p>
+              <p className="text-sm text-foreground">{reservation.nom}</p>
+              <p className="text-sm text-muted-foreground">{reservation.email}</p>
+            </div>
           </div>
         </div>
 
@@ -212,18 +244,27 @@ export default function Checkout() {
           </div>
 
           <form onSubmit={handlePay} className="space-y-5 flex-1">
-            {/* Coordonnées */}
+            {/* Coordonnées (read-only, from reservation) */}
             <div>
               <h3 className="font-semibold text-foreground mb-3">Coordonnées</h3>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">E-mail</span>
-                <Input
-                  type="email"
-                  value={cardForm.email}
-                  onChange={(e) => setCardForm({ ...cardForm, email: e.target.value })}
-                  className="pl-16"
-                  required
-                />
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">E-mail</label>
+                  <Input
+                    type="email"
+                    value={reservation.email}
+                    readOnly
+                    className="bg-muted/50 cursor-not-allowed"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Nom complet</label>
+                  <Input
+                    value={reservation.nom}
+                    readOnly
+                    className="bg-muted/50 cursor-not-allowed"
+                  />
+                </div>
               </div>
             </div>
 
@@ -269,37 +310,15 @@ export default function Checkout() {
                   </div>
 
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Nom du titulaire de la carte</label>
-                    <Input
-                      value={cardForm.titulaire}
-                      onChange={(e) => setCardForm({ ...cardForm, titulaire: e.target.value })}
-                      placeholder="Nom complet"
-                      required
-                    />
-                  </div>
-
-                  <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Pays ou région</label>
                     <select
                       value={cardForm.pays}
                       onChange={(e) => setCardForm({ ...cardForm, pays: e.target.value })}
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      <option value="Togo">Togo</option>
-                      <option value="France">France</option>
-                      <option value="Bénin">Bénin</option>
-                      <option value="Côte d'Ivoire">Côte d'Ivoire</option>
-                      <option value="Sénégal">Sénégal</option>
-                      <option value="Cameroun">Cameroun</option>
-                      <option value="Gabon">Gabon</option>
-                      <option value="Mali">Mali</option>
-                      <option value="Burkina Faso">Burkina Faso</option>
-                      <option value="Niger">Niger</option>
-                      <option value="Guinée">Guinée</option>
-                      <option value="Congo">Congo</option>
-                      <option value="Belgique">Belgique</option>
-                      <option value="Suisse">Suisse</option>
-                      <option value="Canada">Canada</option>
+                      {tousLesPays.map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -339,7 +358,7 @@ export default function Checkout() {
                   Traitement...
                 </span>
               ) : (
-                `Payer`
+                `Payer ${montantAffiche}`
               )}
             </Button>
 
