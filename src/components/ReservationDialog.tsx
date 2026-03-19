@@ -112,16 +112,6 @@ export default function ReservationDialog({ children, vehiculeName, vehiculeCate
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        {success ? (
-          <div className="text-center py-8">
-            <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-5">
-              <Send className="h-6 w-6 text-primary" />
-            </div>
-            <DialogTitle className="font-display text-2xl font-bold mb-2">Réservation envoyée !</DialogTitle>
-            <p className="text-muted-foreground mb-6">Notre équipe vous confirmera sous 24h.</p>
-            <Button onClick={reset}>Nouvelle réservation</Button>
-          </div>
-        ) : (
           <>
             <DialogHeader>
               <DialogTitle className="font-display text-xl font-bold">
