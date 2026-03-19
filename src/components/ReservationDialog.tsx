@@ -216,7 +216,6 @@ export default function ReservationDialog({ children, vehiculeName, vehiculeCate
               </Button>
             </form>
           </>
-        )}
       </DialogContent>
     </Dialog>
   );
