@@ -19,6 +19,8 @@ const villes = ["Puteaux", "La Défense", "Neuilly-sur-Seine", "Levallois-Perret
 interface ReservationDialogProps {
   children: React.ReactNode;
   vehiculeName?: string;
+  vehiculeCategorie?: string;
+  vehiculePrixJour?: number;
 }
 
 export default function ReservationDialog({ children, vehiculeName }: ReservationDialogProps) {
