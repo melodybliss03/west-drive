@@ -214,7 +214,6 @@ export default function ReservationDialog({ children, vehiculeName, vehiculeCate
                 {loading ? "Envoi en cours..." : "Confirmer ma réservation"}
               </Button>
             </form>
-          </>
       </DialogContent>
     </Dialog>
   );
