@@ -30,7 +30,7 @@ export default function ReservationDialog({ children, vehiculeName, vehiculeCate
   const [type, setType] = useState<ClientType>("particulier");
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [success, setSuccess] = useState(false);
+  
 
   const [form, setForm] = useState({
     nom: "", email: "", telephone: "",
