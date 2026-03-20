@@ -16,6 +16,7 @@ const navLinks = [
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [lang, setLang] = useState<"FR" | "EN">("FR");
   const location = useLocation();
   const navigate = useNavigate();
   const isHome = location.pathname === "/";
