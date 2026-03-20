@@ -14,6 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import TopBar from "@/components/TopBar";
@@ -78,6 +80,8 @@ const statutLabels: Record<string, string> = {
 };
 
 export default function Espace() {
+  const { toast } = useToast();
+  const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState("reservations");
 
   return (
@@ -99,7 +103,10 @@ export default function Espace() {
                   Nouvelle réservation
                 </Button>
               </Link>
-              <Button size="sm" variant="outline" className="gap-2">
+              <Button size="sm" variant="outline" className="gap-2" onClick={() => {
+                logout();
+                toast({ title: "Déconnexion", description: "Vous avez été déconnecté avec succès." });
+              }}>
                 <LogOut className="h-4 w-4" />
                 Déconnexion
               </Button>
@@ -251,7 +258,7 @@ export default function Espace() {
                     </div>
                     <div className="flex items-center gap-4">
                       <span className="font-display font-bold text-primary">{f.montant}€</span>
-                      <Button variant="outline" size="sm" className="gap-1.5">
+                      <Button variant="outline" size="sm" className="gap-1.5" onClick={() => toast({ title: "Téléchargement", description: `Facture ${f.id} téléchargée.` })}>
                         <Download className="h-3.5 w-3.5" />
                         PDF
                       </Button>
@@ -282,7 +289,7 @@ export default function Espace() {
                   <label className="text-sm font-medium">Téléphone</label>
                   <input className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card" defaultValue="06 12 34 56 78" />
                 </div>
-                <Button className="mt-2">Enregistrer les modifications</Button>
+                <Button className="mt-2" onClick={() => toast({ title: "Profil mis à jour", description: "Vos informations ont été enregistrées." })}>Enregistrer les modifications</Button>
               </div>
             </TabsContent>
           </Tabs>

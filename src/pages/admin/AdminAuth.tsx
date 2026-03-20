@@ -128,6 +128,11 @@ export default function AdminAuth() {
               {authLoading ? "Chargement..." : authMode === "login" ? "Se connecter" : "Créer le compte"}
             </Button>
           </form>
+          {authMode === "login" && (
+            <div className="text-center mt-3">
+              <button onClick={() => navigate("/boss/mot-de-passe-oublie")} className="text-xs text-primary hover:underline">Mot de passe oublié ?</button>
+            </div>
+          )}
           <p className="text-center text-sm text-muted-foreground mt-4">
             {authMode === "login" ? (
               <>Pas encore de compte admin ? <button onClick={() => setAuthMode("register")} className="text-primary font-medium hover:underline">Créer un compte</button></>

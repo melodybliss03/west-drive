@@ -19,6 +19,8 @@ import Devis from "./pages/Devis";
 import Checkout from "./pages/Checkout";
 import NotFound from "./pages/NotFound";
 import Boss from "./pages/admin";
+import MotDePasseOublie from "./pages/MotDePasseOublie";
+import AdminMotDePasseOublie from "./pages/AdminMotDePasseOublie";
 import { AutoScrollToTop } from "./components/AutoScrollToTop";
 
 const queryClient = new QueryClient();
@@ -45,7 +47,9 @@ const App = () => (
             <Route path="/entreprise" element={<Entreprise />} />
             <Route path="/devis" element={<Devis />} />
             <Route path="/checkout" element={<Checkout />} />
+            <Route path="/mot-de-passe-oublie" element={<MotDePasseOublie />} />
             <Route path="/boss" element={<Boss />} />
+            <Route path="/boss/mot-de-passe-oublie" element={<AdminMotDePasseOublie />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
