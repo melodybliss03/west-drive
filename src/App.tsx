@@ -19,6 +19,8 @@ import Devis from "./pages/Devis";
 import Checkout from "./pages/Checkout";
 import NotFound from "./pages/NotFound";
 import Boss from "./pages/admin";
+import MotDePasseOublie from "./pages/MotDePasseOublie";
+import AdminMotDePasseOublie from "./pages/AdminMotDePasseOublie";
 import { AutoScrollToTop } from "./components/AutoScrollToTop";
 
 const queryClient = new QueryClient();
