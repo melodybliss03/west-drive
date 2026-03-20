@@ -128,6 +128,15 @@ export default function Header() {
                     className={`text-sm font-medium py-2 ${isActive ? "text-primary font-semibold" : "text-foreground/70 hover:text-foreground"}`}>{link.label}</Link>
                 );
               })}
+              <div className="flex items-center gap-2 pb-3">
+                <button
+                  onClick={() => setLang(lang === "FR" ? "EN" : "FR")}
+                  className="flex items-center gap-1 text-xs font-medium text-foreground/70 hover:text-foreground transition-colors px-2 py-1 rounded-md border border-border bg-background"
+                >
+                  <Globe className="h-3.5 w-3.5" />
+                  {lang}
+                </button>
+              </div>
               <div className="flex flex-col gap-2 pt-3 border-t border-border">
                 {user ? (
                   <>
