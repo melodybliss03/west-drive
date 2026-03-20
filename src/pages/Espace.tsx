@@ -109,7 +109,10 @@ export default function Espace() {
                   Nouvelle réservation
                 </Button>
               </Link>
-              <Button size="sm" variant="outline" className="gap-2">
+              <Button size="sm" variant="outline" className="gap-2" onClick={() => {
+                logout();
+                toast({ title: "Déconnexion", description: "Vous avez été déconnecté avec succès." });
+              }}>
                 <LogOut className="h-4 w-4" />
                 Déconnexion
               </Button>
