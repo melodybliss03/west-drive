@@ -295,7 +295,7 @@ export default function Espace() {
                   <label className="text-sm font-medium">Téléphone</label>
                   <input className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card" defaultValue="06 12 34 56 78" />
                 </div>
-                <Button className="mt-2">Enregistrer les modifications</Button>
+                <Button className="mt-2" onClick={() => toast({ title: "Profil mis à jour", description: "Vos informations ont été enregistrées." })}>Enregistrer les modifications</Button>
               </div>
             </TabsContent>
           </Tabs>
