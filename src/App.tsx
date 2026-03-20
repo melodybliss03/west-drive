@@ -47,7 +47,9 @@ const App = () => (
             <Route path="/entreprise" element={<Entreprise />} />
             <Route path="/devis" element={<Devis />} />
             <Route path="/checkout" element={<Checkout />} />
+            <Route path="/mot-de-passe-oublie" element={<MotDePasseOublie />} />
             <Route path="/boss" element={<Boss />} />
+            <Route path="/boss/mot-de-passe-oublie" element={<AdminMotDePasseOublie />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

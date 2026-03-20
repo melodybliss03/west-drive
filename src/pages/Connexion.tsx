@@ -75,7 +75,7 @@ export default function Connexion() {
               </div>
               {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
               <div className="text-right">
-                <a href="#" className="text-xs text-primary hover:underline">Mot de passe oublié ?</a>
+                <Link to="/mot-de-passe-oublie" className="text-xs text-primary hover:underline">Mot de passe oublié ?</Link>
               </div>
             </div>
 
