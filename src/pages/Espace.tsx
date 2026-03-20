@@ -264,7 +264,7 @@ export default function Espace() {
                     </div>
                     <div className="flex items-center gap-4">
                       <span className="font-display font-bold text-primary">{f.montant}€</span>
-                      <Button variant="outline" size="sm" className="gap-1.5">
+                      <Button variant="outline" size="sm" className="gap-1.5" onClick={() => toast({ title: "Téléchargement", description: `Facture ${f.id} téléchargée.` })}>
                         <Download className="h-3.5 w-3.5" />
                         PDF
                       </Button>
