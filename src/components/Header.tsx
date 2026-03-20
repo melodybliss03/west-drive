@@ -55,7 +55,15 @@ export default function Header() {
           })}
         </nav>
 
-        <div className="hidden md:flex items-center">
+        <div className="hidden md:flex items-center gap-3">
+          <button
+            onClick={() => setLang(lang === "FR" ? "EN" : "FR")}
+            className="flex items-center gap-1 text-xs font-medium text-foreground/70 hover:text-foreground transition-colors px-2 py-1 rounded-md border border-border bg-background"
+            aria-label="Changer de langue"
+          >
+            <Globe className="h-3.5 w-3.5" />
+            {lang}
+          </button>
           {user ? (
             <div className="relative">
               <button
