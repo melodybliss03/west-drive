@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, LogOut, LayoutDashboard } from "lucide-react";
+import { Menu, X, LogOut, LayoutDashboard, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,6 +16,7 @@ const navLinks = [
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [lang, setLang] = useState<"FR" | "EN">("FR");
   const location = useLocation();
   const navigate = useNavigate();
   const isHome = location.pathname === "/";
@@ -54,7 +55,15 @@ export default function Header() {
           })}
         </nav>
 
-        <div className="hidden md:flex items-center">
+        <div className="hidden md:flex items-center gap-3">
+          <button
+            onClick={() => setLang(lang === "FR" ? "EN" : "FR")}
+            className="flex items-center gap-1 text-xs font-medium text-foreground/70 hover:text-foreground transition-colors px-2 py-1 rounded-md border border-border bg-background"
+            aria-label="Changer de langue"
+          >
+            <Globe className="h-3.5 w-3.5" />
+            {lang}
+          </button>
           {user ? (
             <div className="relative">
               <button
@@ -119,6 +128,15 @@ export default function Header() {
                     className={`text-sm font-medium py-2 ${isActive ? "text-primary font-semibold" : "text-foreground/70 hover:text-foreground"}`}>{link.label}</Link>
                 );
               })}
+              <div className="flex items-center gap-2 pb-3">
+                <button
+                  onClick={() => setLang(lang === "FR" ? "EN" : "FR")}
+                  className="flex items-center gap-1 text-xs font-medium text-foreground/70 hover:text-foreground transition-colors px-2 py-1 rounded-md border border-border bg-background"
+                >
+                  <Globe className="h-3.5 w-3.5" />
+                  {lang}
+                </button>
+              </div>
               <div className="flex flex-col gap-2 pt-3 border-t border-border">
                 {user ? (
                   <>
