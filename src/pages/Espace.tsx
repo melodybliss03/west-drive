@@ -86,6 +86,8 @@ const statutLabels: Record<string, string> = {
 };
 
 export default function Espace() {
+  const { toast } = useToast();
+  const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState("reservations");
 
   return (
