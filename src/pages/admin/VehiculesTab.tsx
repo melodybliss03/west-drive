@@ -130,18 +130,24 @@ export default function VehiculesTab({ vehicles, setVehicles }: VehiculesTabProp
                   <Input value={editVehicle.modele || ""} onChange={e => setEditVehicle({ ...editVehicle, modele: e.target.value, nom: `${editVehicle.marque} ${e.target.value}` })} />
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Année</Label>
                   <Input type="number" value={editVehicle.annee || 2024} onChange={e => setEditVehicle({ ...editVehicle, annee: +e.target.value })} />
                 </div>
                 <div>
+                  <Label>Places</Label>
+                  <Input type="number" value={editVehicle.nbPlaces || 5} onChange={e => setEditVehicle({ ...editVehicle, nbPlaces: +e.target.value })} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
                   <Label>Prix/jour (€) *</Label>
                   <Input type="number" value={editVehicle.prixJour || 0} onChange={e => setEditVehicle({ ...editVehicle, prixJour: +e.target.value })} />
                 </div>
                 <div>
-                  <Label>Places</Label>
-                  <Input type="number" value={editVehicle.nbPlaces || 5} onChange={e => setEditVehicle({ ...editVehicle, nbPlaces: +e.target.value })} />
+                  <Label>Autre frais (€)</Label>
+                  <Input type="number" placeholder="Optionnel" value={(editVehicle as any).autreFrais || ""} onChange={e => setEditVehicle({ ...editVehicle, autreFrais: e.target.value ? +e.target.value : undefined } as any)} />
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-3">
