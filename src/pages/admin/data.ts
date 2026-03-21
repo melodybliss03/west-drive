@@ -2,7 +2,7 @@ import { vehicleImages } from "@/data/vehicleImages";
 import { vehicules as mockVehicules, type Vehicule } from "@/data/mock";
 
 // ── Types ──
-export type TabKey = "kpi" | "vehicules" | "reservations" | "flotte" | "utilisateurs" | "profil";
+export type TabKey = "kpi" | "vehicules" | "reservations" | "flotte" | "utilisateurs" | "profil" | "devis";
 
 export interface TeamMember {
   id: string;
@@ -29,6 +29,18 @@ export interface Reservation {
   ville: string;
 }
 
+export interface MockUser {
+  id: string;
+  nom: string;
+  prenom: string;
+  email: string;
+  type: string;
+  creeLe: string;
+  reservations: number;
+  statut: string;
+  role: string;
+}
+
 export interface FlotteItem {
   id: string;
   vehicule: string;
@@ -37,6 +49,32 @@ export interface FlotteItem {
   dernierEntretien: string;
   prochainEntretien: string;
   etat: string;
+}
+
+export interface Notification {
+  id: string;
+  type: "reservation" | "devis" | "utilisateur" | "flotte";
+  titre: string;
+  message: string;
+  date: string;
+  lu: boolean;
+}
+
+export interface MockDevis {
+  id: string;
+  client: string;
+  email: string;
+  telephone: string;
+  type: "particulier" | "entreprise";
+  nomEntreprise?: string;
+  siret?: string;
+  ville: string;
+  dateDebut: string;
+  dateFin: string;
+  typeVehicule: string;
+  nombreVehicules: number;
+  statut: "en attente" | "traité" | "refusé";
+  creeLe: string;
 }
 
 // ── Mock data ──
@@ -64,6 +102,14 @@ export const getVehicleImage = (name: string, id?: string): string | undefined =
   return mappedId ? vehicleImages[mappedId] : undefined;
 };
 
+export const mockUsers: MockUser[] = [
+  { id: "U001", nom: "Martin", prenom: "Sophie", email: "sophie@mail.com", type: "particulier", creeLe: "2025-01-15", reservations: 3, statut: "actif", role: "client" },
+  { id: "U002", nom: "Dubois", prenom: "Thomas", email: "thomas@mail.com", type: "particulier", creeLe: "2025-02-01", reservations: 1, statut: "actif", role: "client" },
+  { id: "U003", nom: "Laurent", prenom: "Marie", email: "marie@mail.com", type: "particulier", creeLe: "2024-12-10", reservations: 5, statut: "actif", role: "client" },
+  { id: "U004", nom: "Entreprise ABC", prenom: "—", email: "contact@abc.com", type: "entreprise", creeLe: "2025-01-20", reservations: 8, statut: "actif", role: "client" },
+  { id: "U005", nom: "Leroy", prenom: "Paul", email: "paul@mail.com", type: "particulier", creeLe: "2025-03-01", reservations: 0, statut: "suspendu", role: "client" },
+];
+
 export const mockFlotte: FlotteItem[] = [
   { id: "F001", vehicule: "Peugeot 108", plaque: "AB-123-CD", km: 24500, dernierEntretien: "2025-02-01", prochainEntretien: "2025-05-01", etat: "bon" },
   { id: "F002", vehicule: "Fiat 500", plaque: "EF-456-GH", km: 18200, dernierEntretien: "2025-01-15", prochainEntretien: "2025-04-15", etat: "bon" },
@@ -87,6 +133,12 @@ export const statColors: Record<string, string> = {
   "terminée": "bg-muted text-muted-foreground border-border",
   "en attente": "bg-amber-500/10 text-amber-600 border-amber-200",
   "annulée": "bg-destructive/10 text-destructive border-destructive/20",
+};
+
+export const devisStatColors: Record<string, string> = {
+  "en attente": "bg-amber-500/10 text-amber-600 border-amber-200",
+  "traité": "bg-emerald-500/10 text-emerald-600 border-emerald-200",
+  "refusé": "bg-destructive/10 text-destructive border-destructive/20",
 };
 
 export const etatColors: Record<string, string> = {

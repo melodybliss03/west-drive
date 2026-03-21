@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Car, Plus, Edit, Trash2, Search } from "lucide-react";
+import { Car, Plus, Edit, Trash2, Search, Eye, Fuel, Users, Gauge, MapPin } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -49,9 +49,6 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
   const [isNew, setIsNew] = useState(false);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveLabel, setSaveLabel] = useState("");
-  const [deletingVehicleId, setDeletingVehicleId] = useState<string | null>(null);
 
   const filteredVehicles = vehicles.filter(v => v.nom.toLowerCase().includes(searchV.toLowerCase()) || v.marque.toLowerCase().includes(searchV.toLowerCase()));
 
@@ -241,60 +238,42 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredVehicles.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
-                        {vehicles.length === 0
-                          ? "Aucun véhicule disponible pour le moment."
-                          : "Aucun véhicule ne correspond à votre recherche."}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredVehicles.map(v => {
-                      const img = v.photos[0];
-                      return (
-                        <TableRow key={v.id}>
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              {img ? (
-                                <img src={img} alt={v.nom} className="h-10 w-10 rounded-lg object-cover flex-shrink-0" />
-                              ) : (
-                                <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0"><Car className="h-4 w-4 text-muted-foreground" /></div>
-                              )}
-                              <div>
-                                <p className="font-medium">{v.nom}</p>
-                                <p className="text-xs text-muted-foreground">{v.transmission} · {v.energie}</p>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell><Badge variant="outline">{v.categorie}</Badge></TableCell>
-                          <TableCell className="font-semibold">{v.prixJour} €</TableCell>
-                          <TableCell className="text-xs max-w-[150px] truncate hidden md:table-cell">{v.villes.join(", ")}</TableCell>
-                          <TableCell>
-                            {v.disponible && v.actif ? (
-                              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-200">Disponible</Badge>
+                  {filteredVehicles.map(v => {
+                    const img = vehicleImages[v.id];
+                    return (
+                      <TableRow key={v.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            {img ? (
+                              <img src={img} alt={v.nom} className="h-10 w-10 rounded-lg object-cover flex-shrink-0" />
                             ) : (
-                              <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">Indisponible</Badge>
+                              <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0"><Car className="h-4 w-4 text-muted-foreground" /></div>
                             )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-1">
-                              <Button variant="ghost" size="icon" onClick={() => openEdit(v)} disabled={isSaving || !!deletingVehicleId}><Edit className="h-4 w-4" /></Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setDeleteConfirm(v.id)}
-                                disabled={isSaving || !!deletingVehicleId}
-                                className="text-destructive hover:text-destructive"
-                              >
-                                {deletingVehicleId === v.id ? <Spinner className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
-                              </Button>
+                            <div>
+                              <p className="font-medium">{v.nom}</p>
+                              <p className="text-xs text-muted-foreground">{v.transmission} · {v.energie}</p>
                             </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
+                          </div>
+                        </TableCell>
+                        <TableCell><Badge variant="outline">{v.categorie}</Badge></TableCell>
+                        <TableCell className="font-semibold">{v.prixJour} €</TableCell>
+                        <TableCell className="text-xs max-w-[150px] truncate hidden md:table-cell">{v.villes.join(", ")}</TableCell>
+                        <TableCell>
+                          {v.disponible && v.actif ? (
+                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-200">Disponible</Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">Indisponible</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => openEdit(v)}><Edit className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => setDeleteConfirm(v.id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -343,6 +322,88 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
         )}
       </motion.div>
 
+      {/* Vehicle View Dialog */}
+      <Dialog open={!!viewVehicle} onOpenChange={() => setViewVehicle(null)}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Détails du véhicule</DialogTitle>
+          </DialogHeader>
+          {viewVehicle && (() => {
+            const img = vehicleImages[viewVehicle.id];
+            return (
+              <div className="space-y-5">
+                <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/40">
+                  {img ? (
+                    <img src={img} alt={viewVehicle.nom} className="h-20 w-20 rounded-xl object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="h-20 w-20 rounded-xl bg-muted flex items-center justify-center flex-shrink-0"><Car className="h-8 w-8 text-muted-foreground" /></div>
+                  )}
+                  <div>
+                    <p className="font-display font-bold text-lg">{viewVehicle.nom}</p>
+                    <p className="text-sm text-muted-foreground">{viewVehicle.marque} · {viewVehicle.annee}</p>
+                    {viewVehicle.disponible && viewVehicle.actif ? (
+                      <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-200 mt-1">Disponible</Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 mt-1">Indisponible</Badge>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Caractéristiques</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex items-center gap-2 text-sm"><Car className="h-4 w-4 text-muted-foreground" /><span>{viewVehicle.categorie}</span></div>
+                    <div className="flex items-center gap-2 text-sm"><Gauge className="h-4 w-4 text-muted-foreground" /><span>{viewVehicle.transmission}</span></div>
+                    <div className="flex items-center gap-2 text-sm"><Fuel className="h-4 w-4 text-muted-foreground" /><span>{viewVehicle.energie}</span></div>
+                    <div className="flex items-center gap-2 text-sm"><Users className="h-4 w-4 text-muted-foreground" /><span>{viewVehicle.nbPlaces} places</span></div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Tarification</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 rounded-xl bg-muted/40 text-center">
+                      <p className="text-xs text-muted-foreground">Prix/jour</p>
+                      <p className="text-lg font-bold">{viewVehicle.prixJour} €</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-muted/40 text-center">
+                      <p className="text-xs text-muted-foreground">Km inclus/jour</p>
+                      <p className="text-lg font-bold">{viewVehicle.kmInclus}</p>
+                    </div>
+                  </div>
+                  {(viewVehicle as any).autreFrais && (
+                    <div className="p-3 rounded-xl bg-muted/40 text-center">
+                      <p className="text-xs text-muted-foreground">Autre frais</p>
+                      <p className="text-lg font-bold">{(viewVehicle as any).autreFrais} €</p>
+                    </div>
+                  )}
+                </div>
+
+                {viewVehicle.villes.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">Villes disponibles</p>
+                    <div className="flex flex-wrap gap-2">
+                      {viewVehicle.villes.map(ville => (
+                        <Badge key={ville} variant="outline" className="gap-1">
+                          <MapPin className="h-3 w-3" />{ville}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {viewVehicle.description && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">Description</p>
+                    <p className="text-sm">{viewVehicle.description}</p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       {/* Vehicle Edit Dialog */}
       <Dialog open={!!editVehicle} onOpenChange={() => setEditVehicle(null)}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
@@ -368,18 +429,24 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                   <Input value={editVehicle.modele || ""} onChange={e => setEditVehicle({ ...editVehicle, modele: e.target.value, nom: `${editVehicle.marque} ${e.target.value}` })} />
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Année</Label>
                   <Input type="number" value={editVehicle.annee || 2024} onChange={e => setEditVehicle({ ...editVehicle, annee: +e.target.value })} />
                 </div>
                 <div>
+                  <Label>Places</Label>
+                  <Input type="number" value={editVehicle.nbPlaces || 5} onChange={e => setEditVehicle({ ...editVehicle, nbPlaces: +e.target.value })} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
                   <Label>Prix/jour (€) *</Label>
                   <Input type="number" value={editVehicle.prixJour || 0} onChange={e => setEditVehicle({ ...editVehicle, prixJour: +e.target.value })} />
                 </div>
                 <div>
-                  <Label>Places</Label>
-                  <Input type="number" value={editVehicle.nbPlaces || 5} onChange={e => setEditVehicle({ ...editVehicle, nbPlaces: +e.target.value })} />
+                  <Label>Autre frais (€)</Label>
+                  <Input type="number" placeholder="Optionnel" value={(editVehicle as any).autreFrais || ""} onChange={e => setEditVehicle({ ...editVehicle, autreFrais: e.target.value ? +e.target.value : undefined } as any)} />
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-3">
