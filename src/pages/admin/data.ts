@@ -29,18 +29,6 @@ export interface Reservation {
   ville: string;
 }
 
-export interface MockUser {
-  id: string;
-  nom: string;
-  prenom: string;
-  email: string;
-  type: string;
-  creeLe: string;
-  reservations: number;
-  statut: string;
-  role: string;
-}
-
 export interface FlotteItem {
   id: string;
   vehicule: string;
@@ -75,14 +63,6 @@ export const getVehicleImage = (name: string, id?: string): string | undefined =
   const mappedId = vehicleNameToId[name];
   return mappedId ? vehicleImages[mappedId] : undefined;
 };
-
-export const mockUsers: MockUser[] = [
-  { id: "U001", nom: "Martin", prenom: "Sophie", email: "sophie@mail.com", type: "particulier", creeLe: "2025-01-15", reservations: 3, statut: "actif", role: "client" },
-  { id: "U002", nom: "Dubois", prenom: "Thomas", email: "thomas@mail.com", type: "particulier", creeLe: "2025-02-01", reservations: 1, statut: "actif", role: "client" },
-  { id: "U003", nom: "Laurent", prenom: "Marie", email: "marie@mail.com", type: "particulier", creeLe: "2024-12-10", reservations: 5, statut: "actif", role: "client" },
-  { id: "U004", nom: "Entreprise ABC", prenom: "—", email: "contact@abc.com", type: "entreprise", creeLe: "2025-01-20", reservations: 8, statut: "actif", role: "client" },
-  { id: "U005", nom: "Leroy", prenom: "Paul", email: "paul@mail.com", type: "particulier", creeLe: "2025-03-01", reservations: 0, statut: "suspendu", role: "client" },
-];
 
 export const mockFlotte: FlotteItem[] = [
   { id: "F001", vehicule: "Peugeot 108", plaque: "AB-123-CD", km: 24500, dernierEntretien: "2025-02-01", prochainEntretien: "2025-05-01", etat: "bon" },

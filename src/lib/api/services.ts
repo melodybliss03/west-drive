@@ -1,5 +1,5 @@
 import { apiRequest } from "@/lib/api/client";
-import { AuthTokens, PaginatedCollection, ReservationStatus } from "@/lib/api/types";
+import { AuthTokens, PaginatedCollection, ReservationStatus, UserStatus } from "@/lib/api/types";
 
 export type MeResponse = {
   sub: string;
@@ -10,6 +10,19 @@ export type MeResponse = {
   firstName?: string;
   lastName?: string;
   phone?: string;
+};
+
+export type UserDto = {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  companyName?: string;
+  accountType?: "PARTICULIER" | "ENTREPRISE";
+  createdAt?: string;
+  reservationsCount?: number;
+  status?: UserStatus;
+  role?: string;
 };
 
 export type RegisterPayload = {
@@ -134,7 +147,16 @@ export const authService = {
 
 export const usersService = {
   me: () => apiRequest<MeResponse>("/users/me", { auth: true }),
-  list: () => apiRequest<Array<Record<string, unknown>>>("/users", { auth: true }),
+  list: (params?: PaginationParams) =>
+    apiRequest<PaginatedCollection<UserDto> | UserDto[]>(`/users${toPaginationQuery(params)}`, { auth: true }),
+  detail: (id: string) => apiRequest<UserDto>(`/users/${id}`, { auth: true }),
+  patchStatus: (id: string, status: UserStatus) =>
+    apiRequest<UserDto>(`/users/${id}/status`, {
+      method: "PATCH",
+      body: { status },
+      auth: true,
+    }),
+  remove: (id: string) => apiRequest<{ id: string }>(`/users/${id}`, { method: "DELETE", auth: true }),
 };
 
 export const vehiclesService = {

@@ -6,7 +6,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { type Vehicule } from "@/data/mock";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import type { TabKey, TeamMember } from "./data";
-import { mockReservations, mockUsers, initialTeamMembers } from "./data";
+import type { AdminUser } from "./types";
+import { mockReservations, initialTeamMembers } from "./data";
 import AdminAuth from "./AdminAuth";
 import AdminSidebar from "./AdminSidebar";
 import DashboardTab from "./DashboardTab";
@@ -19,6 +20,26 @@ import { reservationsService, usersService, vehiclesService } from "@/lib/api/se
 import { mapReservationDtoToAdminReservation, mapVehicleDtoToVehicule } from "@/lib/mappers";
 import { PaginationMeta } from "@/lib/api/types";
 
+function extractUsersFromResponse(collection: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(collection)) {
+    return collection as Array<Record<string, unknown>>;
+  }
+
+  if (collection && typeof collection === "object") {
+    const maybeItems = (collection as { items?: unknown }).items;
+    if (Array.isArray(maybeItems)) {
+      return maybeItems as Array<Record<string, unknown>>;
+    }
+
+    const maybeUsers = (collection as { users?: unknown }).users;
+    if (Array.isArray(maybeUsers)) {
+      return maybeUsers as Array<Record<string, unknown>>;
+    }
+  }
+
+  return [];
+}
+
 export default function Boss() {
   const navigate = useNavigate();
   const { user, logout, isBootstrapping } = useAuth();
@@ -27,33 +48,70 @@ export default function Boss() {
   const [vehiclesPage, setVehiclesPage] = useState(1);
   const [vehiclesLimit] = useState(10);
   const [vehiclesMeta, setVehiclesMeta] = useState<PaginationMeta | null>(null);
-  const [users, setUsers] = useState(mockUsers);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [usersPage, setUsersPage] = useState(1);
+  const [usersLimit] = useState(10);
+  const [usersMeta, setUsersMeta] = useState<PaginationMeta | null>(null);
   const [reservations, setReservations] = useState(mockReservations);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialTeamMembers);
-  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isLoadingVehicles, setIsLoadingVehicles] = useState(false);
+  const [isLoadingReservations, setIsLoadingReservations] = useState(false);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+
+  useEffect(() => {
+    if (isBootstrapping || !user || (tab !== "vehicules" && tab !== "kpi")) {
+      return;
+    }
+
+    const loadVehicles = async () => {
+      setIsLoadingVehicles(true);
+      try {
+        const vehiclesCollection = await vehiclesService.list({ page: vehiclesPage, limit: vehiclesLimit }, true);
+        setVehicles(vehiclesCollection.items.map(mapVehicleDtoToVehicule));
+        setVehiclesMeta(vehiclesCollection.meta);
+      } finally {
+        setIsLoadingVehicles(false);
+      }
+    };
+
+    loadVehicles();
+  }, [isBootstrapping, user, tab, vehiclesPage, vehiclesLimit]);
+
+  useEffect(() => {
+    if (isBootstrapping || !user || tab !== "utilisateurs") {
+      return;
+    }
+
+    const loadReservations = async () => {
+      setIsLoadingReservations(true);
+      try {
+        const reservationsDto = await reservationsService.list();
+        setReservations(reservationsDto.map(mapReservationDtoToAdminReservation));
+      } finally {
+        setIsLoadingReservations(false);
+      }
+    };
+
+    loadReservations();
+  }, [isBootstrapping, user]);
 
   useEffect(() => {
     if (isBootstrapping || !user) {
       return;
     }
 
-    const loadAdminData = async () => {
+    const loadUsers = async () => {
+      setIsLoadingUsers(true);
       try {
-        const [vehiclesCollection, reservationsDto, usersDto] = await Promise.all([
-          vehiclesService.list({ page: vehiclesPage, limit: vehiclesLimit }, true),
-          reservationsService.list(),
-          usersService.list(),
-        ]);
+        const usersCollection = await usersService.list({ page: usersPage, limit: usersLimit });
+        const items = extractUsersFromResponse(usersCollection);
+        const hasPaginatedMeta = !!usersCollection && typeof usersCollection === "object" && "meta" in usersCollection;
 
-        setVehicles(vehiclesCollection.items.map(mapVehicleDtoToVehicule));
-        setVehiclesMeta(vehiclesCollection.meta);
-        setReservations(reservationsDto.map(mapReservationDtoToAdminReservation));
-
-        const mappedUsers = usersDto.map((item, index) => {
+        const mappedUsers: AdminUser[] = items.map((item) => {
           const firstName = String(item.firstName || "");
           const lastName = String(item.lastName || "");
           return {
-            id: String(item.id || `U${index + 1}`),
+            id: String(item.id),
             nom: lastName || String(item.companyName || "Client"),
             prenom: firstName || "-",
             email: String(item.email || ""),
@@ -66,15 +124,26 @@ export default function Boss() {
         });
 
         setUsers(mappedUsers);
-      } catch {
-        // Fallback sur mocks si certaines permissions API sont absentes.
+
+        if (!hasPaginatedMeta) {
+          setUsersMeta({
+            page: usersPage,
+            limit: usersLimit,
+            totalItems: mappedUsers.length,
+            totalPages: 1,
+            hasNextPage: false,
+            hasPreviousPage: false,
+          });
+        } else {
+          setUsersMeta((usersCollection as { meta: PaginationMeta }).meta);
+        }
       } finally {
-        setIsLoadingData(false);
+        setIsLoadingUsers(false);
       }
     };
 
-    loadAdminData();
-  }, [isBootstrapping, user, vehiclesPage, vehiclesLimit]);
+    loadUsers();
+  }, [isBootstrapping, user, tab, usersPage, usersLimit]);
 
   if (isBootstrapping) {
     return (
@@ -85,6 +154,15 @@ export default function Boss() {
   }
 
   if (!user) return <AdminAuth />;
+
+  const isLoadingActiveTab =
+    tab === "vehicules"
+      ? isLoadingVehicles
+      : tab === "reservations"
+        ? isLoadingReservations
+        : tab === "utilisateurs"
+          ? isLoadingUsers
+          : false;
 
   const handleLogout = () => { logout(); navigate("/"); };
 
@@ -116,7 +194,7 @@ export default function Boss() {
 
           <main className="flex-1 overflow-auto p-4 md:p-6">
             <div className="max-w-7xl mx-auto space-y-6">
-              {isLoadingData && <p className="text-sm text-muted-foreground">Chargement des données admin...</p>}
+              {isLoadingActiveTab && <p className="text-sm text-muted-foreground">Chargement des données...</p>}
               {tab === "kpi" && (
                 <DashboardTab
                   reservations={reservations}
@@ -139,7 +217,17 @@ export default function Boss() {
               )}
               {tab === "reservations" && <ReservationsTab reservations={reservations} setReservations={setReservations} />}
               {tab === "flotte" && <FlotteTab />}
-              {tab === "utilisateurs" && <UtilisateursTab users={users} />}
+              {tab === "utilisateurs" && (
+                <UtilisateursTab
+                  users={users}
+                  setUsers={setUsers}
+                  page={usersPage}
+                  setPage={setUsersPage}
+                  meta={usersMeta}
+                  setMeta={setUsersMeta}
+                  limit={usersLimit}
+                />
+              )}
               {tab === "profil" && <ProfilTab teamMembers={teamMembers} setTeamMembers={setTeamMembers} />}
             </div>
           </main>
