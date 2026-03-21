@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,6 +12,7 @@ import Resultats from "./pages/Resultats";
 import FAQ from "./pages/FAQ";
 import Contact from "./pages/Contact";
 import Inscription from "./pages/Inscription";
+import InscriptionConfirmation from "./pages/InscriptionConfirmation";
 import Connexion from "./pages/Connexion";
 import Espace from "./pages/Espace";
 import Particulier from "./pages/Particulier";
@@ -22,13 +24,26 @@ import Boss from "./pages/admin";
 import MotDePasseOublie from "./pages/MotDePasseOublie";
 import AdminMotDePasseOublie from "./pages/AdminMotDePasseOublie";
 import { AutoScrollToTop } from "./components/AutoScrollToTop";
+import { systemService } from "@/lib/api/services";
 
 const queryClient = new QueryClient();
+
+function BackendHealthProbe() {
+  useEffect(() => {
+    systemService.health().catch(() => {
+      // L'app reste utilisable même si l'API est temporairement indisponible.
+      console.warn("WestDrive API health check failed");
+    });
+  }, []);
+
+  return null;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
+        <BackendHealthProbe />
         <Toaster />
         <Sonner />
         <BrowserRouter>
@@ -41,6 +56,7 @@ const App = () => (
             <Route path="/faq" element={<FAQ />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/inscription" element={<Inscription />} />
+            <Route path="/inscription/confirmation" element={<InscriptionConfirmation />} />
             <Route path="/connexion" element={<Connexion />} />
             <Route path="/espace" element={<Espace />} />
             <Route path="/particulier" element={<Particulier />} />

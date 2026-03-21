@@ -4,6 +4,8 @@ import { ArrowLeft, Mail, KeyRound, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { authService } from "@/lib/api/services";
+import { ApiHttpError } from "@/lib/api/types";
 
 type Step = "email" | "otp" | "password";
 
@@ -18,7 +20,7 @@ export default function AdminMotDePasseOublie() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const handleEmailSubmit = (e: React.FormEvent) => {
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (!email.trim()) errs.email = "L'email est requis.";
@@ -27,14 +29,20 @@ export default function AdminMotDePasseOublie() {
     if (Object.keys(errs).length > 0) return;
 
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await authService.forgotPassword(email);
       toast({ title: "Code envoyé", description: `Un code OTP a été envoyé à ${email}.` });
       setStep("otp");
-    }, 1200);
+    } catch (error) {
+      const message =
+        error instanceof ApiHttpError ? error.message : "Impossible d'envoyer le code OTP.";
+      toast({ title: "Erreur", description: message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleOtpSubmit = (e: React.FormEvent) => {
+  const handleOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (!otp.trim()) errs.otp = "Le code OTP est requis.";
@@ -43,14 +51,15 @@ export default function AdminMotDePasseOublie() {
     if (Object.keys(errs).length > 0) return;
 
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
       toast({ title: "Code vérifié", description: "Vous pouvez maintenant créer un nouveau mot de passe." });
       setStep("password");
-    }, 1000);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (!password.trim()) errs.password = "Le mot de passe est requis.";
@@ -61,11 +70,17 @@ export default function AdminMotDePasseOublie() {
     if (Object.keys(errs).length > 0) return;
 
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await authService.resetPassword(email, otp, password);
       toast({ title: "Mot de passe mis à jour", description: "Vous pouvez maintenant vous connecter." });
       navigate("/boss");
-    }, 1200);
+    } catch (error) {
+      const message =
+        error instanceof ApiHttpError ? error.message : "Échec de réinitialisation du mot de passe.";
+      toast({ title: "Erreur", description: message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatOtp = (value: string) => value.replace(/\D/g, "").slice(0, 6);

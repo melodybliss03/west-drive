@@ -16,8 +16,6 @@ import Footer from "@/components/Footer";
 import SearchForm from "@/components/SearchForm";
 import VehiculeCard from "@/components/VehiculeCard";
 import {
-  vehicules,
-  getVehiculesByCategorie,
   temoignages,
   faqData,
   villes,
@@ -26,6 +24,7 @@ import type { Categorie } from "@/data/mock";
 import heroBg from "@/assets/hero-bg.jpg";
 import TopBar from "@/components/TopBar";
 import ScrollToTop from "@/components/ScrollToTop";
+import { useVehiclesCatalogPage } from "@/hooks/useVehiclesCatalog";
 
 const categories: { value: Categorie; label: string }[] = [
   { value: "MICRO", label: "Micro" },
@@ -68,8 +67,24 @@ const pourquoiCards = [
 ];
 
 export default function Index() {
-  const getCategorieCount = (cat: Categorie) =>
-    getVehiculesByCategorie(cat).length;
+  const { vehicles: showcaseVehicles } = useVehiclesCatalogPage(1, 12);
+  const [activeCategory, setActiveCategory] = useState<Categorie>("MICRO");
+
+  const getVehiculesByCategorie = (cat: Categorie) =>
+    showcaseVehicles.filter((vehicle) => vehicle.actif && vehicle.categorie === cat);
+
+  const getPreviewVehiculesByCategorie = (cat: Categorie) =>
+    getVehiculesByCategorie(cat).slice(0, 3);
+
+  const getCategorieCount = (cat: Categorie) => getVehiculesByCategorie(cat).length;
+
+  useEffect(() => {
+    const nextCategory = categories.find((cat) => getCategorieCount(cat.value) > 0)?.value || "MICRO";
+
+    if (getCategorieCount(activeCategory) === 0 && nextCategory !== activeCategory) {
+      setActiveCategory(nextCategory);
+    }
+  }, [activeCategory, showcaseVehicles]);
 
   return (
     <div className="min-h-screen">
@@ -164,7 +179,7 @@ export default function Index() {
             </p>
           </div>
 
-          <Tabs defaultValue="MICRO" className="w-full">
+          <Tabs value={activeCategory} onValueChange={(value) => setActiveCategory(value as Categorie)} className="w-full">
             <TabsList className="mx-auto flex w-fit mb-8 border border-border bg-card p-6">
               {categories.map((cat) => (
                 <TabsTrigger
@@ -183,10 +198,16 @@ export default function Index() {
             {categories.map((cat) => (
               <TabsContent key={cat.value} value={cat.value}>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {getVehiculesByCategorie(cat.value).map((v, i) => (
+                  {getPreviewVehiculesByCategorie(cat.value).map((v, i) => (
                     <VehiculeCard key={v.id} vehicule={v} index={i} />
                   ))}
                 </div>
+
+                {getPreviewVehiculesByCategorie(cat.value).length === 0 && (
+                  <p className="text-center text-sm text-muted-foreground py-6">
+                    Aucun véhicule disponible dans cette catégorie pour le moment.
+                  </p>
+                )}
               </TabsContent>
             ))}
           </Tabs>

@@ -3,9 +3,9 @@ import { Fuel, Users, Gauge, Settings2, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { Vehicule } from "@/data/mock";
-import { vehicleImages } from "@/data/vehicleImages";
 import { motion } from "framer-motion";
 import ReservationDialog from "@/components/ReservationDialog";
+import { Car } from "lucide-react";
 
 const energieLabels: Record<string, string> = {
   ESSENCE: "Essence",
@@ -20,6 +20,8 @@ const transmissionLabels: Record<string, string> = {
 };
 
 export default function VehiculeCard({ vehicule, index = 0 }: { vehicule: Vehicule; index?: number }) {
+  const imageSrc = vehicule.photos[0];
+
   const cardContent = (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -28,12 +30,18 @@ export default function VehiculeCard({ vehicule, index = 0 }: { vehicule: Vehicu
       className="group bg-card border border-border rounded-2xl overflow-hidden"
     >
       <div className="relative aspect-[4/3] bg-muted overflow-hidden">
-        <img
-          src={vehicleImages[vehicule.id]}
-          alt={`${vehicule.marque} ${vehicule.modele}`}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          loading="lazy"
-        />
+        {imageSrc ? (
+          <img
+            src={imageSrc}
+            alt={`${vehicule.marque} ${vehicule.modele}`}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+            <Car className="h-10 w-10" />
+          </div>
+        )}
         <Badge
           className={`absolute top-3 right-3 text-xs ${
             vehicule.disponible
@@ -89,7 +97,7 @@ export default function VehiculeCard({ vehicule, index = 0 }: { vehicule: Vehicu
             <Button variant="outline" size="sm" className="w-full">Détail</Button>
           </Link>
           {vehicule.disponible ? (
-            <ReservationDialog vehiculeName={vehicule.nom} vehiculeCategorie={vehicule.categorie} vehiculePrixJour={vehicule.prixJour}>
+            <ReservationDialog vehiculeId={vehicule.id} vehiculeName={vehicule.nom} vehiculeCategorie={vehicule.categorie} vehiculePrixJour={vehicule.prixJour}>
               <Button size="sm" className="flex-1">Réserver</Button>
             </ReservationDialog>
           ) : (

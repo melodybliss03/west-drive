@@ -11,6 +11,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { reservationsService } from "@/lib/api/services";
+import { ApiHttpError } from "@/lib/api/types";
 
 type ClientType = "particulier" | "entreprise";
 
@@ -18,12 +20,13 @@ const villes = ["Puteaux", "La Défense", "Neuilly-sur-Seine", "Levallois-Perret
 
 interface ReservationDialogProps {
   children: React.ReactNode;
+  vehiculeId?: string;
   vehiculeName?: string;
   vehiculeCategorie?: string;
   vehiculePrixJour?: number;
 }
 
-export default function ReservationDialog({ children, vehiculeName, vehiculeCategorie, vehiculePrixJour }: ReservationDialogProps) {
+export default function ReservationDialog({ children, vehiculeId, vehiculeName, vehiculeCategorie, vehiculePrixJour }: ReservationDialogProps) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -63,23 +66,40 @@ export default function ReservationDialog({ children, vehiculeName, vehiculeCate
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
     setLoading(true);
 
-    const dateDebut = new Date(form.dateDebut);
-    const dateFin = new Date(form.dateFin);
+    const dateDebut = new Date(`${form.dateDebut}T${form.heureDebut}:00`);
+    const dateFin = new Date(`${form.dateFin}T${form.heureFin}:00`);
     const nbJours = Math.max(1, Math.ceil((dateFin.getTime() - dateDebut.getTime()) / (1000 * 60 * 60 * 24)));
     const prixJour = vehiculePrixJour || 50;
     const total = nbJours * prixJour;
-    const reservationId = `WD-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    setTimeout(() => {
+    try {
+      const created = await reservationsService.create({
+        vehicleId: vehiculeId,
+        requesterType: type === "entreprise" ? "ENTREPRISE" : "PARTICULIER",
+        requesterName: form.nom,
+        requesterEmail: form.email,
+        requesterPhone: form.telephone,
+        companyName: type === "entreprise" ? form.nomEntreprise : null,
+        companySiret: type === "entreprise" ? form.siret : null,
+        startAt: dateDebut.toISOString(),
+        endAt: dateFin.toISOString(),
+        pickupCity: form.ville,
+        requestedVehicleType: vehiculeCategorie || "COMPACTE",
+        amountTtc: total,
+        depositAmount: Math.max(total * 2, 500),
+      });
+
       setLoading(false);
       setOpen(false);
+      toast({ title: "Réservation envoyée", description: "Votre demande a bien été enregistrée." });
       navigate("/checkout", {
         state: {
+          reservationBackendId: created.id,
           vehiculeName: vehiculeName || "Véhicule",
           categorie: vehiculeCategorie || "COMPACTE",
           dateDebut: form.dateDebut,
@@ -87,12 +107,17 @@ export default function ReservationDialog({ children, vehiculeName, vehiculeCate
           prixJour,
           nbJours,
           total,
-          reservationId,
+          reservationId: created.id,
           email: form.email,
           nom: form.nom,
+          caution: created.depositAmount,
         },
       });
-    }, 500);
+    } catch (error) {
+      const message = error instanceof ApiHttpError ? error.message : "Impossible de créer la réservation.";
+      toast({ title: "Erreur", description: message, variant: "destructive" });
+      setLoading(false);
+    }
   };
 
   const reset = () => {

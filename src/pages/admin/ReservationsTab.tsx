@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import type { Reservation } from "./data";
 import { statColors, getVehicleImage } from "./data";
+import { reservationsService } from "@/lib/api/services";
+import { ApiHttpError } from "@/lib/api/types";
 
 interface ReservationsTabProps {
   reservations: Reservation[];
@@ -22,6 +24,25 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
 
   const filteredRes = reservations.filter(r => r.client.toLowerCase().includes(searchR.toLowerCase()) || r.vehicule.toLowerCase().includes(searchR.toLowerCase()));
+
+  const updateReservationStatus = async (id: string, nextLegacyStatus: Reservation["statut"]) => {
+    const toBackendStatus: Record<string, string> = {
+      "en attente": "EN_ANALYSE",
+      "confirmée": "CONFIRMEE",
+      "en cours": "EN_COURS",
+      "terminée": "CLOTUREE",
+      "annulée": "ANNULEE",
+    };
+
+    try {
+      await reservationsService.patchStatus(id, toBackendStatus[nextLegacyStatus] as any);
+      setReservations(prev => prev.map(r => r.id === id ? { ...r, statut: nextLegacyStatus } : r));
+      setSelectedReservation(prev => (prev && prev.id === id ? { ...prev, statut: nextLegacyStatus } : prev));
+    } catch (error) {
+      const message = error instanceof ApiHttpError ? error.message : "Impossible de mettre à jour cette réservation.";
+      toast({ title: "Erreur", description: message, variant: "destructive" });
+    }
+  };
 
   return (
     <>
@@ -147,27 +168,24 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
                   <p className="text-sm font-medium text-muted-foreground">Gérer la réservation</p>
                   <div className="flex flex-wrap gap-2">
                     {selectedReservation.statut === "en attente" && (
-                      <Button size="sm" className="gap-1" onClick={() => {
-                        setReservations(prev => prev.map(r => r.id === selectedReservation.id ? { ...r, statut: "confirmée" } : r));
-                        setSelectedReservation({ ...selectedReservation, statut: "confirmée" });
+                      <Button size="sm" className="gap-1" onClick={async () => {
+                        await updateReservationStatus(selectedReservation.id, "confirmée");
                         toast({ title: "Réservation confirmée" });
                       }}>
                         <CheckCircle className="h-3.5 w-3.5" /> Confirmer
                       </Button>
                     )}
                     {["confirmée", "en attente"].includes(selectedReservation.statut) && (
-                      <Button size="sm" variant="destructive" className="gap-1" onClick={() => {
-                        setReservations(prev => prev.map(r => r.id === selectedReservation.id ? { ...r, statut: "annulée" } : r));
-                        setSelectedReservation({ ...selectedReservation, statut: "annulée" });
+                      <Button size="sm" variant="destructive" className="gap-1" onClick={async () => {
+                        await updateReservationStatus(selectedReservation.id, "annulée");
                         toast({ title: "Réservation annulée" });
                       }}>
                         <XCircle className="h-3.5 w-3.5" /> Annuler
                       </Button>
                     )}
                     {selectedReservation.statut === "en cours" && (
-                      <Button size="sm" variant="outline" className="gap-1" onClick={() => {
-                        setReservations(prev => prev.map(r => r.id === selectedReservation.id ? { ...r, statut: "terminée" } : r));
-                        setSelectedReservation({ ...selectedReservation, statut: "terminée" });
+                      <Button size="sm" variant="outline" className="gap-1" onClick={async () => {
+                        await updateReservationStatus(selectedReservation.id, "terminée");
                         toast({ title: "Réservation terminée" });
                       }}>
                         <CheckCircle className="h-3.5 w-3.5" /> Terminer

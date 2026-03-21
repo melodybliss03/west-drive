@@ -9,11 +9,12 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import TopBar from "@/components/TopBar";
 import ScrollToTop from "@/components/ScrollToTop";
+import { ApiHttpError } from "@/lib/api/types";
 
 export default function Connexion() {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { loginWithCredentials } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -30,16 +31,26 @@ export default function Connexion() {
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!validate()) return;
     setLoading(true);
-    setTimeout(() => {
-      login({ nom: "Dupont", prenom: "Jean", email });
+
+    try {
+      await loginWithCredentials(email, password);
       toast({ title: "Connexion réussie", description: "Bienvenue sur votre espace." });
-      setLoading(false);
       navigate("/espace");
-    }, 1000);
+    } catch (error) {
+      const message =
+        error instanceof ApiHttpError ? error.message : "Impossible de se connecter pour le moment.";
+      toast({
+        title: "Échec de connexion",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

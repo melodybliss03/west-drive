@@ -4,18 +4,55 @@ import { Eye, EyeOff, User, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import TopBar from "@/components/TopBar";
 import ScrollToTop from "@/components/ScrollToTop";
+import { authService } from "@/lib/api/services";
+import { ApiHttpError } from "@/lib/api/types";
 
 type AccountType = "particulier" | "entreprise";
+
+type FieldProps = {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+  required?: boolean;
+  type?: string;
+  placeholder?: string;
+};
+
+function FormField({
+  id,
+  label,
+  value,
+  onChange,
+  error,
+  required = true,
+  type,
+  placeholder,
+}: FieldProps) {
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor={id} className="text-sm font-medium">{label} {required && <span className="text-primary">*</span>}</label>
+      <Input
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={error ? "border-destructive" : ""}
+        type={type}
+        placeholder={placeholder}
+      />
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
 
 export default function Inscription() {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { login } = useAuth();
   const [type, setType] = useState<AccountType>("particulier");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -49,25 +86,36 @@ export default function Inscription() {
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!validate()) return;
     setLoading(true);
-    setTimeout(() => {
-      login({ nom: form.nom, prenom: form.prenom, email: form.email });
-      toast({ title: "Compte créé avec succès !", description: "Bienvenue chez WEST DRIVE." });
-      setLoading(false);
-      navigate("/espace");
-    }, 1200);
-  };
 
-  const Field = ({ id, label, required = true, ...props }: any) => (
-    <div className="space-y-1.5">
-      <label htmlFor={id} className="text-sm font-medium">{label} {required && <span className="text-primary">*</span>}</label>
-      <Input id={id} value={form[id as keyof typeof form]} onChange={(e: any) => set(id, e.target.value)} className={errors[id] ? "border-destructive" : ""} {...props} />
-      {errors[id] && <p className="text-xs text-destructive">{errors[id]}</p>}
-    </div>
-  );
+    try {
+      await authService.register({
+        accountType: type === "entreprise" ? "ENTREPRISE" : "PARTICULIER",
+        email: form.email,
+        password: form.password,
+        firstName: form.prenom,
+        lastName: form.nom,
+        phone: form.telephone,
+        companyName: type === "entreprise" ? form.raison : undefined,
+        siret: type === "entreprise" ? form.siret.replace(/\s/g, "") : undefined,
+        contactName: type === "entreprise" ? `${form.prenom} ${form.nom}` : undefined,
+        contactEmail: type === "entreprise" ? form.email : undefined,
+        contactPhone: type === "entreprise" ? form.telephone : undefined,
+      });
+
+      toast({ title: "Code OTP envoyé", description: "Vérifiez votre email pour finaliser l'inscription." });
+      navigate(`/inscription/confirmation?email=${encodeURIComponent(form.email)}`);
+    } catch (error) {
+      const message =
+        error instanceof ApiHttpError ? error.message : "Inscription impossible pour le moment.";
+      toast({ title: "Erreur d'inscription", description: message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen">
@@ -92,18 +140,18 @@ export default function Inscription() {
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             {type === "entreprise" && (
               <>
-                <Field id="raison" label="Raison sociale" placeholder="Nom de l'entreprise" />
-                <Field id="siret" label="SIRET" placeholder="XXX XXX XXX XXXXX" />
+                <FormField id="raison" label="Raison sociale" value={form.raison} onChange={(value) => set("raison", value)} error={errors.raison} placeholder="Nom de l'entreprise" />
+                <FormField id="siret" label="SIRET" value={form.siret} onChange={(value) => set("siret", value)} error={errors.siret} placeholder="XXX XXX XXX XXXXX" />
               </>
             )}
 
             <div className="grid grid-cols-2 gap-3">
-              <Field id="prenom" label="Prénom" placeholder="Prénom" />
-              <Field id="nom" label="Nom" placeholder="Nom" />
+              <FormField id="prenom" label="Prénom" value={form.prenom} onChange={(value) => set("prenom", value)} error={errors.prenom} placeholder="Prénom" />
+              <FormField id="nom" label="Nom" value={form.nom} onChange={(value) => set("nom", value)} error={errors.nom} placeholder="Nom" />
             </div>
 
-            <Field id="email" label="Email" type="email" placeholder="votre@email.com" />
-            <Field id="telephone" label="Téléphone" type="tel" placeholder="06 XX XX XX XX" />
+            <FormField id="email" label="Email" value={form.email} onChange={(value) => set("email", value)} error={errors.email} type="email" placeholder="votre@email.com" />
+            <FormField id="telephone" label="Téléphone" value={form.telephone} onChange={(value) => set("telephone", value)} error={errors.telephone} type="tel" placeholder="06 XX XX XX XX" />
 
             <div className="space-y-1.5">
               <label htmlFor="password" className="text-sm font-medium">Mot de passe <span className="text-primary">*</span></label>

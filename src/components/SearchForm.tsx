@@ -8,6 +8,7 @@ import { villes } from "@/data/mock";
 import type { Categorie } from "@/data/mock";
 
 interface SearchFormProps {
+  cities?: Array<{ id: string; nom: string }>;
   defaultValues?: {
     ville?: string;
     debut?: string;
@@ -17,7 +18,7 @@ interface SearchFormProps {
   compact?: boolean;
 }
 
-export default function SearchForm({ defaultValues, compact }: SearchFormProps) {
+export default function SearchForm({ cities, defaultValues, compact }: SearchFormProps) {
   const navigate = useNavigate();
   const [ville, setVille] = useState(defaultValues?.ville || "");
   const [debut, setDebut] = useState(defaultValues?.debut || "");
@@ -40,6 +41,8 @@ export default function SearchForm({ defaultValues, compact }: SearchFormProps) 
     navigate(`/resultats?${params.toString()}`);
   };
 
+  const cityOptions = cities && cities.length > 0 ? cities : villes;
+
   return (
     <form onSubmit={handleSubmit} className={`${compact ? "space-y-3" : "space-y-4"}`}>
       <div className={`grid gap-3 ${compact ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"}`}>
@@ -53,7 +56,7 @@ export default function SearchForm({ defaultValues, compact }: SearchFormProps) 
               <SelectValue placeholder="Choisir une ville" />
             </SelectTrigger>
             <SelectContent>
-              {villes.map((v) => (
+              {cityOptions.map((v) => (
                 <SelectItem key={v.id} value={v.nom}>{v.nom}</SelectItem>
               ))}
             </SelectContent>

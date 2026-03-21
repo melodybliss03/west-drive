@@ -5,10 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import VehiculeCard from "@/components/VehiculeCard";
-import { getVehiculeById, vehicules } from "@/data/mock";
-import { vehicleImages } from "@/data/vehicleImages";
 import TopBar from "@/components/TopBar";
 import ScrollToTop from "@/components/ScrollToTop";
+import { useVehiclesCatalog } from "@/hooks/useVehiclesCatalog";
+import ReservationDialog from "@/components/ReservationDialog";
 
 const energieLabels: Record<string, string> = {
   ESSENCE: "Essence", DIESEL: "Diesel", HYBRIDE: "Hybride", ELECTRIQUE: "Électrique",
@@ -16,7 +16,21 @@ const energieLabels: Record<string, string> = {
 
 export default function VehiculeDetail() {
   const { id } = useParams();
-  const vehicule = getVehiculeById(id || "");
+  const { vehicles, isLoading } = useVehiclesCatalog();
+  const vehicule = vehicles.find((item) => item.id === (id || ""));
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen">
+        <TopBar />
+        <Header />
+        <div className="pt-40 pb-16 max-w-5xl mx-auto px-4 text-center text-muted-foreground">
+          Chargement du véhicule...
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!vehicule) {
     return (
@@ -31,9 +45,11 @@ export default function VehiculeDetail() {
     );
   }
 
-  const similaires = vehicules.filter((v) => v.categorie === vehicule.categorie && v.id !== vehicule.id && v.actif).slice(0, 3);
+  const similaires = vehicles.filter((v) => v.categorie === vehicule.categorie && v.id !== vehicule.id && v.actif).slice(0, 3);
 
   const inclus = ["Assurance tous risques", `${vehicule.kmInclus} km/jour inclus`, "Assistance 24h/24", "Entretien et nettoyage"];
+
+  const imageSrc = vehicule.photos[0];
 
   return (
     <div className="min-h-screen">
@@ -48,11 +64,17 @@ export default function VehiculeDetail() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
             {/* Image */}
             <div className="rounded-xl overflow-hidden bg-muted aspect-[4/3]">
-              <img
-                src={vehicleImages[vehicule.id]}
-                alt={`${vehicule.marque} ${vehicule.modele}`}
-                className="w-full h-full object-cover"
-              />
+              {imageSrc ? (
+                <img
+                  src={imageSrc}
+                  alt={`${vehicule.marque} ${vehicule.modele}`}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                  Aucune image disponible
+                </div>
+              )}
             </div>
 
             {/* Info */}
@@ -120,11 +142,16 @@ export default function VehiculeDetail() {
                     <span className="text-muted-foreground">/jour</span>
                   </div>
                 </div>
-                <Link to={`/reservation?vehicule=${vehicule.id}`}>
+                <ReservationDialog
+                  vehiculeId={vehicule.id}
+                  vehiculeName={vehicule.nom}
+                  vehiculeCategorie={vehicule.categorie}
+                  vehiculePrixJour={vehicule.prixJour}
+                >
                   <Button size="lg" disabled={!vehicule.disponible}>
                     Réserver ce véhicule
                   </Button>
-                </Link>
+                </ReservationDialog>
               </div>
             </div>
           </div>

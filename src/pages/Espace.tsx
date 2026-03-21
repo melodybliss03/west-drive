@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Car,
@@ -20,37 +20,17 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import TopBar from "@/components/TopBar";
 import ScrollToTop from "@/components/ScrollToTop";
+import { reservationsService, ReservationDto } from "@/lib/api/services";
 
-// Mock data for client dashboard
-const mockReservations = [
-  {
-    id: "R-2024-001",
-    vehicule: "Renault Clio V",
-    dateDebut: "2024-03-15",
-    dateFin: "2024-03-18",
-    statut: "CONFIRMEE",
-    montant: 165,
-    ville: "Puteaux",
-  },
-  {
-    id: "R-2024-002",
-    vehicule: "BMW Série 3",
-    dateDebut: "2024-02-10",
-    dateFin: "2024-02-14",
-    statut: "TERMINEE",
-    montant: 380,
-    ville: "La Défense",
-  },
-  {
-    id: "R-2024-003",
-    vehicule: "Peugeot 3008",
-    dateDebut: "2024-04-01",
-    dateFin: "2024-04-05",
-    statut: "EN_ATTENTE",
-    montant: 340,
-    ville: "Nanterre",
-  },
-];
+type UiReservation = {
+  id: string;
+  vehicule: string;
+  dateDebut: string;
+  dateFin: string;
+  statut: string;
+  montant: number;
+  ville: string;
+};
 
 const mockNotifications = [
   { id: 1, title: "Réservation confirmée", desc: "Votre Renault Clio V est confirmée pour le 15 mars.", date: "Il y a 2h", read: false },
@@ -58,16 +38,12 @@ const mockNotifications = [
   { id: 3, title: "Facture disponible", desc: "La facture F-2024-002 est prête à télécharger.", date: "Il y a 3j", read: true },
 ];
 
-const mockFactures = [
-  { id: "F-2024-001", reservation: "R-2024-002", date: "2024-02-14", montant: 380, vehicule: "BMW Série 3" },
-  { id: "F-2024-002", reservation: "R-2024-001", date: "2024-03-18", montant: 165, vehicule: "Renault Clio V" },
-];
-
 const statutColors: Record<string, string> = {
   EN_ATTENTE: "bg-amber-500/10 text-amber-600 border-amber-200",
   CONFIRMEE: "bg-emerald-500/10 text-emerald-600 border-emerald-200",
   EN_COURS: "bg-blue-500/10 text-blue-600 border-blue-200",
   TERMINEE: "bg-muted text-muted-foreground border-border",
+  CLOTUREE: "bg-muted text-muted-foreground border-border",
   ANNULEE: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
@@ -76,13 +52,64 @@ const statutLabels: Record<string, string> = {
   CONFIRMEE: "Confirmée",
   EN_COURS: "En cours",
   TERMINEE: "Terminée",
+  CLOTUREE: "Clôturée",
   ANNULEE: "Annulée",
+  REFUSEE: "Refusée",
+  EN_ANALYSE: "En analyse",
+  PROPOSITION_ENVOYEE: "Proposition envoyée",
+  NOUVELLE_DEMANDE: "Nouvelle demande",
 };
+
+function mapReservationDto(dto: ReservationDto): UiReservation {
+  return {
+    id: dto.id,
+    vehicule: dto.vehicleName || dto.requestedVehicleType,
+    dateDebut: dto.startAt,
+    dateFin: dto.endAt,
+    statut: dto.status,
+    montant: dto.amountTtc,
+    ville: dto.pickupCity,
+  };
+}
 
 export default function Espace() {
   const { toast } = useToast();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState("reservations");
+  const [reservations, setReservations] = useState<UiReservation[]>([]);
+  const [loadingReservations, setLoadingReservations] = useState(true);
+
+  useEffect(() => {
+    const loadReservations = async () => {
+      try {
+        const list = await reservationsService.list();
+        const mapped = list.map(mapReservationDto);
+
+        // En l'absence d'endpoint dédié client, on affiche la liste renvoyée par l'API.
+        setReservations(mapped);
+      } catch {
+        setReservations([]);
+      } finally {
+        setLoadingReservations(false);
+      }
+    };
+
+    loadReservations();
+  }, [user?.email]);
+
+  const factures = useMemo(
+    () =>
+      reservations
+        .filter((r) => ["CONFIRMEE", "EN_COURS", "CLOTUREE", "TERMINEE"].includes(r.statut))
+        .map((r) => ({
+          id: `F-${r.id}`,
+          reservation: r.id,
+          date: r.dateFin,
+          montant: r.montant,
+          vehicule: r.vehicule,
+        })),
+    [reservations]
+  );
 
   return (
     <div className="min-h-screen">
@@ -94,7 +121,7 @@ export default function Espace() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
             <div>
               <h1 className="font-display text-3xl font-bold">Mon espace</h1>
-              <p className="text-muted-foreground text-sm mt-1">Bienvenue, Sophie Martin</p>
+              <p className="text-muted-foreground text-sm mt-1">Bienvenue, {user?.prenom || "Client"} {user?.nom || ""}</p>
             </div>
             <div className="flex gap-2">
               <Link to="/vehicules">
@@ -120,7 +147,7 @@ export default function Espace() {
                 <Car className="h-3.5 w-3.5" />
                 Réservations
               </div>
-              <p className="font-display text-2xl font-bold">{mockReservations.length}</p>
+              <p className="font-display text-2xl font-bold">{reservations.length}</p>
             </div>
             <div className="bg-card border border-border rounded-xl p-4">
               <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
@@ -128,7 +155,7 @@ export default function Espace() {
                 En cours
               </div>
               <p className="font-display text-2xl font-bold">
-                {mockReservations.filter((r) => r.statut === "CONFIRMEE" || r.statut === "EN_COURS").length}
+                {reservations.filter((r) => r.statut === "CONFIRMEE" || r.statut === "EN_COURS").length}
               </p>
             </div>
             <div className="bg-card border border-border rounded-xl p-4">
@@ -136,7 +163,7 @@ export default function Espace() {
                 <FileText className="h-3.5 w-3.5" />
                 Factures
               </div>
-              <p className="font-display text-2xl font-bold">{mockFactures.length}</p>
+              <p className="font-display text-2xl font-bold">{factures.length}</p>
             </div>
             <div className="bg-card border border-border rounded-xl p-4">
               <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
@@ -190,8 +217,9 @@ export default function Espace() {
 
             {/* Réservations */}
             <TabsContent value="reservations">
+              {loadingReservations && <p className="text-sm text-muted-foreground mb-4">Chargement des réservations...</p>}
               <div className="space-y-4">
-                {mockReservations.map((r) => (
+                {reservations.map((r) => (
                   <div
                     key={r.id}
                     className="bg-card border border-border rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
@@ -199,8 +227,8 @@ export default function Espace() {
                     <div className="flex-1 space-y-1">
                       <div className="flex items-center gap-3">
                         <h3 className="font-display font-semibold">{r.vehicule}</h3>
-                        <Badge variant="outline" className={statutColors[r.statut]}>
-                          {statutLabels[r.statut]}
+                        <Badge variant="outline" className={statutColors[r.statut] || ""}>
+                          {statutLabels[r.statut] || r.statut}
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
@@ -245,7 +273,7 @@ export default function Espace() {
             {/* Factures */}
             <TabsContent value="factures">
               <div className="space-y-3">
-                {mockFactures.map((f) => (
+                {factures.map((f) => (
                   <div
                     key={f.id}
                     className="bg-card border border-border rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"

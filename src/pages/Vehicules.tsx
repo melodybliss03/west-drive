@@ -2,13 +2,21 @@ import { useState, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShieldCheck, Settings, Headset } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import VehiculeCard from "@/components/VehiculeCard";
-import { vehicules, getVehiculesByCategorie } from "@/data/mock";
 import type { Categorie, Transmission, Energie } from "@/data/mock";
 import TopBar from "@/components/TopBar";
 import ScrollToTop from "@/components/ScrollToTop";
+import { useVehiclesCatalogPage } from "@/hooks/useVehiclesCatalog";
 
 const categories: { value: Categorie; label: string }[] = [
   { value: "MICRO", label: "Micro" },
@@ -18,13 +26,25 @@ const categories: { value: Categorie; label: string }[] = [
 ];
 
 export default function Vehicules() {
+  const [page, setPage] = useState(1);
+  const limit = 12;
+  const { vehicles, isLoading, meta } = useVehiclesCatalogPage(page, limit);
   const [activeTab, setActiveTab] = useState<string>("ALL");
   const [transmission, setTransmission] = useState<string>("all");
   const [energie, setEnergie] = useState<string>("all");
   const [tri, setTri] = useState<string>("prix-asc");
 
+  const totalPages = Math.max(meta?.totalPages || 1, 1);
+
+  const goToPage = (nextPage: number) => {
+    const clamped = Math.min(Math.max(nextPage, 1), totalPages);
+    setPage(clamped);
+  };
+
   const filtered = useMemo(() => {
-    let result = activeTab === "ALL" ? vehicules.filter((v) => v.actif) : getVehiculesByCategorie(activeTab as Categorie);
+    let result = activeTab === "ALL"
+      ? vehicles.filter((v) => v.actif)
+      : vehicles.filter((v) => v.actif && v.categorie === (activeTab as Categorie));
     if (transmission !== "all") result = result.filter((v) => v.transmission === transmission);
     if (energie !== "all") result = result.filter((v) => v.energie === energie);
     result = [...result].sort((a, b) => {
@@ -33,7 +53,10 @@ export default function Vehicules() {
       return 0;
     });
     return result;
-  }, [activeTab, transmission, energie, tri]);
+  }, [vehicles, activeTab, transmission, energie, tri]);
+
+  const activeCount = vehicles.filter((v) => v.actif).length;
+  const countByCategory = (categorie: Categorie) => vehicles.filter((v) => v.actif && v.categorie === categorie).length;
 
   return (
     <div className="min-h-screen">
@@ -72,15 +95,19 @@ export default function Vehicules() {
             </Select>
           </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value); setPage(1); }}>
             <TabsList className="mb-8">
-              <TabsTrigger value="ALL">Tous ({vehicules.filter((v) => v.actif).length})</TabsTrigger>
+              <TabsTrigger value="ALL">Tous ({activeCount})</TabsTrigger>
               {categories.map((cat) => (
                 <TabsTrigger key={cat.value} value={cat.value}>
-                  {cat.label} ({getVehiculesByCategorie(cat.value).length})
+                  {cat.label} ({countByCategory(cat.value)})
                 </TabsTrigger>
               ))}
             </TabsList>
+
+            {isLoading && (
+              <div className="text-sm text-muted-foreground mb-4">Chargement des véhicules...</div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filtered.map((v, i) => (
@@ -91,6 +118,47 @@ export default function Vehicules() {
             {filtered.length === 0 && (
               <div className="text-center py-16 text-muted-foreground">
                 Aucun véhicule ne correspond à vos critères.
+              </div>
+            )}
+
+            {meta && totalPages > 1 && (
+              <div className="mt-8 space-y-2">
+                <p className="text-center text-sm text-muted-foreground">
+                  Page {meta.page} sur {totalPages} · {meta.totalItems} véhicules
+                </p>
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (meta.hasPreviousPage) {
+                            goToPage(page - 1);
+                          }
+                        }}
+                        className={!meta.hasPreviousPage ? "pointer-events-none opacity-50" : undefined}
+                      />
+                    </PaginationItem>
+                    <PaginationItem>
+                      <PaginationLink href="#" isActive>
+                        {meta.page}
+                      </PaginationLink>
+                    </PaginationItem>
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (meta.hasNextPage) {
+                            goToPage(page + 1);
+                          }
+                        }}
+                        className={!meta.hasNextPage ? "pointer-events-none opacity-50" : undefined}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
               </div>
             )}
         </Tabs>

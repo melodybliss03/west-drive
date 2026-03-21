@@ -8,12 +8,14 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SearchForm from "@/components/SearchForm";
 import VehiculeCard from "@/components/VehiculeCard";
-import { searchVehicules, villes, vehicules, haversineDistance } from "@/data/mock";
+import { villes, haversineDistance } from "@/data/mock";
 import type { Categorie } from "@/data/mock";
 import TopBar from "@/components/TopBar";
 import ScrollToTop from "@/components/ScrollToTop";
+import { useVehiclesCatalog } from "@/hooks/useVehiclesCatalog";
 
 export default function Resultats() {
+  const { vehicles, cities, isLoading } = useVehiclesCatalog();
   const [searchParams] = useSearchParams();
   const ville = searchParams.get("ville") || "";
   const debut = searchParams.get("debut") || "";
@@ -22,11 +24,13 @@ export default function Resultats() {
   const [showForm, setShowForm] = useState(false);
 
   const results = useMemo(() => {
-    return searchVehicules({
-      ville: ville || undefined,
-      categorie: (type as Categorie) || undefined,
+    return vehicles.filter((vehicule) => {
+      if (!vehicule.actif) return false;
+      if (ville && !vehicule.villes.includes(ville)) return false;
+      if (type && vehicule.categorie !== (type as Categorie)) return false;
+      return true;
     });
-  }, [ville, type]);
+  }, [vehicles, ville, type]);
 
   // Nearby cities with available vehicles if no results
   const nearbyResults = useMemo(() => {
@@ -39,12 +43,12 @@ export default function Resultats() {
       .map((v) => ({
         ville: v,
         distance: haversineDistance(searchedVille.lat, searchedVille.lng, v.lat, v.lng),
-        vehicules: vehicules.filter((veh) => veh.actif && veh.villes.includes(v.nom)),
+        vehicules: vehicles.filter((veh) => veh.actif && veh.villes.includes(v.nom)),
       }))
       .filter((r) => r.vehicules.length > 0)
       .sort((a, b) => a.distance - b.distance)
       .slice(0, 3);
-  }, [results, ville]);
+  }, [results, ville, vehicles]);
 
   return (
     <div className="min-h-screen">
@@ -71,9 +75,11 @@ export default function Resultats() {
 
           {showForm && (
             <div className="mb-8 bg-secondary p-6 rounded-xl border border-border">
-              <SearchForm defaultValues={{ ville, debut, fin, type }} compact />
+              <SearchForm cities={cities} defaultValues={{ ville, debut, fin, type }} compact />
             </div>
           )}
+
+          {isLoading && <p className="text-sm text-muted-foreground mb-4">Chargement des résultats...</p>}
 
           {/* Results */}
           {results.length > 0 ? (

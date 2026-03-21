@@ -1,20 +1,66 @@
+import { useEffect, useMemo, useState } from "react";
 import { Car, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { mockFlotte, etatColors, getVehicleImage } from "./data";
+import { FlotteItem, mockFlotte, etatColors, getVehicleImage } from "./data";
+import { fleetService } from "@/lib/api/services";
 
 export default function FlotteTab() {
+  const [fleetItems, setFleetItems] = useState<FlotteItem[]>(mockFlotte);
+  const [overview, setOverview] = useState({
+    bonEtat: mockFlotte.filter(f => f.etat === "bon").length,
+    entretienRequis: mockFlotte.filter(f => f.etat === "entretien requis").length,
+    enPanne: mockFlotte.filter(f => f.etat === "en panne").length,
+  });
+
+  useEffect(() => {
+    const loadFleet = async () => {
+      try {
+        const [overviewDto, fleetVehicles] = await Promise.all([fleetService.overview(), fleetService.vehicles()]);
+
+        setOverview({
+          bonEtat: overviewDto.bonEtat,
+          entretienRequis: overviewDto.entretienRequis,
+          enPanne: overviewDto.enPanne,
+        });
+
+        const mapped = fleetVehicles.map((item, idx) => ({
+          id: String(item.id || `F${idx + 1}`),
+          vehicule: String(item.vehicleName || item.name || "Véhicule"),
+          plaque: String(item.plate || "-"),
+          km: Number(item.mileage || 0),
+          dernierEntretien: String(item.lastMaintenanceAt || "-"),
+          prochainEntretien: String(item.nextMaintenanceAt || "-"),
+          etat: String(item.state || "bon").toLowerCase(),
+        }));
+
+        if (mapped.length > 0) {
+          setFleetItems(mapped);
+        }
+      } catch {
+        // Fallback mock
+      }
+    };
+
+    loadFleet();
+  }, []);
+
+  const stats = useMemo(
+    () => [
+      { label: "En bon état", count: overview.bonEtat, icon: CheckCircle, color: "text-emerald-500" },
+      { label: "Entretien requis", count: overview.entretienRequis, icon: AlertTriangle, color: "text-amber-500" },
+      { label: "En panne", count: overview.enPanne, icon: XCircle, color: "text-destructive" },
+    ],
+    [overview]
+  );
+
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <h2 className="text-2xl font-display font-bold">Gestion de flotte</h2>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[
-          { label: "En bon état", count: mockFlotte.filter(f => f.etat === "bon").length, icon: CheckCircle, color: "text-emerald-500" },
-          { label: "Entretien requis", count: mockFlotte.filter(f => f.etat === "entretien requis").length, icon: AlertTriangle, color: "text-amber-500" },
-          { label: "En panne", count: mockFlotte.filter(f => f.etat === "en panne").length, icon: XCircle, color: "text-destructive" },
-        ].map((s, i) => (
+        {stats.map((s, i) => (
           <Card key={i}>
             <CardContent className="p-5 flex items-center gap-4">
               <s.icon className={`h-8 w-8 ${s.color}`} />
@@ -41,7 +87,7 @@ export default function FlotteTab() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockFlotte.map(f => {
+                {fleetItems.map(f => {
                   const img = getVehicleImage(f.vehicule);
                   return (
                     <TableRow key={f.id}>

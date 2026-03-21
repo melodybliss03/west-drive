@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Bell } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { type Vehicule } from "@/data/mock";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import type { TabKey, TeamMember } from "./data";
-import { mockReservations, mockUsers, mockVehicules, initialTeamMembers } from "./data";
+import { mockReservations, mockUsers, initialTeamMembers } from "./data";
 import AdminAuth from "./AdminAuth";
 import AdminSidebar from "./AdminSidebar";
 import DashboardTab from "./DashboardTab";
@@ -15,15 +15,74 @@ import ReservationsTab from "./ReservationsTab";
 import FlotteTab from "./FlotteTab";
 import UtilisateursTab from "./UtilisateursTab";
 import ProfilTab from "./ProfilTab";
+import { reservationsService, usersService, vehiclesService } from "@/lib/api/services";
+import { mapReservationDtoToAdminReservation, mapVehicleDtoToVehicule } from "@/lib/mappers";
+import { PaginationMeta } from "@/lib/api/types";
 
 export default function Boss() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, isBootstrapping } = useAuth();
   const [tab, setTab] = useState<TabKey>("kpi");
-  const [vehicles, setVehicles] = useState<Vehicule[]>(mockVehicules);
-  const [users] = useState(mockUsers);
+  const [vehicles, setVehicles] = useState<Vehicule[]>([]);
+  const [vehiclesPage, setVehiclesPage] = useState(1);
+  const [vehiclesLimit] = useState(10);
+  const [vehiclesMeta, setVehiclesMeta] = useState<PaginationMeta | null>(null);
+  const [users, setUsers] = useState(mockUsers);
   const [reservations, setReservations] = useState(mockReservations);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialTeamMembers);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
+  useEffect(() => {
+    if (isBootstrapping || !user) {
+      return;
+    }
+
+    const loadAdminData = async () => {
+      try {
+        const [vehiclesCollection, reservationsDto, usersDto] = await Promise.all([
+          vehiclesService.list({ page: vehiclesPage, limit: vehiclesLimit }, true),
+          reservationsService.list(),
+          usersService.list(),
+        ]);
+
+        setVehicles(vehiclesCollection.items.map(mapVehicleDtoToVehicule));
+        setVehiclesMeta(vehiclesCollection.meta);
+        setReservations(reservationsDto.map(mapReservationDtoToAdminReservation));
+
+        const mappedUsers = usersDto.map((item, index) => {
+          const firstName = String(item.firstName || "");
+          const lastName = String(item.lastName || "");
+          return {
+            id: String(item.id || `U${index + 1}`),
+            nom: lastName || String(item.companyName || "Client"),
+            prenom: firstName || "-",
+            email: String(item.email || ""),
+            type: String(item.accountType || "particulier").toLowerCase(),
+            creeLe: String(item.createdAt || ""),
+            reservations: Number(item.reservationsCount || 0),
+            statut: String(item.status || "actif").toLowerCase(),
+            role: String(item.role || "client").toLowerCase(),
+          };
+        });
+
+        setUsers(mappedUsers);
+      } catch {
+        // Fallback sur mocks si certaines permissions API sont absentes.
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    loadAdminData();
+  }, [isBootstrapping, user, vehiclesPage, vehiclesLimit]);
+
+  if (isBootstrapping) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
+        Chargement de la session...
+      </div>
+    );
+  }
 
   if (!user) return <AdminAuth />;
 
@@ -57,6 +116,7 @@ export default function Boss() {
 
           <main className="flex-1 overflow-auto p-4 md:p-6">
             <div className="max-w-7xl mx-auto space-y-6">
+              {isLoadingData && <p className="text-sm text-muted-foreground">Chargement des données admin...</p>}
               {tab === "kpi" && (
                 <DashboardTab
                   reservations={reservations}
@@ -66,7 +126,17 @@ export default function Boss() {
                   setTab={setTab}
                 />
               )}
-              {tab === "vehicules" && <VehiculesTab vehicles={vehicles} setVehicles={setVehicles} />}
+              {tab === "vehicules" && (
+                <VehiculesTab
+                  vehicles={vehicles}
+                  setVehicles={setVehicles}
+                  page={vehiclesPage}
+                  setPage={setVehiclesPage}
+                  meta={vehiclesMeta}
+                  setMeta={setVehiclesMeta}
+                  limit={vehiclesLimit}
+                />
+              )}
               {tab === "reservations" && <ReservationsTab reservations={reservations} setReservations={setReservations} />}
               {tab === "flotte" && <FlotteTab />}
               {tab === "utilisateurs" && <UtilisateursTab users={users} />}
