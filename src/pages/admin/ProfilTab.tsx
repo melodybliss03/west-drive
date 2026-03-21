@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Edit, Save, Shield, Mail, Phone, Trash2, UserPlus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Edit, Save, Shield, Mail, Phone, UserPlus } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,15 +10,39 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import type { TeamMember } from "./data";
-import { roleColors, allPermissions } from "./data";
+import { iamService, usersService } from "@/lib/api/services";
+import type { AdminUser } from "./types";
+import { Spinner } from "@/components/ui/spinner";
 
-interface ProfilTabProps {
-  teamMembers: TeamMember[];
-  setTeamMembers: React.Dispatch<React.SetStateAction<TeamMember[]>>;
+type PermissionOption = {
+  code: string;
+  label: string;
+  description?: string;
+};
+
+type RoleOption = {
+  id: string;
+  name: string;
+  description?: string;
+  permissionCodes: string[];
+};
+
+function extractItems<T>(collection: unknown): T[] {
+  if (Array.isArray(collection)) {
+    return collection as T[];
+  }
+
+  if (collection && typeof collection === "object") {
+    const maybeItems = (collection as { items?: unknown }).items;
+    if (Array.isArray(maybeItems)) {
+      return maybeItems as T[];
+    }
+  }
+
+  return [];
 }
 
-export default function ProfilTab({ teamMembers, setTeamMembers }: ProfilTabProps) {
+export default function ProfilTab() {
   const { user, login } = useAuth();
   const { toast } = useToast();
 
@@ -29,9 +53,17 @@ export default function ProfilTab({ teamMembers, setTeamMembers }: ProfilTabProp
     telephone: "06 12 34 56 78",
   });
   const [profileEditing, setProfileEditing] = useState(false);
-  const [newMemberEmail, setNewMemberEmail] = useState("");
-  const [newMemberRole, setNewMemberRole] = useState("");
-  const [newMemberPermissions, setNewMemberPermissions] = useState<string[]>([]);
+  const [availableUsers, setAvailableUsers] = useState<AdminUser[]>([]);
+  const [permissions, setPermissions] = useState<PermissionOption[]>([]);
+  const [roles, setRoles] = useState<RoleOption[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [selectedRoleId, setSelectedRoleId] = useState("");
+  const [newRoleName, setNewRoleName] = useState("");
+  const [newRoleDescription, setNewRoleDescription] = useState("");
+  const [selectedPermissionCodes, setSelectedPermissionCodes] = useState<string[]>([]);
+  const [isLoadingIam, setIsLoadingIam] = useState(true);
+  const [isCreatingRole, setIsCreatingRole] = useState(false);
+  const [isAssigningRole, setIsAssigningRole] = useState(false);
 
   const saveProfile = () => {
     login({ nom: profileForm.nom, prenom: profileForm.prenom, email: profileForm.email });
@@ -39,37 +71,145 @@ export default function ProfilTab({ teamMembers, setTeamMembers }: ProfilTabProp
     toast({ title: "Profil mis à jour", description: "Vos informations ont été enregistrées." });
   };
 
-  const addTeamMember = () => {
-    if (!newMemberEmail.trim() || !newMemberRole) {
-      toast({ title: "Erreur", description: "Veuillez remplir l'email et le rôle.", variant: "destructive" });
-      return;
-    }
-    const newMember: TeamMember = {
-      id: `T-${Date.now()}`,
-      nom: newMemberEmail.split("@")[0],
-      prenom: "",
-      email: newMemberEmail,
-      role: newMemberRole,
-      permissions: newMemberPermissions,
-      dateAttribution: new Date().toISOString().split("T")[0],
+  useEffect(() => {
+    const loadIamData = async () => {
+      setIsLoadingIam(true);
+      try {
+        const [usersResponse, permissionsResponse, rolesResponse] = await Promise.all([
+          usersService.list({ page: 1, limit: 100 }),
+          iamService.permissions({ page: 1, limit: 100 }),
+          iamService.roles({ page: 1, limit: 100 }),
+        ]);
+
+        const mappedUsers = extractItems<Record<string, unknown>>(usersResponse).map((item) => ({
+          id: String(item.id || ""),
+          nom: String(item.lastName || item.companyName || "Client"),
+          prenom: String(item.firstName || "-"),
+          email: String(item.email || ""),
+          type: String(item.accountType || "particulier").toLowerCase(),
+          creeLe: String(item.createdAt || ""),
+          reservations: Number(item.reservationsCount || 0),
+          statut: String(item.status || "actif").toLowerCase(),
+          role: String(item.role || "client").toLowerCase(),
+        }));
+
+        const mappedPermissions = extractItems<Record<string, unknown>>(permissionsResponse).map((permission) => {
+          const code = String(permission.code || "");
+          const label = String(permission.label || permission.description || code);
+          return { code, label, description: String(permission.description || "") };
+        }).filter((permission) => permission.code.length > 0);
+
+        const mappedRoles = extractItems<Record<string, unknown>>(rolesResponse).map((role) => {
+          const rolePermissions = Array.isArray(role.rolePermissions) ? role.rolePermissions : [];
+          const explicitPermissionCodes = Array.isArray(role.permissionCodes)
+            ? role.permissionCodes.map((code) => String(code))
+            : [];
+
+          const nestedPermissionCodes = rolePermissions
+            .map((rp) => {
+              if (rp && typeof rp === "object" && "permission" in rp) {
+                const permission = (rp as { permission?: { code?: unknown } }).permission;
+                return permission?.code ? String(permission.code) : "";
+              }
+              return "";
+            })
+            .filter(Boolean);
+
+          return {
+            id: String(role.id || ""),
+            name: String(role.name || ""),
+            description: String(role.description || ""),
+            permissionCodes: Array.from(new Set([...explicitPermissionCodes, ...nestedPermissionCodes])),
+          };
+        }).filter((role) => role.id.length > 0);
+
+        setAvailableUsers(mappedUsers);
+        setPermissions(mappedPermissions);
+        setRoles(mappedRoles);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Impossible de charger les données IAM.";
+        toast({ title: "Erreur IAM", description: message, variant: "destructive" });
+      } finally {
+        setIsLoadingIam(false);
+      }
     };
-    setTeamMembers(prev => [...prev, newMember]);
-    setNewMemberEmail("");
-    setNewMemberRole("");
-    setNewMemberPermissions([]);
-    toast({ title: "Membre ajouté", description: `${newMemberEmail} a été ajouté avec le rôle "${newMemberRole}".` });
-  };
 
-  const removeTeamMember = (id: string) => {
-    setTeamMembers(prev => prev.filter(m => m.id !== id));
-    toast({ title: "Membre retiré" });
-  };
+    loadIamData();
+  }, [toast]);
 
-  const togglePermission = (key: string) => {
-    setNewMemberPermissions(prev =>
-      prev.includes(key) ? prev.filter(p => p !== key) : [...prev, key]
+  const togglePermission = (code: string) => {
+    setSelectedPermissionCodes((prev) =>
+      prev.includes(code) ? prev.filter((item) => item !== code) : [...prev, code]
     );
   };
+
+  const createCustomRole = async () => {
+    if (!newRoleName.trim() || selectedPermissionCodes.length === 0) {
+      toast({
+        title: "Role incomplet",
+        description: "Renseignez un nom de rôle et au moins une permission.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsCreatingRole(true);
+      const created = await iamService.createRole({
+        name: newRoleName.trim(),
+        description: newRoleDescription.trim() || undefined,
+        permissionCodes: selectedPermissionCodes,
+      });
+
+      setRoles((prev) => [
+        {
+          id: created.id,
+          name: created.name,
+          description: created.description,
+          permissionCodes: selectedPermissionCodes,
+        },
+        ...prev,
+      ]);
+
+      setSelectedRoleId(created.id);
+      setNewRoleName("");
+      setNewRoleDescription("");
+      setSelectedPermissionCodes([]);
+      toast({ title: "Rôle créé", description: `Le rôle ${created.name} a été créé.` });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Impossible de créer ce rôle.";
+      toast({ title: "Erreur", description: message, variant: "destructive" });
+    } finally {
+      setIsCreatingRole(false);
+    }
+  };
+
+  const assignRole = async () => {
+    if (!selectedUserId || !selectedRoleId) {
+      toast({
+        title: "Attribution incomplète",
+        description: "Sélectionnez un utilisateur et un rôle.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsAssigningRole(true);
+      await iamService.assignRoleToUser(selectedRoleId, selectedUserId);
+      toast({ title: "Rôle attribué", description: "Le rôle a été assigné à l'utilisateur." });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Impossible d'assigner ce rôle.";
+      toast({ title: "Erreur", description: message, variant: "destructive" });
+    } finally {
+      setIsAssigningRole(false);
+    }
+  };
+
+  const selectedRole = useMemo(
+    () => roles.find((role) => role.id === selectedRoleId) || null,
+    [roles, selectedRoleId]
+  );
 
   if (!user) return null;
 
@@ -166,67 +306,121 @@ export default function ProfilTab({ teamMembers, setTeamMembers }: ProfilTabProp
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Add new member */}
-          <div className="p-4 rounded-xl border border-dashed border-border bg-muted/30 space-y-4">
-            <p className="text-sm font-medium flex items-center gap-2"><UserPlus className="h-4 w-4 text-primary" /> Ajouter un membre</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <Input placeholder="email@westdrive.fr" value={newMemberEmail} onChange={e => setNewMemberEmail(e.target.value)} />
-              <Select value={newMemberRole} onValueChange={setNewMemberRole}>
-                <SelectTrigger><SelectValue placeholder="Rôle" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="gestionnaire">Gestionnaire</SelectItem>
-                  <SelectItem value="support">Support</SelectItem>
-                  <SelectItem value="comptable">Comptable</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button onClick={addTeamMember} className="gap-2"><UserPlus className="h-4 w-4" /> Ajouter</Button>
+          {isLoadingIam ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Spinner />
+              Chargement des rôles, permissions et utilisateurs...
             </div>
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground font-medium">Permissions :</p>
-              <div className="flex flex-wrap gap-3">
-                {allPermissions.map(perm => (
-                  <label key={perm.key} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <Checkbox
-                      checked={newMemberPermissions.includes(perm.key)}
-                      onCheckedChange={() => togglePermission(perm.key)}
-                    />
-                    <span>{perm.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
+          ) : (
+            <>
+              <div className="p-4 rounded-xl border border-dashed border-border bg-muted/30 space-y-4">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-primary" />
+                  Créer un rôle custom
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Input
+                    placeholder="Nom du rôle (ex: ROLE_BACKOFFICE_ASSISTANT)"
+                    value={newRoleName}
+                    onChange={(e) => setNewRoleName(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Description du rôle"
+                    value={newRoleDescription}
+                    onChange={(e) => setNewRoleDescription(e.target.value)}
+                  />
+                </div>
 
-          {/* Existing team members */}
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-muted-foreground">Membres actuels ({teamMembers.length})</p>
-            {teamMembers.map(member => (
-              <div key={member.id} className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:shadow-sm transition-shadow">
-                <div className="h-10 w-10 rounded-full bg-foreground flex items-center justify-center text-background text-sm font-bold flex-shrink-0">
-                  {member.prenom ? member.prenom[0] : member.nom[0]}{member.nom[member.nom.length > 1 ? 1 : 0]}
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground font-medium">Permissions système</p>
+                  <div className="flex flex-wrap gap-3">
+                    {permissions.map((permission) => (
+                      <label key={permission.code} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <Checkbox
+                          checked={selectedPermissionCodes.includes(permission.code)}
+                          onCheckedChange={() => togglePermission(permission.code)}
+                        />
+                        <span>{permission.code}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">
-                    {member.prenom ? `${member.prenom} ${member.nom}` : member.email}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{member.email}</p>
-                </div>
-                <Badge variant="outline" className={`${roleColors[member.role] || ""} flex-shrink-0`}>
-                  {member.role}
-                </Badge>
-                <div className="hidden sm:flex flex-wrap gap-1 max-w-[200px]">
-                  {member.permissions.map(p => (
-                    <span key={p} className="text-[10px] bg-muted px-1.5 py-0.5 rounded">
-                      {allPermissions.find(ap => ap.key === p)?.label || p}
-                    </span>
-                  ))}
-                </div>
-                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive flex-shrink-0" onClick={() => removeTeamMember(member.id)}>
-                  <Trash2 className="h-4 w-4" />
+
+                <Button onClick={createCustomRole} className="gap-2" disabled={isCreatingRole}>
+                  {isCreatingRole ? <Spinner /> : <Shield className="h-4 w-4" />}
+                  Créer le rôle
                 </Button>
               </div>
-            ))}
-          </div>
+
+              <div className="p-4 rounded-xl border border-dashed border-border bg-muted/30 space-y-4">
+                <p className="text-sm font-medium flex items-center gap-2"><UserPlus className="h-4 w-4 text-primary" /> Assigner un rôle à un utilisateur</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choisir un utilisateur" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableUsers.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.prenom} {member.nom} ({member.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choisir un rôle" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roles.map((role) => (
+                        <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Button onClick={assignRole} className="gap-2" disabled={isAssigningRole}>
+                    {isAssigningRole ? <Spinner /> : <UserPlus className="h-4 w-4" />}
+                    Assigner
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-muted-foreground">Rôles disponibles ({roles.length})</p>
+                {roles.map((role) => (
+                  <div key={role.id} className="rounded-xl border border-border bg-card p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-medium">{role.name}</p>
+                        {role.description ? (
+                          <p className="text-xs text-muted-foreground">{role.description}</p>
+                        ) : null}
+                      </div>
+                      <Badge variant="outline">{role.permissionCodes.length} permissions</Badge>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {role.permissionCodes.map((code) => (
+                        <span key={code} className="text-[10px] bg-muted px-1.5 py-0.5 rounded">
+                          {code}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                {roles.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Aucun rôle disponible pour le moment.</p>
+                ) : null}
+
+                {selectedRole ? (
+                  <p className="text-xs text-muted-foreground">
+                    Rôle sélectionné: {selectedRole.name} ({selectedRole.permissionCodes.length} permissions)
+                  </p>
+                ) : null}
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </motion.div>

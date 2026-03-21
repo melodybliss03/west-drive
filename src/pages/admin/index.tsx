@@ -228,7 +228,7 @@ export default function Boss() {
                   limit={usersLimit}
                 />
               )}
-              {tab === "profil" && <ProfilTab teamMembers={teamMembers} setTeamMembers={setTeamMembers} />}
+              {tab === "profil" && <ProfilTab />}
             </div>
           </main>
         </div>

@@ -106,6 +106,27 @@ export type FleetOverviewDto = {
   totalIncidentsOuverts: number;
 };
 
+export type IamPermissionDto = {
+  id?: string;
+  code: string;
+  label?: string;
+  description?: string;
+};
+
+export type IamRoleDto = {
+  id: string;
+  name: string;
+  description?: string;
+  permissionCodes?: string[];
+  rolePermissions?: Array<{
+    permission?: {
+      code?: string;
+      label?: string;
+      description?: string;
+    };
+  }>;
+};
+
 export const systemService = {
   health: () => apiRequest<{ status: string; uptime?: number }>("/health"),
 };
@@ -220,6 +241,28 @@ export const fleetService = {
     apiRequest<Record<string, unknown>>(`/fleet/vehicles/${vehicleId}/status`, {
       method: "PATCH",
       body: { operationalStatus },
+      auth: true,
+    }),
+};
+
+export const iamService = {
+  permissions: (params?: PaginationParams) =>
+    apiRequest<PaginatedCollection<IamPermissionDto> | IamPermissionDto[]>(`/iam/permissions${toPaginationQuery(params)}`, {
+      auth: true,
+    }),
+  roles: (params?: PaginationParams) =>
+    apiRequest<PaginatedCollection<IamRoleDto> | IamRoleDto[]>(`/iam/roles${toPaginationQuery(params)}`, {
+      auth: true,
+    }),
+  createRole: (payload: { name: string; description?: string; permissionCodes: string[] }) =>
+    apiRequest<IamRoleDto>("/iam/roles", {
+      method: "POST",
+      body: payload,
+      auth: true,
+    }),
+  assignRoleToUser: (roleId: string, userId: string) =>
+    apiRequest<{ message?: string }>(`/iam/roles/${roleId}/users/${userId}`, {
+      method: "POST",
       auth: true,
     }),
 };
