@@ -2,7 +2,7 @@ import { vehicleImages } from "@/data/vehicleImages";
 import { vehicules as mockVehicules, type Vehicule } from "@/data/mock";
 
 // ── Types ──
-export type TabKey = "kpi" | "vehicules" | "reservations" | "flotte" | "utilisateurs" | "profil";
+export type TabKey = "kpi" | "vehicules" | "reservations" | "flotte" | "utilisateurs" | "profil" | "devis";
 
 export interface TeamMember {
   id: string;
@@ -39,6 +39,9 @@ export interface MockUser {
   reservations: number;
   statut: string;
   role: string;
+  telephone?: string;
+  ville?: string;
+  adresse?: string;
 }
 
 export interface FlotteItem {
@@ -49,6 +52,32 @@ export interface FlotteItem {
   dernierEntretien: string;
   prochainEntretien: string;
   etat: string;
+}
+
+export interface Notification {
+  id: string;
+  type: "reservation" | "devis" | "utilisateur" | "flotte";
+  titre: string;
+  message: string;
+  date: string;
+  lu: boolean;
+}
+
+export interface MockDevis {
+  id: string;
+  client: string;
+  email: string;
+  telephone: string;
+  type: "particulier" | "entreprise";
+  nomEntreprise?: string;
+  siret?: string;
+  ville: string;
+  dateDebut: string;
+  dateFin: string;
+  typeVehicule: string;
+  nombreVehicules: number;
+  statut: "en attente" | "traité" | "refusé";
+  creeLe: string;
 }
 
 // ── Mock data ──
@@ -77,11 +106,27 @@ export const getVehicleImage = (name: string, id?: string): string | undefined =
 };
 
 export const mockUsers: MockUser[] = [
-  { id: "U001", nom: "Martin", prenom: "Sophie", email: "sophie@mail.com", type: "particulier", creeLe: "2025-01-15", reservations: 3, statut: "actif", role: "client" },
-  { id: "U002", nom: "Dubois", prenom: "Thomas", email: "thomas@mail.com", type: "particulier", creeLe: "2025-02-01", reservations: 1, statut: "actif", role: "client" },
-  { id: "U003", nom: "Laurent", prenom: "Marie", email: "marie@mail.com", type: "particulier", creeLe: "2024-12-10", reservations: 5, statut: "actif", role: "client" },
-  { id: "U004", nom: "Entreprise ABC", prenom: "—", email: "contact@abc.com", type: "entreprise", creeLe: "2025-01-20", reservations: 8, statut: "actif", role: "client" },
-  { id: "U005", nom: "Leroy", prenom: "Paul", email: "paul@mail.com", type: "particulier", creeLe: "2025-03-01", reservations: 0, statut: "suspendu", role: "client" },
+  { id: "U001", nom: "Martin", prenom: "Sophie", email: "sophie@mail.com", type: "particulier", creeLe: "2025-01-15", reservations: 3, statut: "actif", role: "client", telephone: "06 12 34 56 78", ville: "Puteaux", adresse: "12 Rue de la Paix" },
+  { id: "U002", nom: "Dubois", prenom: "Thomas", email: "thomas@mail.com", type: "particulier", creeLe: "2025-02-01", reservations: 1, statut: "actif", role: "client", telephone: "06 23 45 67 89", ville: "La Défense", adresse: "5 Avenue Charles de Gaulle" },
+  { id: "U003", nom: "Laurent", prenom: "Marie", email: "marie@mail.com", type: "particulier", creeLe: "2024-12-10", reservations: 5, statut: "actif", role: "client", telephone: "06 34 56 78 90", ville: "Nanterre", adresse: "8 Boulevard des Nations" },
+  { id: "U004", nom: "Entreprise ABC", prenom: "—", email: "contact@abc.com", type: "entreprise", creeLe: "2025-01-20", reservations: 8, statut: "actif", role: "client", telephone: "01 23 45 67 89", ville: "Rueil-Malmaison", adresse: "15 Rue du Commerce" },
+  { id: "U005", nom: "Leroy", prenom: "Paul", email: "paul@mail.com", type: "particulier", creeLe: "2025-03-01", reservations: 0, statut: "suspendu", role: "client", telephone: "06 45 67 89 01", ville: "La Défense", adresse: "3 Place de la Défense" },
+];
+
+export const mockNotifications: Notification[] = [
+  { id: "N001", type: "reservation", titre: "Nouvelle réservation", message: "Sophie Martin a effectué une réservation pour la Peugeot 108.", date: "2025-03-10 09:30", lu: false },
+  { id: "N002", type: "devis", titre: "Demande de devis", message: "Entreprise ABC a soumis une demande de devis pour 3 SUV.", date: "2025-03-10 10:15", lu: false },
+  { id: "N003", type: "reservation", titre: "Réservation annulée", message: "Paul Leroy a annulé sa réservation pour la Mercedes Classe C.", date: "2025-03-09 14:00", lu: false },
+  { id: "N004", type: "utilisateur", titre: "Nouvel utilisateur", message: "Paul Leroy vient de s'inscrire sur la plateforme.", date: "2025-03-08 16:45", lu: true },
+  { id: "N005", type: "flotte", titre: "Entretien requis", message: "La BMW Série 3 (IJ-789-KL) nécessite un entretien.", date: "2025-03-07 08:00", lu: true },
+  { id: "N006", type: "devis", titre: "Demande de devis", message: "Marie Laurent a soumis une demande de devis pour une Berline.", date: "2025-03-06 11:30", lu: true },
+];
+
+export const mockDevis: MockDevis[] = [
+  { id: "D001", client: "Marie Laurent", email: "marie@mail.com", telephone: "06 34 56 78 90", type: "particulier", ville: "Nanterre", dateDebut: "2025-04-01", dateFin: "2025-04-05", typeVehicule: "Berline", nombreVehicules: 1, statut: "en attente", creeLe: "2025-03-06" },
+  { id: "D002", client: "Entreprise ABC", email: "contact@abc.com", telephone: "01 23 45 67 89", type: "entreprise", nomEntreprise: "Entreprise ABC", siret: "123 456 789 00001", ville: "Rueil-Malmaison", dateDebut: "2025-04-10", dateFin: "2025-04-20", typeVehicule: "SUV", nombreVehicules: 3, statut: "en attente", creeLe: "2025-03-10" },
+  { id: "D003", client: "Thomas Dubois", email: "thomas@mail.com", telephone: "06 23 45 67 89", type: "particulier", ville: "La Défense", dateDebut: "2025-03-20", dateFin: "2025-03-22", typeVehicule: "Compacte", nombreVehicules: 1, statut: "traité", creeLe: "2025-03-01" },
+  { id: "D004", client: "Sophie Martin", email: "sophie@mail.com", telephone: "06 12 34 56 78", type: "particulier", ville: "Puteaux", dateDebut: "2025-03-25", dateFin: "2025-03-28", typeVehicule: "Micro", nombreVehicules: 1, statut: "refusé", creeLe: "2025-02-28" },
 ];
 
 export const mockFlotte: FlotteItem[] = [
@@ -107,6 +152,12 @@ export const statColors: Record<string, string> = {
   "terminée": "bg-muted text-muted-foreground border-border",
   "en attente": "bg-amber-500/10 text-amber-600 border-amber-200",
   "annulée": "bg-destructive/10 text-destructive border-destructive/20",
+};
+
+export const devisStatColors: Record<string, string> = {
+  "en attente": "bg-amber-500/10 text-amber-600 border-amber-200",
+  "traité": "bg-emerald-500/10 text-emerald-600 border-emerald-200",
+  "refusé": "bg-destructive/10 text-destructive border-destructive/20",
 };
 
 export const etatColors: Record<string, string> = {
