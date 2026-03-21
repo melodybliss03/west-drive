@@ -49,6 +49,7 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
   const [isNew, setIsNew] = useState(false);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [viewVehicle, setViewVehicle] = useState<Vehicule | null>(null);
 
   const filteredVehicles = vehicles.filter(v => v.nom.toLowerCase().includes(searchV.toLowerCase()) || v.marque.toLowerCase().includes(searchV.toLowerCase()));
 
@@ -267,6 +268,7 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => setViewVehicle(v)}><Eye className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => openEdit(v)}><Edit className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => setDeleteConfirm(v.id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                           </div>

@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, CalendarCheck, FileText, Car, Users as UsersIcon, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { type Vehicule } from "@/data/mock";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import type { TabKey, TeamMember } from "./data";
-import { mockReservations, mockUsers, mockVehicules, initialTeamMembers } from "./data";
+import { Badge } from "@/components/ui/badge";
+import type { TabKey, TeamMember, Notification as NotifType } from "./data";
+import { mockReservations, mockUsers, mockVehicules, initialTeamMembers, mockNotifications, mockDevis } from "./data";
+import type { MockDevis } from "./data";
 import AdminAuth from "./AdminAuth";
 import AdminSidebar from "./AdminSidebar";
 import DashboardTab from "./DashboardTab";
@@ -14,15 +16,58 @@ import ReservationsTab from "./ReservationsTab";
 import FlotteTab from "./FlotteTab";
 import UtilisateursTab from "./UtilisateursTab";
 import ProfilTab from "./ProfilTab";
+import DevisTab from "./DevisTab";
+
+const NOTIF_ICONS: Record<string, typeof Bell> = {
+  reservation: CalendarCheck,
+  devis: FileText,
+  utilisateur: UsersIcon,
+  flotte: AlertTriangle,
+};
 
 export default function Boss() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const [tab, setTab] = useState<TabKey>("kpi");
+
+  // Persist tab in localStorage
+  const [tab, setTab] = useState<TabKey>(() => {
+    const saved = localStorage.getItem("admin_tab");
+    return (saved as TabKey) || "kpi";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("admin_tab", tab);
+  }, [tab]);
+
   const [vehicles, setVehicles] = useState<Vehicule[]>(mockVehicules);
   const [users] = useState(mockUsers);
   const [reservations, setReservations] = useState(mockReservations);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialTeamMembers);
+  const [notifications, setNotifications] = useState<NotifType[]>(mockNotifications);
+  const [devis, setDevis] = useState<MockDevis[]>(mockDevis);
+  const [showNotifs, setShowNotifs] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  const unreadCount = notifications.filter(n => !n.lu).length;
+
+  const markAsRead = (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, lu: true } : n));
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, lu: true })));
+  };
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifs(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   if (!user) return <AdminAuth />;
 
