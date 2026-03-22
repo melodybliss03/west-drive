@@ -55,7 +55,7 @@ export default function UtilisateursTab({ users, setUsers, page, setPage, meta, 
   const { toast } = useToast();
   const [searchU, setSearchU] = useState("");
   const [loadingUserId, setLoadingUserId] = useState<string | null>(null);
-  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null); // ← ajouté
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
 
   const filteredUsers = users.filter(u => u.nom.toLowerCase().includes(searchU.toLowerCase()) || u.email.toLowerCase().includes(searchU.toLowerCase()));
 
