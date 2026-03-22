@@ -26,6 +26,7 @@ import TopBar from "@/components/TopBar";
 import ScrollToTop from "@/components/ScrollToTop";
 import { useVehiclesCatalogPage } from "@/hooks/useVehiclesCatalog";
 
+
 const categories: { value: Categorie; label: string }[] = [
   { value: "MICRO", label: "Micro" },
   { value: "COMPACTE", label: "Compacte" },

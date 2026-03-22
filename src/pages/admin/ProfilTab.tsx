@@ -66,7 +66,7 @@ export default function ProfilTab() {
   const [isAssigningRole, setIsAssigningRole] = useState(false);
 
   const saveProfile = () => {
-    login({ nom: profileForm.nom, prenom: profileForm.prenom, email: profileForm.email });
+    login({ nom: profileForm.nom, prenom: profileForm.prenom, email: profileForm.email }); 
     setProfileEditing(false);
     toast({ title: "Profil mis à jour", description: "Vos informations ont été enregistrées." });
   };

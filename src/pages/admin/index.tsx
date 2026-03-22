@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, CalendarCheck, FileText, Car, Users as UsersIcon, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { type Vehicule } from "@/data/mock";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import type { TabKey, TeamMember } from "./data";
-import { mockReservations, mockUsers, mockVehicules, initialTeamMembers } from "./data";
+import type { TabKey, TeamMember, Notification as NotifType } from "./data";
+import type { AdminUser } from "./types";
+import { mockReservations, initialTeamMembers, mockNotifications, mockDevis } from "./data";
+import type { MockDevis } from "./data";
 import AdminAuth from "./AdminAuth";
 import AdminSidebar from "./AdminSidebar";
 import DashboardTab from "./DashboardTab";
@@ -14,15 +16,197 @@ import ReservationsTab from "./ReservationsTab";
 import FlotteTab from "./FlotteTab";
 import UtilisateursTab from "./UtilisateursTab";
 import ProfilTab from "./ProfilTab";
+import DevisTab from "./DevisTab";
+import {
+  reservationsService,
+  usersService,
+  vehiclesService,
+} from "@/lib/api/services";
+import {
+  mapReservationDtoToAdminReservation,
+  mapVehicleDtoToVehicule,
+} from "@/lib/mappers";
+import { PaginationMeta } from "@/lib/api/types";
+
+const NOTIF_ICONS: Record<string, typeof Bell> = {
+  reservation: CalendarCheck,
+  devis: FileText,
+  utilisateur: UsersIcon,
+  flotte: AlertTriangle,
+};
+
+function extractUsersFromResponse(
+  collection: unknown,
+): Array<Record<string, unknown>> {
+  if (Array.isArray(collection)) {
+    return collection as Array<Record<string, unknown>>;
+  }
+
+  if (collection && typeof collection === "object") {
+    const maybeItems = (collection as { items?: unknown }).items;
+    if (Array.isArray(maybeItems)) {
+      return maybeItems as Array<Record<string, unknown>>;
+    }
+
+    const maybeUsers = (collection as { users?: unknown }).users;
+    if (Array.isArray(maybeUsers)) {
+      return maybeUsers as Array<Record<string, unknown>>;
+    }
+  }
+
+  return [];
+}
 
 export default function Boss() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
-  const [tab, setTab] = useState<TabKey>("kpi");
-  const [vehicles, setVehicles] = useState<Vehicule[]>(mockVehicules);
-  const [users] = useState(mockUsers);
+  const { user, logout, isBootstrapping } = useAuth();
+
+  // Persist tab in localStorage
+  const [tab, setTab] = useState<TabKey>(() => {
+    const saved = localStorage.getItem("admin_tab");
+    return (saved as TabKey) || "kpi";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("admin_tab", tab);
+  }, [tab]);
+
+  const [vehicles, setVehicles] = useState<Vehicule[]>([]);
+  const [vehiclesPage, setVehiclesPage] = useState(1);
+  const [vehiclesLimit] = useState(10);
+  const [vehiclesMeta, setVehiclesMeta] = useState<PaginationMeta | null>(null);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [usersPage, setUsersPage] = useState(1);
+  const [usersLimit] = useState(10);
+  const [usersMeta, setUsersMeta] = useState<PaginationMeta | null>(null);
   const [reservations, setReservations] = useState(mockReservations);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialTeamMembers);
+  const [devis, setDevis] = useState<MockDevis[]>(mockDevis);
+  const [notifications, setNotifications] = useState<NotifType[]>(mockNotifications);
+  const [showNotifs, setShowNotifs] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+  const [isLoadingVehicles, setIsLoadingVehicles] = useState(false);
+  const [isLoadingReservations, setIsLoadingReservations] = useState(false);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+
+  const unreadCount = notifications.filter(n => !n.lu).length;
+
+  const markAsRead = (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, lu: true } : n));
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, lu: true })));
+  };
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifs(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  useEffect(() => {
+    if (isBootstrapping || !user || (tab !== "vehicules" && tab !== "kpi")) return;
+
+    const loadVehicles = async () => {
+      setIsLoadingVehicles(true);
+      try {
+        const vehiclesCollection = await vehiclesService.list(
+          { page: vehiclesPage, limit: vehiclesLimit },
+          true,
+        );
+        setVehicles(vehiclesCollection.items.map(mapVehicleDtoToVehicule));
+        setVehiclesMeta(vehiclesCollection.meta);
+      } finally {
+        setIsLoadingVehicles(false);
+      }
+    };
+
+    loadVehicles();
+  }, [isBootstrapping, user, tab, vehiclesPage, vehiclesLimit]);
+
+  useEffect(() => {
+    if (isBootstrapping || !user || tab !== "reservations") return;
+
+    const loadReservations = async () => {
+      setIsLoadingReservations(true);
+      try {
+        const reservationsDto = await reservationsService.list();
+        setReservations(reservationsDto.map(mapReservationDtoToAdminReservation));
+      } finally {
+        setIsLoadingReservations(false);
+      }
+    };
+
+    loadReservations();
+  }, [isBootstrapping, tab, user]);
+
+  useEffect(() => {
+    if (isBootstrapping || !user) return;
+
+    const loadUsers = async () => {
+      setIsLoadingUsers(true);
+      try {
+        const usersCollection = await usersService.list({ page: usersPage, limit: usersLimit });
+        const items = extractUsersFromResponse(usersCollection);
+        const hasPaginatedMeta =
+          !!usersCollection &&
+          typeof usersCollection === "object" &&
+          "meta" in usersCollection;
+
+        const mappedUsers: AdminUser[] = items.map((item) => {
+          const firstName = String(item.firstName || "");
+          const lastName = String(item.lastName || "");
+          return {
+            id: String(item.id),
+            nom: lastName || String(item.companyName || "Client"),
+            prenom: firstName || "-",
+            email: String(item.email || ""),
+            type: String(item.accountType || "particulier").toLowerCase(),
+            creeLe: String(item.createdAt || ""),
+            reservations: Number(item.reservationsCount || 0),
+            statut: String(item.status || "actif").toLowerCase(),
+            role: String(item.role || "client").toLowerCase(),
+            telephone: item.telephone ? String(item.telephone) : undefined,
+            ville: item.ville ? String(item.ville) : undefined,
+            adresse: item.adresse ? String(item.adresse) : undefined,
+          };
+        });
+
+        setUsers(mappedUsers);
+
+        if (!hasPaginatedMeta) {
+          setUsersMeta({
+            page: usersPage,
+            limit: usersLimit,
+            totalItems: mappedUsers.length,
+            totalPages: 1,
+            hasNextPage: false,
+            hasPreviousPage: false,
+          });
+        } else {
+          setUsersMeta((usersCollection as { meta: PaginationMeta }).meta);
+        }
+      } finally {
+        setIsLoadingUsers(false);
+      }
+    };
+
+    loadUsers();
+  }, [isBootstrapping, user, tab, usersPage, usersLimit]);
+
+  if (isBootstrapping) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
+        Chargement de la session...
+      </div>
+    );
+  }
 
   if (!user) return <AdminAuth />;
 
@@ -102,7 +286,10 @@ export default function Boss() {
                 )}
               </div>
 
-              <button onClick={() => setTab("profil")} className="flex items-center gap-2 hover:bg-muted rounded-lg px-3 py-1.5 transition-colors">
+              <button
+                onClick={() => setTab("profil")}
+                className="flex items-center gap-2 hover:bg-muted rounded-lg px-3 py-1.5 transition-colors"
+              >
                 <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold">
                   {user.prenom[0]}{user.nom[0]}
                 </div>
@@ -113,7 +300,9 @@ export default function Boss() {
 
           <main className="flex-1 overflow-auto p-4 md:p-6">
             <div className="max-w-7xl mx-auto space-y-6">
-              {isLoadingActiveTab && <p className="text-sm text-muted-foreground">Chargement des données...</p>}
+              {isLoadingActiveTab && (
+                <p className="text-sm text-muted-foreground">Chargement des données...</p>
+              )}
               {tab === "kpi" && (
                 <DashboardTab
                   reservations={reservations}
@@ -134,7 +323,9 @@ export default function Boss() {
                   limit={vehiclesLimit}
                 />
               )}
-              {tab === "reservations" && <ReservationsTab reservations={reservations} setReservations={setReservations} />}
+              {tab === "reservations" && (
+                <ReservationsTab reservations={reservations} setReservations={setReservations} />
+              )}
               {tab === "devis" && <DevisTab devis={devis} setDevis={setDevis} />}
               {tab === "flotte" && <FlotteTab />}
               {tab === "utilisateurs" && (

@@ -8,4 +8,7 @@ export interface AdminUser {
   reservations: number;
   statut: string;
   role: string;
+  telephone?: string;
+  ville?: string;
+  adresse?: string;
 }
