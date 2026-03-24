@@ -14,6 +14,7 @@ export interface Vehicule {
   nbPlaces: number;
   kmInclus: number;
   prixJour: number;
+  caution: number;
   description: string;
   photos: string[];
   actif: boolean;
@@ -54,6 +55,7 @@ export const vehicules: Vehicule[] = [
     nbPlaces: 4,
     kmInclus: 150,
     prixJour: 35,
+    caution: 200,
     description: "Citadine agile et économique, parfaite pour circuler en ville. Idéale pour les déplacements quotidiens en Île-de-France avec une consommation maîtrisée.",
     photos: [],
     actif: true,
@@ -74,6 +76,7 @@ export const vehicules: Vehicule[] = [
     nbPlaces: 4,
     kmInclus: 150,
     prixJour: 40,
+    caution: 250,
     description: "La mythique Fiat 500 en version hybride. Style iconique et conduite facile pour vos trajets urbains.",
     photos: [],
     actif: true,
@@ -94,6 +97,7 @@ export const vehicules: Vehicule[] = [
     nbPlaces: 4,
     kmInclus: 150,
     prixJour: 32,
+    caution: 150,
     description: "Citadine compacte et maniable, la C1 est idéale pour se faufiler en ville avec une consommation très réduite.",
     photos: [],
     actif: true,
@@ -114,6 +118,7 @@ export const vehicules: Vehicule[] = [
     nbPlaces: 5,
     kmInclus: 200,
     prixJour: 55,
+    caution: 300,
     description: "Polyvalente et moderne, la Clio V hybride offre le meilleur compromis entre confort et économie pour vos trajets quotidiens.",
     photos: [],
     actif: true,
@@ -134,6 +139,7 @@ export const vehicules: Vehicule[] = [
     nbPlaces: 5,
     kmInclus: 250,
     prixJour: 60,
+    caution: 350,
     description: "Design primé et technologie de pointe. La 308 offre un habitacle premium et une conduite dynamique.",
     photos: [],
     actif: true,
@@ -154,6 +160,7 @@ export const vehicules: Vehicule[] = [
     nbPlaces: 5,
     kmInclus: 300,
     prixJour: 95,
+    caution: 500,
     description: "L'excellence allemande. Confort, puissance et technologie pour vos déplacements professionnels ou personnels.",
     photos: [],
     actif: true,
@@ -174,6 +181,7 @@ export const vehicules: Vehicule[] = [
     nbPlaces: 5,
     kmInclus: 300,
     prixJour: 105,
+    caution: 600,
     description: "Élégance et raffinement. La Classe C incarne le luxe accessible avec un intérieur soigné et une conduite souple.",
     photos: [],
     actif: true,
@@ -194,6 +202,7 @@ export const vehicules: Vehicule[] = [
     nbPlaces: 5,
     kmInclus: 200,
     prixJour: 58,
+    caution: 320,
     description: "Référence du segment compact, la Golf 8 allie polyvalence, confort et technologies modernes pour tous vos trajets.",
     photos: [],
     actif: true,
@@ -214,6 +223,7 @@ export const vehicules: Vehicule[] = [
     nbPlaces: 5,
     kmInclus: 300,
     prixJour: 110,
+    caution: 550,
     description: "Berline premium au design épuré. L'Audi A4 offre un confort de conduite exceptionnel et des finitions haut de gamme.",
     photos: [],
     actif: true,
@@ -234,6 +244,7 @@ export const vehicules: Vehicule[] = [
     nbPlaces: 5,
     kmInclus: 200,
     prixJour: 70,
+    caution: 200,
     description: "SUV urbain compact et stylé. Le Captur offre modularité et confort pour vos escapades en ville comme à la campagne.",
     photos: [],
     actif: true,
@@ -254,6 +265,7 @@ export const vehicules: Vehicule[] = [
     nbPlaces: 5,
     kmInclus: 250,
     prixJour: 85,
+    caution: 400,
     description: "SUV familial au design félin. Spacieux, technologique et hybride pour des trajets confortables en toutes circonstances.",
     photos: [],
     actif: true,
@@ -274,6 +286,7 @@ export const vehicules: Vehicule[] = [
     nbPlaces: 5,
     kmInclus: 300,
     prixJour: 120,
+    caution: 700,
     description: "Le SUV premium par excellence. Finitions haut de gamme, quattro intégral et technologies embarquées de dernière génération.",
     photos: [],
     actif: true,

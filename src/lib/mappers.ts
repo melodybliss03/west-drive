@@ -2,6 +2,16 @@ import { Vehicule } from "@/data/mock";
 import { Reservation } from "@/pages/admin/data";
 import { ReservationDto, VehicleDto } from "@/lib/api/services";
 
+function getCautionByCategory(category: string): number {
+  const map: Record<string, number> = {
+    MICRO: 200,
+    COMPACTE: 300,
+    BERLINE: 500,
+    SUV: 400,
+  };
+  return map[category] ?? 300;
+}
+
 export function mapVehicleDtoToVehicule(dto: VehicleDto): Vehicule {
   const images = dto.images?.map((img) => img.url) ?? [];
   const availableFromStatus = dto.operationalStatus
@@ -20,6 +30,7 @@ export function mapVehicleDtoToVehicule(dto: VehicleDto): Vehicule {
     nbPlaces: dto.seats,
     kmInclus: dto.includedKmPerDay,
     prixJour: dto.pricePerDay,
+    caution: dto.depositAmount ?? getCautionByCategory(dto.category),
     description: dto.description || "",
     photos: images,
     actif: dto.active ?? true,

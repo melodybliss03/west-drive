@@ -10,7 +10,6 @@ type Devise = "FCFA" | "EUR";
 const TAUX_CONVERSION = 655.957;
 const FRAIS_CONVERSION = 0.0375;
 
-// Pays utilisant le FCFA
 const paysFCFA = [
   "Togo", "Bénin", "Côte d'Ivoire", "Sénégal", "Cameroun",
   "Gabon", "Mali", "Burkina Faso", "Niger", "Guinée", "Congo",
@@ -29,22 +28,26 @@ function getDeviseFromPays(pays: string): Devise {
   return paysFCFA.includes(pays) ? "FCFA" : "EUR";
 }
 
+type ReservationState = {
+  vehiculeName: string;
+  categorie: string;
+  dateDebut: string;
+  dateFin: string;
+  prixJour: number;
+  nbJours: number;
+  total: number;
+  reservationId: string;
+  email: string;
+  nom: string;
+  caution?: number;
+};
+
 export default function Checkout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const reservation = location.state as {
-    vehiculeName: string;
-    categorie: string;
-    dateDebut: string;
-    dateFin: string;
-    prixJour: number;
-    nbJours: number;
-    total: number;
-    reservationId: string;
-    email: string;
-    nom: string;
-  } | null;
+
+  const reservation = location.state as ReservationState | null;
 
   const [codePromo, setCodePromo] = useState("");
   const [showPromo, setShowPromo] = useState(false);
@@ -61,7 +64,6 @@ export default function Checkout() {
 
   const [devise, setDevise] = useState<Devise>(() => getDeviseFromPays("Togo"));
 
-  // Auto-switch devise when country changes
   useEffect(() => {
     setDevise(getDeviseFromPays(cardForm.pays));
   }, [cardForm.pays]);
@@ -137,7 +139,6 @@ export default function Checkout() {
             <span>West Drive</span>
           </button>
 
-          {/* Vehicle info */}
           <div className="mb-6">
             <h2 className="text-lg font-semibold text-foreground">{reservation.vehiculeName}</h2>
             <p className="text-sm text-muted-foreground">
@@ -145,10 +146,9 @@ export default function Checkout() {
             </p>
           </div>
 
-          {/* Currency auto-info */}
           <div className="mb-6">
             <div className="flex items-center gap-2">
-              <span className={`px-4 py-2 rounded-full text-sm font-medium border bg-primary text-primary-foreground border-primary`}>
+              <span className="px-4 py-2 rounded-full text-sm font-medium border bg-primary text-primary-foreground border-primary">
                 {devise === "FCFA"
                   ? totalFCFA.toLocaleString("fr-FR") + " FCFA"
                   : totalEUR.toFixed(2) + " €"}
@@ -165,13 +165,10 @@ export default function Checkout() {
             )}
           </div>
 
-          {/* Line items */}
           <div className="space-y-4 flex-1">
             <div className="flex justify-between items-start">
               <div>
-                <p className="font-medium text-foreground">
-                  Location — {reservation.vehiculeName}
-                </p>
+                <p className="font-medium text-foreground">Location — {reservation.vehiculeName}</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Réf. {reservation.reservationId} — Du {new Date(reservation.dateDebut).toLocaleDateString("fr-FR")} au{" "}
                   {new Date(reservation.dateFin).toLocaleDateString("fr-FR")}
@@ -190,7 +187,17 @@ export default function Checkout() {
               </div>
             </div>
 
-            {/* Promo code */}
+            {reservation.caution && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Caution (remboursable)</span>
+                <span className="text-foreground">
+                  {devise === "FCFA"
+                    ? Math.round(reservation.caution * TAUX_CONVERSION * (1 + FRAIS_CONVERSION)).toLocaleString("fr-FR") + " FCFA"
+                    : reservation.caution.toFixed(2) + " €"}
+                </span>
+              </div>
+            )}
+
             <div>
               {!showPromo ? (
                 <button
@@ -201,15 +208,8 @@ export default function Checkout() {
                 </button>
               ) : (
                 <div className="flex gap-2">
-                  <Input
-                    value={codePromo}
-                    onChange={(e) => setCodePromo(e.target.value)}
-                    placeholder="Code promo"
-                    className="text-sm"
-                  />
-                  <Button variant="outline" size="sm" onClick={() => setShowPromo(false)}>
-                    Appliquer
-                  </Button>
+                  <Input value={codePromo} onChange={(e) => setCodePromo(e.target.value)} placeholder="Code promo" className="text-sm" />
+                  <Button variant="outline" size="sm" onClick={() => setShowPromo(false)}>Appliquer</Button>
                 </div>
               )}
             </div>
@@ -221,7 +221,6 @@ export default function Checkout() {
               </div>
             </div>
 
-            {/* Client info summary */}
             <div className="border-t border-border pt-4 space-y-1">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Client</p>
               <p className="text-sm text-foreground">{reservation.nom}</p>
@@ -232,7 +231,6 @@ export default function Checkout() {
 
         {/* RIGHT — Payment Form */}
         <div className="p-8 lg:p-12 flex flex-col">
-          {/* Link pay button */}
           <button className="w-full bg-[#00D66F] hover:bg-[#00C060] text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors mb-4">
             Payer avec <span className="font-bold tracking-tight">⚡ link</span>
           </button>
@@ -244,40 +242,27 @@ export default function Checkout() {
           </div>
 
           <form onSubmit={handlePay} className="space-y-5 flex-1">
-            {/* Coordonnées (read-only, from reservation) */}
             <div>
               <h3 className="font-semibold text-foreground mb-3">Coordonnées</h3>
               <div className="space-y-3">
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">E-mail</label>
-                  <Input
-                    type="email"
-                    value={reservation.email}
-                    readOnly
-                    className="bg-muted/50 cursor-not-allowed"
-                  />
+                  <Input type="email" value={reservation.email} readOnly className="bg-muted/50 cursor-not-allowed" />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">Nom complet</label>
-                  <Input
-                    value={reservation.nom}
-                    readOnly
-                    className="bg-muted/50 cursor-not-allowed"
-                  />
+                  <Input value={reservation.nom} readOnly className="bg-muted/50 cursor-not-allowed" />
                 </div>
               </div>
             </div>
 
-            {/* Moyen de paiement */}
             <div>
               <h3 className="font-semibold text-foreground mb-3">Moyen de paiement</h3>
               <div className="border border-border rounded-lg overflow-hidden">
-                {/* Card tab */}
                 <div className="flex items-center gap-2 px-4 py-3 bg-secondary/30 border-b border-border">
                   <CreditCard className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium text-foreground">Carte</span>
                 </div>
-
                 <div className="p-4 space-y-3">
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Informations de la carte</label>
@@ -308,7 +293,6 @@ export default function Checkout() {
                       required
                     />
                   </div>
-
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Pays ou région</label>
                     <select
@@ -325,7 +309,6 @@ export default function Checkout() {
               </div>
             </div>
 
-            {/* Save info */}
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -334,21 +317,12 @@ export default function Checkout() {
                 className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-ring"
               />
               <div>
-                <p className="text-sm font-medium text-foreground">
-                  Enregistrer mes informations pour régler plus rapidement
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Payez en toute sécurité chez West Drive et partout où Link est accepté.
-                </p>
+                <p className="text-sm font-medium text-foreground">Enregistrer mes informations pour régler plus rapidement</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Payez en toute sécurité chez West Drive et partout où Link est accepté.</p>
               </div>
             </label>
 
-            {/* Pay button */}
-            <Button
-              type="submit"
-              className="w-full py-6 text-base font-semibold"
-              disabled={loading}
-            >
+            <Button type="submit" className="w-full py-6 text-base font-semibold" disabled={loading}>
               {loading ? (
                 <span className="flex items-center gap-2">
                   <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
@@ -362,7 +336,6 @@ export default function Checkout() {
               )}
             </Button>
 
-            {/* Footer */}
             <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground pt-2">
               <Lock className="h-3 w-3" />
               <span>Propulsé par <span className="font-semibold">stripe</span></span>

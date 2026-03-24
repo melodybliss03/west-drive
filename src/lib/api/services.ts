@@ -57,6 +57,7 @@ export type VehicleDto = {
   seats: number;
   includedKmPerDay: number;
   pricePerDay: number;
+  depositAmount?: number;
   description?: string;
   availableCities: string[];
   images?: VehicleImageDto[];

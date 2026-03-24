@@ -1,7 +1,16 @@
 import { Link } from "react-router-dom";
 import DevisDialog from "@/components/DevisDialog";
 import { motion } from "framer-motion";
-import { ChevronRight, Check, Building2, Users, FileText, Zap, Headphones, MapPin } from "lucide-react";
+import {
+  ChevronRight,
+  Check,
+  Building2,
+  Users,
+  FileText,
+  Zap,
+  Headphones,
+  MapPin,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Accordion,
@@ -16,32 +25,64 @@ import ScrollToTop from "@/components/ScrollToTop";
 import { villes } from "@/data/mock";
 
 const solutions = [
-  { icon: Building2, title: "Flotte dédiée", desc: "Accédez à un pool de véhicules réservé à votre entreprise, sans immobilisation de capital." },
-  { icon: Users, title: "Multi-conducteurs", desc: "Ajoutez et gérez les conducteurs autorisés depuis votre espace pro en quelques clics." },
-  { icon: FileText, title: "Facturation simplifiée", desc: "Facture mensuelle unique, export CSV et paiement en fin de mois. Comptabilité facile." },
-  { icon: Zap, title: "Véhicule sous 24h", desc: "Besoin urgent ? Nous mettons à disposition un véhicule de remplacement en moins de 24h." },
-  { icon: Headphones, title: "Interlocuteur dédié", desc: "Un chargé de compte unique pour centraliser toutes vos demandes." },
-  { icon: MapPin, title: "Livraison sur site", desc: "Nous livrons directement sur votre lieu de travail dans toute notre zone de couverture." },
+  {
+    icon: Building2,
+    title: "Flotte dédiée",
+    desc: "Accédez à un pool de véhicules réservé à votre entreprise, sans immobilisation de capital.",
+  },
+  {
+    icon: Users,
+    title: "Multi-conducteurs",
+    desc: "Ajoutez et gérez les conducteurs autorisés depuis votre espace pro en quelques clics.",
+  },
+  {
+    icon: FileText,
+    title: "Facturation simplifiée",
+    desc: "Facture mensuelle unique, export CSV et paiement en fin de mois. Comptabilité facile.",
+  },
+  {
+    icon: Zap,
+    title: "Véhicule sous 24h",
+    desc: "Besoin urgent ? Nous mettons à disposition un véhicule de remplacement en moins de 24h.",
+  },
+  {
+    icon: Headphones,
+    title: "Interlocuteur dédié",
+    desc: "Un chargé de compte unique pour centraliser toutes vos demandes.",
+  },
+  {
+    icon: MapPin,
+    title: "Livraison sur site",
+    desc: "Nous livrons directement sur votre lieu de travail dans toute notre zone de couverture.",
+  },
 ];
 
 const formules = [
   {
     nom: "Entreprises La Défense",
     desc: "Déplacements salariés, missions, séminaires. Facturation simplifiée et contrats sur-mesure.",
-    features: ["Facturation centralisée", "Tarifs dégressifs", "Reporting mensuel"],
+    features: [
+      "Facturation centralisée",
+      "Tarifs dégressifs",
+      "Reporting mensuel",
+    ],
     btnLabel: "En savoir plus",
     btnVariant: "outline" as const,
     highlight: false,
-    link: "/contact",
+    link: "/#",
   },
   {
     nom: "Professionnels Mobiles",
     desc: "Infirmiers, commerciaux, consultants, artisans : ne laissez jamais une panne stopper votre activité.",
-    features: ["Disponibilité sous 2h", "Facturation professionnelle", "Tarifs dégressifs"],
+    features: [
+      "Disponibilité sous 2h",
+      "Facturation professionnelle",
+      "Tarifs dégressifs",
+    ],
     btnLabel: "Découvrir",
     btnVariant: "default" as const,
     highlight: true,
-    link: "/vehicules",
+    link: "/#",
   },
   {
     nom: "Partenariats Professionnels",
@@ -50,16 +91,31 @@ const formules = [
     btnLabel: "Devenir partenaire",
     btnVariant: "default" as const,
     highlight: false,
-    link: "/contact",
+    link: "/#",
   },
 ];
 
 const faq = [
-  { q: "Quels types de sociétés peuvent louer ?", a: "Toute société (SARL, SAS, SA, auto-entrepreneur) avec un SIRET valide peut ouvrir un compte entreprise." },
-  { q: "Peut-on payer en fin de mois ?", a: "Oui, les entreprises bénéficient d'un paiement différé avec facturation mensuelle." },
-  { q: "Combien de conducteurs par véhicule ?", a: "Vous pouvez ajouter autant de conducteurs autorisés que nécessaire depuis votre espace pro." },
-  { q: "Proposez-vous des contrats longue durée ?", a: "Oui, nous proposons des formules de 3 à 24 mois avec des tarifs très compétitifs." },
-  { q: "Comment fonctionne le véhicule de remplacement ?", a: "En cas de panne ou d'entretien programmé, un véhicule équivalent est livré sous 24h." },
+  {
+    q: "Quels types de sociétés peuvent louer ?",
+    a: "Toute société (SARL, SAS, SA, auto-entrepreneur) avec un SIRET valide peut ouvrir un compte entreprise.",
+  },
+  {
+    q: "Peut-on payer en fin de mois ?",
+    a: "Oui, les entreprises bénéficient d'un paiement différé avec facturation mensuelle.",
+  },
+  {
+    q: "Combien de conducteurs par véhicule ?",
+    a: "Vous pouvez ajouter autant de conducteurs autorisés que nécessaire depuis votre espace pro.",
+  },
+  {
+    q: "Proposez-vous des contrats longue durée ?",
+    a: "Oui, nous proposons des formules de 3 à 24 mois avec des tarifs très compétitifs.",
+  },
+  {
+    q: "Comment fonctionne le véhicule de remplacement ?",
+    a: "En cas de panne ou d'entretien programmé, un véhicule équivalent est livré sous 24h.",
+  },
 ];
 
 export default function Entreprise() {
@@ -71,24 +127,33 @@ export default function Entreprise() {
       {/* Hero */}
       <section className="pt-40 pb-20 bg-foreground text-background">
         <div className="max-w-5xl mx-auto px-4 text-center">
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
             <h1 className="font-display text-4xl md:text-5xl font-bold mb-4">
               Location pour <span className="text-primary">Entreprises</span>
             </h1>
             <p className="text-background/70 text-lg max-w-2xl mx-auto mb-8">
-              Flotte dédiée, facturation simplifiée et interlocuteur unique. Optimisez la mobilité de vos équipes avec WEST DRIVE.
+              Flotte dédiée, facturation simplifiée et interlocuteur unique.
+              Optimisez la mobilité de vos équipes avec WEST DRIVE.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <DevisDialog defaultType="entreprise">
+              <Link to="/vehicules">
                 <Button size="lg" className="gap-2 text-base px-8">
-                  Demander un devis <ChevronRight className="h-4 w-4" />
+                  Voir nos véhicules <ChevronRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <DevisDialog defaultType="particulier">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="gap-2 text-base px-8 border-background/20 text-background hover:bg-background/10"
+                >
+                  Demander un devis
                 </Button>
               </DevisDialog>
-              <a href="tel:+330643660809">
-                <Button size="lg" variant="outline" className="gap-2 text-base px-8 border-background/20 text-background hover:bg-background/10">
-                  06 43 66 08 09
-                </Button>
-              </a>
             </div>
           </motion.div>
         </div>
@@ -98,8 +163,12 @@ export default function Entreprise() {
       <section className="py-20 bg-background">
         <div className="max-w-5xl mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">Nos solutions B2B</h2>
-            <p className="text-muted-foreground max-w-lg mx-auto">Des services conçus pour les professionnels exigeants.</p>
+            <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">
+              Nos solutions B2B
+            </h2>
+            <p className="text-muted-foreground max-w-lg mx-auto">
+              Des services conçus pour les professionnels exigeants.
+            </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {solutions.map((s, i) => (
@@ -115,7 +184,9 @@ export default function Entreprise() {
                   <s.icon className="h-5 w-5 text-primary" />
                 </div>
                 <h3 className="font-display font-semibold mb-2">{s.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {s.desc}
+                </p>
               </motion.div>
             ))}
           </div>
@@ -126,8 +197,12 @@ export default function Entreprise() {
       <section className="py-20 bg-secondary">
         <div className="max-w-5xl mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">Nos formules entreprise</h2>
-            <p className="text-muted-foreground">Tarifs personnalisés selon vos besoins et votre volume.</p>
+            <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">
+              Nos formules entreprise
+            </h2>
+            <p className="text-muted-foreground">
+              Tarifs personnalisés selon vos besoins et votre volume.
+            </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {formules.map((t) => (
@@ -136,7 +211,9 @@ export default function Entreprise() {
                 className={`rounded-2xl p-8 flex flex-col text-center ${t.highlight ? "border-2 border-primary bg-card" : "bg-card border border-border"}`}
               >
                 <h3 className="font-display font-bold text-xl mb-3">{t.nom}</h3>
-                <p className="text-sm text-muted-foreground mb-6 leading-relaxed">{t.desc}</p>
+                <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+                  {t.desc}
+                </p>
                 <ul className="space-y-2.5 flex-1 mb-8 text-left">
                   {t.features.map((f) => (
                     <li key={f} className="flex items-center gap-2 text-sm">
@@ -159,9 +236,7 @@ export default function Entreprise() {
                   </DevisDialog>
                 ) : (
                   <Link to={t.link}>
-                    <Button className="w-full">
-                      {t.btnLabel}
-                    </Button>
+                    <Button className="w-full">{t.btnLabel}</Button>
                   </Link>
                 )}
               </div>
@@ -177,14 +252,25 @@ export default function Entreprise() {
           <div className="absolute inset-0 bg-foreground/80" />
         </div>
         <div className="relative max-w-3xl mx-auto px-4 text-center text-background">
-          <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">Simplifiez la mobilité de votre entreprise</h2>
-          <p className="text-background/70 text-lg mb-8">Un interlocuteur dédié, une facturation unique, des véhicules toujours disponibles.</p>
+          <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">
+            Simplifiez la mobilité de votre entreprise
+          </h2>
+          <p className="text-background/70 text-lg mb-8">
+            Un interlocuteur dédié, une facturation unique, des véhicules
+            toujours disponibles.
+          </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <DevisDialog defaultType="entreprise">
-              <Button size="lg" className="gap-2 px-8 text-base">Demander un devis <ChevronRight className="h-4 w-4" /></Button>
+              <Button size="lg" className="gap-2 px-8 text-base">
+                Demander un devis <ChevronRight className="h-4 w-4" />
+              </Button>
             </DevisDialog>
             <Link to="/vehicules">
-              <Button size="lg" variant="outline" className="gap-2 px-8 text-base border-background/20 text-background hover:bg-background/10">
+              <Button
+                size="lg"
+                variant="outline"
+                className="gap-2 px-8 text-base border-background/20 text-background hover:bg-background/10"
+              >
                 Voir nos véhicules
               </Button>
             </Link>
@@ -195,12 +281,20 @@ export default function Entreprise() {
       {/* FAQ */}
       <section className="py-20 bg-background">
         <div className="max-w-3xl mx-auto px-4">
-          <h2 className="font-display text-3xl md:text-4xl font-bold text-center mb-10">Questions fréquentes</h2>
+          <h2 className="font-display text-3xl md:text-4xl font-bold text-center mb-10">
+            Questions fréquentes
+          </h2>
           <Accordion type="single" collapsible>
             {faq.map((q, i) => (
-              <AccordionItem key={i} value={`faq-${i}`} className="border px-4 my-2 rounded-xl">
+              <AccordionItem
+                key={i}
+                value={`faq-${i}`}
+                className="border px-4 my-2 rounded-xl"
+              >
                 <AccordionTrigger className="text-left">{q.q}</AccordionTrigger>
-                <AccordionContent className="text-muted-foreground">{q.a}</AccordionContent>
+                <AccordionContent className="text-muted-foreground">
+                  {q.a}
+                </AccordionContent>
               </AccordionItem>
             ))}
           </Accordion>
@@ -211,8 +305,12 @@ export default function Entreprise() {
       <section className="py-20 bg-secondary">
         <div className="max-w-5xl mx-auto px-4">
           <div className="text-center mb-10">
-            <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">Zone de couverture</h2>
-            <p className="text-muted-foreground">Livraison et prise en charge dans toute notre zone.</p>
+            <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">
+              Zone de couverture
+            </h2>
+            <p className="text-muted-foreground">
+              Livraison et prise en charge dans toute notre zone.
+            </p>
           </div>
           <div className="rounded-2xl overflow-hidden border border-border shadow-lg">
             <iframe
@@ -228,7 +326,12 @@ export default function Entreprise() {
           </div>
           <div className="flex flex-wrap justify-center gap-2 mt-6">
             {villes.map((v) => (
-              <span key={v.id} className="px-3 py-1.5 bg-card border border-border rounded-lg text-sm text-muted-foreground">{v.nom}</span>
+              <span
+                key={v.id}
+                className="px-3 py-1.5 bg-card border border-border rounded-lg text-sm text-muted-foreground"
+              >
+                {v.nom}
+              </span>
             ))}
           </div>
         </div>
@@ -237,14 +340,24 @@ export default function Entreprise() {
       {/* Contact CTA */}
       <section className="py-20 bg-foreground text-background">
         <div className="max-w-3xl mx-auto px-4 text-center">
-          <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">Parlons de votre projet</h2>
-          <p className="text-background/70 mb-8">Recevez un devis personnalisé en moins de 24h.</p>
+          <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">
+            Parlons de votre projet
+          </h2>
+          <p className="text-background/70 mb-8">
+            Recevez un devis personnalisé en moins de 24h.
+          </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <DevisDialog defaultType="entreprise">
-              <Button size="lg" className="gap-2 px-8">Demander un devis <ChevronRight className="h-4 w-4" /></Button>
+              <Button size="lg" className="gap-2 px-8">
+                Demander un devis <ChevronRight className="h-4 w-4" />
+              </Button>
             </DevisDialog>
             <Link to="/inscription">
-              <Button size="lg" variant="outline" className="gap-2 px-8 border-background/20 text-background hover:bg-background/10">
+              <Button
+                size="lg"
+                variant="outline"
+                className="gap-2 px-8 border-background/20 text-background hover:bg-background/10"
+              >
                 Créer un compte pro
               </Button>
             </Link>
