@@ -24,7 +24,6 @@ import ReservationDialog from "@/components/ReservationDialog";
 const energieLabels: Record<string, string> = {
   ESSENCE: "Essence",
   DIESEL: "Diesel",
-  HYBRIDE: "Hybride",
   ELECTRIQUE: "Électrique",
 };
 

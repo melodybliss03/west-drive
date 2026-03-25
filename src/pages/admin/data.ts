@@ -204,7 +204,7 @@ export const allPermissions = [
 
 export const emptyVehicle: Partial<Vehicule> = {
   nom: "", marque: "", modele: "", annee: 2024, categorie: "COMPACTE",
-  transmission: "MANUELLE", energie: "ESSENCE", nbPlaces: 5, kmInclus: 200,
-  prixJour: 50, description: "", actif: true, villes: [], disponible: true,
-  note: 0, nbAvis: 0, photos: [],
+  transmission: "MANUELLE", energie: "ESSENCE", isHybride: false, nbPlaces: 5, kmInclus: 200,
+  kilométrage: 0, prixJour: 50, prixHeure: 12, description: "", actif: true, villes: [], disponible: true,
+  note: 0, nbAvis: 0, photos: [], autreFraisLibelle: [], entretenueRequis: { kilométrage: 150000, jours: 14 },
 };

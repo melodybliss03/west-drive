@@ -27,8 +27,8 @@ import {
 } from "@/components/ui/pagination";
 
 // Types étendus — plus de `any`
-type VehiculeForm = Partial<Vehicule> & { autreFrais?: number };
-type VehiculeView = Vehicule & { autreFrais?: number };
+type VehiculeForm = Partial<Vehicule>;
+type VehiculeView = Vehicule;
 
 interface VehiculesTabProps {
   vehicles: Vehicule[];
@@ -83,9 +83,14 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
     category: vehicle.categorie,
     transmission: vehicle.transmission,
     energy: vehicle.energie,
+    isHybride: vehicle.isHybride || false,
     seats: vehicle.nbPlaces,
     includedKmPerDay: vehicle.kmInclus,
+    mileage: vehicle.kilométrage || 0,
     pricePerDay: vehicle.prixJour,
+    pricePerHour: vehicle.prixHeure || 0,
+    additionalFeesLabels: vehicle.autreFraisLibelle || [],
+    maintenanceRequired: vehicle.entretenueRequis,
     streetAddress: locationForm.streetAddress,
     city: locationForm.city,
     availableCities: vehicle.villes,
@@ -105,6 +110,20 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
       return;
     }
 
+    if (!editVehicle.nom?.trim()) {
+      toast({ title: "Nom requis", description: "Veuillez renseigner le nom du véhicule.", variant: "destructive" });
+      return;
+    }
+
+    // Vérifier l'unicité du nom
+    const namedAlready = vehicles.some(v => 
+      v.nom.toLowerCase() === editVehicle.nom?.toLowerCase() && 
+      v.id !== editVehicle.id
+    );
+    if (namedAlready) {
+      toast({ title: "Nom déjà utilisé", description: "Un véhicule avec ce nom existe déjà.", variant: "destructive" });
+      return;
+    }
 
     const firstCity = locationForm.city.trim();
     const cities = (editVehicle.villes || []).filter(Boolean);
@@ -202,8 +221,8 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                     <TableHead>Véhicule</TableHead>
                     <TableHead>Catégorie</TableHead>
                     <TableHead>Prix/jour</TableHead>
-                    <TableHead className="hidden md:table-cell">Villes</TableHead>
-                    <TableHead>Statut</TableHead>
+                    <TableHead className="hidden md:table-cell">Km actuel</TableHead>
+                    <TableHead className="hidden lg:table-cell">Statut</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -238,8 +257,8 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                           </TableCell>
                           <TableCell><Badge variant="outline">{v.categorie}</Badge></TableCell>
                           <TableCell className="font-semibold">{v.prixJour} €</TableCell>
-                          <TableCell className="text-xs max-w-[150px] truncate hidden md:table-cell">{v.villes.join(", ")}</TableCell>
-                          <TableCell>
+                          <TableCell className="text-xs hidden md:table-cell">{v.kilométrage} km</TableCell>
+                          <TableCell className="hidden lg:table-cell">
                             {v.disponible && v.actif ? (
                               <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-200">Disponible</Badge>
                             ) : (
@@ -352,17 +371,54 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                       <p className="text-lg font-bold">{viewVehicle.prixJour} €</p>
                     </div>
                     <div className="p-3 rounded-xl bg-muted/40 text-center">
+                      <p className="text-xs text-muted-foreground">Prix/heure</p>
+                      <p className="text-lg font-bold">{viewVehicle.prixHeure} €</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-muted/40 text-center">
                       <p className="text-xs text-muted-foreground">Km inclus/jour</p>
                       <p className="text-lg font-bold">{viewVehicle.kmInclus}</p>
                     </div>
-                  </div>
-                  {viewVehicle.autreFrais && (
                     <div className="p-3 rounded-xl bg-muted/40 text-center">
-                      <p className="text-xs text-muted-foreground">Autre frais</p>
-                      <p className="text-lg font-bold">{viewVehicle.autreFrais} €</p>
+                      <p className="text-xs text-muted-foreground">Kilométrage actuel</p>
+                      <p className="text-lg font-bold">{viewVehicle.kilométrage} km</p>
+                    </div>
+                  </div>
+                  {viewVehicle.autreFraisLibelle && viewVehicle.autreFraisLibelle.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground">Frais additionnels</p>
+                      {viewVehicle.autreFraisLibelle.map((frais, idx) => (
+                        <div key={idx} className="flex justify-between text-sm">
+                          <span>{frais.label}</span>
+                          <span className="font-semibold">{frais.amount} €</span>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
+
+                {viewVehicle.entretenueRequis && (viewVehicle.entretenueRequis.kilométrage || viewVehicle.entretenueRequis.jours) && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">Entretien requis</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {viewVehicle.entretenueRequis.kilométrage && (
+                        <div className="p-2 rounded-lg bg-muted/40 text-center text-xs">
+                          <p className="text-muted-foreground">À {viewVehicle.entretenueRequis.kilométrage} km</p>
+                        </div>
+                      )}
+                      {viewVehicle.entretenueRequis.jours && (
+                        <div className="p-2 rounded-lg bg-muted/40 text-center text-xs">
+                          <p className="text-muted-foreground">Tous les {viewVehicle.entretenueRequis.jours} jours</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {viewVehicle.isHybride && (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-200 text-center">
+                    <p className="text-sm font-medium text-amber-700">⚡ Véhicule hybride</p>
+                  </div>
+                )}
 
                 {viewVehicle.villes.length > 0 && (
                   <div className="space-y-2">
@@ -413,6 +469,17 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                   <Input value={editVehicle.modele || ""} onChange={e => setEditVehicle({ ...editVehicle, modele: e.target.value, nom: `${editVehicle.marque} ${e.target.value}` })} />
                 </div>
               </div>
+              <div>
+                <Label>Nom du véhicule (unique) *</Label>
+                <Input 
+                  value={editVehicle.nom || ""} 
+                  onChange={e => setEditVehicle({ ...editVehicle, nom: e.target.value })}
+                  placeholder="Ex: Peugeot 108 Blanc"
+                />
+                {vehicles.some(v => v.nom.toLowerCase() === editVehicle.nom?.toLowerCase() && v.id !== editVehicle.id) && (
+                  <p className="text-xs text-destructive mt-1">⚠️ Ce nom est déjà utilisé par un autre véhicule</p>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Année</Label>
@@ -429,16 +496,9 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                   <Input type="number" value={editVehicle.prixJour || 0} onChange={e => setEditVehicle({ ...editVehicle, prixJour: +e.target.value })} />
                 </div>
                 <div>
-                  <Label>Autre frais (€)</Label>
-                  <Input
-                    type="number"
-                    placeholder="Optionnel"
-                    value={editVehicle.autreFrais ?? ""}
-                    onChange={e => setEditVehicle({
-                      ...editVehicle,
-                      autreFrais: e.target.value ? +e.target.value : undefined
-                    })}
-                  />
+                  <Label>Prix/heure (€)</Label>
+                  <Input type="number" step="0.01" value={editVehicle.prixHeure || 0} onChange={e => setEditVehicle({ ...editVehicle, prixHeure: +e.target.value })} />
+                  <p className="text-xs text-muted-foreground mt-1">Le total du jour ne dépasse pas le prix/jour</p>
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-3">
@@ -466,10 +526,14 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                   <Select value={editVehicle.energie} onValueChange={v => setEditVehicle({ ...editVehicle, energie: v as Energie })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {["ESSENCE", "DIESEL", "HYBRIDE", "ELECTRIQUE"].map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+                      {["ESSENCE", "DIESEL", "ELECTRIQUE"].map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch checked={editVehicle.isHybride || false} onCheckedChange={v => setEditVehicle({ ...editVehicle, isHybride: v })} />
+                <Label>Hybride (2 énergies)</Label>
               </div>
               <div>
                 <Label>Km inclus/jour</Label>
@@ -481,7 +545,7 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                   <Input value={locationForm.streetAddress} onChange={(e) => setLocationForm((prev) => ({ ...prev, streetAddress: e.target.value }))} placeholder="12 Rue de Rivoli" />
                 </div>
                 <div>
-                  <Label>Ville *</Label>
+                  <Label>Ville * (une seule ville par véhicule)</Label>
                   <Input
                     value={locationForm.city}
                     onChange={(e) => {
@@ -491,7 +555,100 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                     }}
                     placeholder="Paris"
                   />
+                  <p className="text-xs text-muted-foreground mt-1">Chaque véhicule ne peut être disponible que dans une seule ville</p>
                 </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Kilométrage actuel (km)</Label>
+                  <Input type="number" value={editVehicle.kilométrage || 0} onChange={e => setEditVehicle({ ...editVehicle, kilométrage: +e.target.value })} />
+                </div>
+                <div>
+                  <Label>Prix/heure (€)</Label>
+                  <Input type="number" step="0.01" value={editVehicle.prixHeure || 0} onChange={e => setEditVehicle({ ...editVehicle, prixHeure: +e.target.value })} />
+                </div>
+              </div>
+              <div>
+                <Label>Entretien requis - Kilométrage (km)</Label>
+                <Input 
+                  type="number" 
+                  placeholder="Ex: 150000" 
+                  value={editVehicle.entretenueRequis?.kilométrage || ""} 
+                  onChange={e => setEditVehicle({ 
+                    ...editVehicle, 
+                    entretenueRequis: { ...editVehicle.entretenueRequis, kilométrage: e.target.value ? +e.target.value : undefined } 
+                  })} 
+                />
+              </div>
+              <div>
+                <Label>Entretien requis - Jours</Label>
+                <Input 
+                  type="number" 
+                  placeholder="Ex: 14" 
+                  value={editVehicle.entretenueRequis?.jours || ""} 
+                  onChange={e => setEditVehicle({ 
+                    ...editVehicle, 
+                    entretenueRequis: { ...editVehicle.entretenueRequis, jours: e.target.value ? +e.target.value : undefined } 
+                  })} 
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Frais additionnels</Label>
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => {
+                      const newFrais = [...(editVehicle.autreFraisLibelle || []), { label: "", amount: 0 }];
+                      setEditVehicle({ ...editVehicle, autreFraisLibelle: newFrais });
+                    }}
+                  >
+                    + Ajouter
+                  </Button>
+                </div>
+                {editVehicle.autreFraisLibelle && editVehicle.autreFraisLibelle.length > 0 && (
+                  <div className="space-y-2">
+                    {editVehicle.autreFraisLibelle.map((frais, idx) => (
+                      <div key={idx} className="flex gap-2 items-end">
+                        <Input 
+                          placeholder="Libellé" 
+                          value={frais.label} 
+                          onChange={e => {
+                            const updated = [...editVehicle.autreFraisLibelle!];
+                            updated[idx].label = e.target.value;
+                            setEditVehicle({ ...editVehicle, autreFraisLibelle: updated });
+                          }}
+                          className="flex-1"
+                        />
+                        <Input 
+                          placeholder="Montant (€)" 
+                          type="number"
+                          step="0.01"
+                          value={frais.amount} 
+                          onChange={e => {
+                            const updated = [...editVehicle.autreFraisLibelle!];
+                            updated[idx].amount = +e.target.value;
+                            setEditVehicle({ ...editVehicle, autreFraisLibelle: updated });
+                          }}
+                          className="w-24"
+                        />
+                        <Button 
+                          type="button"
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => {
+                            const updated = editVehicle.autreFraisLibelle!.filter((_, i) => i !== idx);
+                            setEditVehicle({ ...editVehicle, autreFraisLibelle: updated });
+                          }}
+                          className="text-destructive"
+                        >
+                          ✕
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

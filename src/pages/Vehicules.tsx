@@ -82,7 +82,6 @@ export default function Vehicules() {
                 <SelectItem value="all">Toutes</SelectItem>
                 <SelectItem value="ESSENCE">Essence</SelectItem>
                 <SelectItem value="DIESEL">Diesel</SelectItem>
-                <SelectItem value="HYBRIDE">Hybride</SelectItem>
                 <SelectItem value="ELECTRIQUE">Électrique</SelectItem>
               </SelectContent>
             </Select>

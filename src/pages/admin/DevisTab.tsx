@@ -26,7 +26,8 @@ type PropositionVehicule = {
   heureFin: string;
   kmInclus: string;
   prixJour: string;
-  autreFrais: string;
+  prixHeure: string;
+  autreFraisLibelle: { label: string; amount: string }[];
 };
 
 // Contrôle de la vue active dans la modal
@@ -44,7 +45,8 @@ function emptyProposition(): PropositionVehicule {
     heureFin: "",
     kmInclus: "200",
     prixJour: "",
-    autreFrais: "0",
+    prixHeure: "",
+    autreFraisLibelle: [],
   };
 }
 
@@ -382,9 +384,72 @@ export default function DevisTab({ devis, setDevis }: DevisTabProps) {
                       <Input type="number" value={p.prixJour} placeholder="0" onChange={e => updateProposition(index, "prixJour", e.target.value)} className="mt-1" />
                     </div>
                     <div>
-                      <Label className="text-xs">Autre frais (€)</Label>
-                      <Input type="number" value={p.autreFrais} placeholder="0" onChange={e => updateProposition(index, "autreFrais", e.target.value)} className="mt-1" />
+                      <Label className="text-xs">Prix/heure (€)</Label>
+                      <Input type="number" step="0.01" value={p.prixHeure} placeholder="0" onChange={e => updateProposition(index, "prixHeure", e.target.value)} className="mt-1" />
                     </div>
+                  </div>
+                  
+                  {/* Frais additionnels */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Frais additionnels</Label>
+                      <Button 
+                        type="button"
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => {
+                          const updated = [...propositions];
+                          updated[index].autreFraisLibelle = [...(p.autreFraisLibelle || []), { label: "", amount: "0" }];
+                          setPropositions(updated);
+                        }}
+                        className="h-7 text-xs"
+                      >
+                        + Ajouter
+                      </Button>
+                    </div>
+                    {p.autreFraisLibelle && p.autreFraisLibelle.length > 0 && (
+                      <div className="space-y-2">
+                        {p.autreFraisLibelle.map((frais, fIdx) => (
+                          <div key={fIdx} className="flex gap-2 items-center">
+                            <Input 
+                              placeholder="Libellé" 
+                              value={frais.label} 
+                              onChange={e => {
+                                const updated = [...propositions];
+                                updated[index].autreFraisLibelle[fIdx].label = e.target.value;
+                                setPropositions(updated);
+                              }}
+                              className="text-xs flex-1"
+                            />
+                            <Input 
+                              placeholder="0" 
+                              type="number"
+                              step="0.01"
+                              value={frais.amount} 
+                              onChange={e => {
+                                const updated = [...propositions];
+                                updated[index].autreFraisLibelle[fIdx].amount = e.target.value;
+                                setPropositions(updated);
+                              }}
+                              className="text-xs w-20"
+                            />
+                            <Button 
+                              type="button"
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => {
+                                const updated = [...propositions];
+                                updated[index].autreFraisLibelle = p.autreFraisLibelle.filter((_, i) => i !== fIdx);
+                                setPropositions(updated);
+                              }}
+                              className="text-destructive h-7 w-7"
+                            >
+                              ✕
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

@@ -53,10 +53,13 @@ export type VehicleDto = {
   year: number;
   category: "MICRO" | "COMPACTE" | "BERLINE" | "SUV";
   transmission: "MANUELLE" | "AUTOMATIQUE";
-  energy: "ESSENCE" | "DIESEL" | "HYBRIDE" | "ELECTRIQUE";
+  energy: "ESSENCE" | "DIESEL" | "ELECTRIQUE";
+  isHybride: boolean;
   seats: number;
   includedKmPerDay: number;
+  mileage: number;
   pricePerDay: number;
+  pricePerHour: number;
   depositAmount?: number;
   description?: string;
   availableCities: string[];
@@ -67,6 +70,11 @@ export type VehicleDto = {
   active?: boolean;
   rating?: number;
   reviewsCount?: number;
+  additionalFeesLabels?: { label: string; amount: number }[];
+  maintenanceRequired?: {
+    mileage?: number;
+    days?: number;
+  };
 };
 
 type PaginationParams = {

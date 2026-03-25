@@ -10,7 +10,6 @@ import { Car } from "lucide-react";
 const energieLabels: Record<string, string> = {
   ESSENCE: "Essence",
   DIESEL: "Diesel",
-  HYBRIDE: "Hybride",
   ELECTRIQUE: "Électrique",
 };
 

@@ -27,9 +27,12 @@ export function mapVehicleDtoToVehicule(dto: VehicleDto): Vehicule {
     categorie: dto.category,
     transmission: dto.transmission,
     energie: dto.energy,
+    isHybride: dto.isHybride ?? false,
     nbPlaces: dto.seats,
     kmInclus: dto.includedKmPerDay,
+    kilométrage: dto.mileage ?? 0,
     prixJour: dto.pricePerDay,
+    prixHeure: dto.pricePerHour ?? 0,
     caution: dto.depositAmount ?? getCautionByCategory(dto.category),
     description: dto.description || "",
     photos: images,
@@ -38,6 +41,11 @@ export function mapVehicleDtoToVehicule(dto: VehicleDto): Vehicule {
     disponible: dto.available ?? availableFromStatus ?? true,
     note: dto.rating ?? 4.5,
     nbAvis: dto.reviewsCount ?? 0,
+    autreFraisLibelle: dto.additionalFeesLabels ?? [],
+    entretenueRequis: {
+      kilométrage: dto.maintenanceRequired?.mileage,
+      jours: dto.maintenanceRequired?.days,
+    },
   };
 }
 
