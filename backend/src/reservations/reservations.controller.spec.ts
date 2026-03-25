@@ -72,6 +72,17 @@ describe('ReservationsController', () => {
     expect(mockService.findEvents).toHaveBeenCalledWith('r-1', 1, 20);
   });
 
+  it('lists reservations with pagination and optional user filter', async () => {
+    mockService.findAll.mockResolvedValue({ items: [], meta: { page: 2, limit: 10 } });
+
+    await expect(controller.findAll(2, 10, 'user-1')).resolves.toEqual({
+      items: [],
+      meta: { page: 2, limit: 10 },
+    });
+
+    expect(mockService.findAll).toHaveBeenCalledWith(2, 10, 'user-1');
+  });
+
   it('creates stripe preauthorization', async () => {
     mockService.createStripePreauth.mockResolvedValue({
       id: 'r-1',
@@ -88,5 +99,17 @@ describe('ReservationsController', () => {
     expect(mockService.createStripePreauth).toHaveBeenCalledWith('r-1', {
       amount: 1200,
     });
+  });
+
+  it('archives reservation on delete endpoint', async () => {
+    mockService.remove.mockResolvedValue({
+      message: 'Reservation archived successfully',
+    });
+
+    await expect(controller.remove('r-1')).resolves.toEqual({
+      message: 'Reservation archived successfully',
+    });
+
+    expect(mockService.remove).toHaveBeenCalledWith('r-1');
   });
 });

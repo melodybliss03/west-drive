@@ -290,6 +290,50 @@ export class AuthService {
     return { message: 'Password updated successfully' };
   }
 
+  async createPasswordSetupUrl(emailInput: string): Promise<string | null> {
+    const email = this.normalizeEmail(emailInput);
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      return null;
+    }
+
+    const ttlMinutes = this.configService.get<number>(
+      'PASSWORD_RESET_OTP_TTL_MINUTES',
+      10,
+    );
+
+    await this.authOtpRepository.delete({
+      email,
+      purpose: AuthOtpPurpose.RESET_PASSWORD,
+      consumedAt: IsNull(),
+    });
+
+    const otp = this.generateOtpCode();
+    const otpHash = await argon2.hash(otp);
+    const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
+
+    await this.authOtpRepository.save(
+      this.authOtpRepository.create({
+        email,
+        purpose: AuthOtpPurpose.RESET_PASSWORD,
+        otpHash,
+        payload: {
+          invitationSource: 'reservation',
+        },
+        userId: user.id,
+        expiresAt,
+        consumedAt: null,
+      }),
+    );
+
+    const frontendBaseUrl = this.configService.get<string>(
+      'FRONTEND_BASE_URL',
+      'http://localhost:8080',
+    );
+
+    return `${frontendBaseUrl}/mot-de-passe-oublie?email=${encodeURIComponent(email)}&otp=${encodeURIComponent(otp)}`;
+  }
+
   private async issueTokens(
     user: User,
     rotatedSession?: RefreshToken,

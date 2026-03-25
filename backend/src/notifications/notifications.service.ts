@@ -1,0 +1,134 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Brackets, Repository } from 'typeorm';
+import {
+  buildPaginatedResponse,
+  resolvePagination,
+  type PaginatedResponse,
+} from '../shared/pagination/pagination.util';
+import { Notification } from './entities/notification.entity';
+
+@Injectable()
+export class NotificationsService {
+  constructor(
+    @InjectRepository(Notification)
+    private readonly notificationRepository: Repository<Notification>,
+  ) {}
+
+  async createForAdmin(payload: {
+    type: string;
+    title: string;
+    message: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<Notification> {
+    const notification = this.notificationRepository.create({
+      ...payload,
+      recipientUserId: null,
+      recipientRole: 'ADMIN',
+      isRead: false,
+      readAt: null,
+      metadata: payload.metadata ?? {},
+    });
+
+    return this.notificationRepository.save(notification);
+  }
+
+  async listForUser(
+    userId: string,
+    roles: string[],
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponse<Notification>> {
+    const pagination = resolvePagination(page, limit);
+    const roleSet = new Set((roles ?? []).map((role) => role.toUpperCase()));
+
+    const query = this.notificationRepository
+      .createQueryBuilder('n')
+      .orderBy('n.created_at', 'DESC')
+      .skip(pagination.skip)
+      .take(pagination.limit);
+
+    query.where(
+      new Brackets((qb) => {
+        qb.where('n.recipient_user_id = :userId', { userId });
+
+        if (roleSet.size > 0) {
+          qb.orWhere('n.recipient_role IN (:...roles)', {
+            roles: Array.from(roleSet),
+          });
+        }
+      }),
+    );
+
+    const [items, totalItems] = await query.getManyAndCount();
+
+    return buildPaginatedResponse(
+      items,
+      pagination.page,
+      pagination.limit,
+      totalItems,
+    );
+  }
+
+  async markAsReadForUser(
+    notificationId: string,
+    userId: string,
+    roles: string[],
+  ): Promise<Notification> {
+    const roleSet = new Set((roles ?? []).map((role) => role.toUpperCase()));
+
+    const notification = await this.notificationRepository
+      .createQueryBuilder('n')
+      .where('n.id = :notificationId', { notificationId })
+      .andWhere(
+        new Brackets((qb) => {
+          qb.where('n.recipient_user_id = :userId', { userId });
+
+          if (roleSet.size > 0) {
+            qb.orWhere('n.recipient_role IN (:...roles)', {
+              roles: Array.from(roleSet),
+            });
+          }
+        }),
+      )
+      .getOne();
+
+    if (!notification) {
+      throw new NotFoundException('Notification not found');
+    }
+
+    if (!notification.isRead) {
+      notification.isRead = true;
+      notification.readAt = new Date();
+      await this.notificationRepository.save(notification);
+    }
+
+    return notification;
+  }
+
+  async markAllAsReadForUser(userId: string, roles: string[]): Promise<void> {
+    const roleSet = new Set((roles ?? []).map((role) => role.toUpperCase()));
+
+    const query = this.notificationRepository
+      .createQueryBuilder()
+      .update(Notification)
+      .set({
+        isRead: true,
+        readAt: new Date(),
+      })
+      .where('is_read = false')
+      .andWhere(
+        new Brackets((qb) => {
+          qb.where('recipient_user_id = :userId', { userId });
+
+          if (roleSet.size > 0) {
+            qb.orWhere('recipient_role IN (:...roles)', {
+              roles: Array.from(roleSet),
+            });
+          }
+        }),
+      );
+
+    await query.execute();
+  }
+}

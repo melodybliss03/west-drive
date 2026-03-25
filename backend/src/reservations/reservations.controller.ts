@@ -58,8 +58,9 @@ export class ReservationsController {
   findAll(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit = 20,
+    @Query('userId') userId?: string,
   ) {
-    return this.reservationsService.findAll(page, limit);
+    return this.reservationsService.findAll(page, limit, userId);
   }
 
   @Get(':id')

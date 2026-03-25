@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
+import { randomUUID } from 'crypto';
 import { Repository } from 'typeorm';
 import {
   buildPaginatedResponse,
@@ -162,5 +163,37 @@ export class UsersService {
     passwordHash: string,
   ): Promise<void> {
     await this.userRepository.update({ id: userId }, { passwordHash });
+  }
+
+  async createGuestAccount(payload: {
+    email: string;
+    requesterName: string;
+    phone: string;
+  }): Promise<User> {
+    const existing = await this.findByEmail(payload.email);
+    if (existing) {
+      return existing;
+    }
+
+    const trimmedName = payload.requesterName.trim();
+    const nameParts = trimmedName.split(/\s+/).filter(Boolean);
+    const firstName = nameParts[0] ?? 'Client';
+    const lastName = nameParts.slice(1).join(' ') || 'WestDrive';
+
+    // A random temporary password hash allows account creation before setup.
+    const temporaryPasswordHash = await argon2.hash(`guest-${randomUUID()}`);
+
+    const guest = this.userRepository.create({
+      email: payload.email.trim().toLowerCase(),
+      passwordHash: temporaryPasswordHash,
+      firstName,
+      lastName,
+      phone: payload.phone,
+      role: 'CUSTOMER',
+      status: UserStatus.ACTIF,
+      companyProfile: null,
+    });
+
+    return this.userRepository.save(guest);
   }
 }

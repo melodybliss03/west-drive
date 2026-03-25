@@ -17,6 +17,8 @@ import { RolePermission } from './iam/entities/role-permission.entity';
 import { Role } from './iam/entities/role.entity';
 import { UserRole } from './iam/entities/user-role.entity';
 import { IamModule } from './iam/iam.module';
+import { Notification } from './notifications/entities/notification.entity';
+import { NotificationsModule } from './notifications/notifications.module';
 import { ReservationEvent } from './reservations/entities/reservation-event.entity';
 import { Reservation } from './reservations/entities/reservation.entity';
 import { ReservationsModule } from './reservations/reservations.module';
@@ -62,6 +64,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
                 VehicleImage,
                 FleetIncident,
                 VehicleScheduleSlot,
+                Notification,
                 Reservation,
                 ReservationEvent,
                 CompanyProfile,
@@ -82,6 +85,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
           AuthModule,
           VehiclesModule,
           FleetModule,
+          NotificationsModule,
           ReservationsModule,
         ]),
   ],

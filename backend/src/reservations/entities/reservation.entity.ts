@@ -103,6 +103,9 @@ export class Reservation {
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
+  @Column({ type: 'timestamptz', name: 'archived_at', nullable: true })
+  archivedAt!: Date | null;
+
   @OneToMany(() => ReservationEvent, (event) => event.reservation, {
     cascade: true,
   })

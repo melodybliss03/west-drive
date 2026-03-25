@@ -88,4 +88,39 @@ describe('MailService', () => {
       }),
     );
   });
+
+  it('should send reservation acknowledgement email', async () => {
+    sendMail.mockResolvedValue({ messageId: 'message-id-2' });
+
+    const configService = {
+      get: (key: string, defaultValue?: string) => {
+        const map: Record<string, string> = {
+          MAIL_ENABLED: 'true',
+          MAIL_HOST: 'smtp.hostinger.com',
+          MAIL_USER: 'noreply@westdrive.fr',
+          MAIL_PASSWORD: 'secret',
+          MAIL_PORT: '587',
+          MAIL_SECURE: 'false',
+          MAIL_FROM_EMAIL: 'noreply@westdrive.fr',
+          MAIL_FROM_NAME: 'WestDrive',
+        };
+        return map[key] ?? defaultValue;
+      },
+    } as unknown as ConfigService;
+
+    const service = new MailService(configService);
+
+    await service.sendReservationAcknowledgement({
+      to: 'client@westdrive.fr',
+      requesterName: 'Client Test',
+      publicReference: 'RES-20260325-ABCD',
+    });
+
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'client@westdrive.fr',
+        subject: 'WestDrive - Accuse de reception RES-20260325-ABCD',
+      }),
+    );
+  });
 });

@@ -2,16 +2,22 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Not, Repository } from 'typeorm';
+import { In, IsNull, Not, Repository } from 'typeorm';
+import { AuthService } from '../auth/auth.service';
 import { VehicleScheduleSlot } from '../fleet/entities/vehicle-schedule-slot.entity';
+import { NotificationsService } from '../notifications/notifications.service';
+import { MailService } from '../shared/mail/mail.service';
 import {
   buildPaginatedResponse,
   resolvePagination,
   type PaginatedResponse,
 } from '../shared/pagination/pagination.util';
+import { UsersService } from '../users/users.service';
 import {
   Vehicle,
   VehicleOperationalStatus,
@@ -76,6 +82,8 @@ const STATUS_EVENT_MAP: Record<ReservationStatus, string> = {
 
 @Injectable()
 export class ReservationsService {
+  private readonly logger = new Logger(ReservationsService.name);
+
   constructor(
     @InjectRepository(Reservation)
     private readonly reservationRepository: Repository<Reservation>,
@@ -85,10 +93,33 @@ export class ReservationsService {
     private readonly vehicleRepository: Repository<Vehicle>,
     @InjectRepository(VehicleScheduleSlot)
     private readonly slotRepository: Repository<VehicleScheduleSlot>,
+    private readonly usersService: UsersService,
+    private readonly authService: AuthService,
+    private readonly mailService: MailService,
+    private readonly configService: ConfigService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(dto: CreateReservationDto): Promise<Reservation> {
     this.ensureDateRange(dto.startAt, dto.endAt);
+
+    const requesterEmail = dto.requesterEmail.toLowerCase();
+    let shouldSendGuestSetupEmail = false;
+
+    if (!dto.userId) {
+      const existingUser = await this.usersService.findByEmail(requesterEmail);
+      if (existingUser) {
+        dto.userId = existingUser.id;
+      } else {
+        const guestUser = await this.usersService.createGuestAccount({
+          email: requesterEmail,
+          requesterName: dto.requesterName,
+          phone: dto.requesterPhone,
+        });
+        dto.userId = guestUser.id;
+        shouldSendGuestSetupEmail = true;
+      }
+    }
 
     if (dto.vehicleId) {
       await this.ensureVehicleAssignable(dto.vehicleId);
@@ -99,7 +130,7 @@ export class ReservationsService {
       ...dto,
       userId: dto.userId ?? null,
       vehicleId: dto.vehicleId ?? null,
-      requesterEmail: dto.requesterEmail.toLowerCase(),
+      requesterEmail,
       companyName: dto.companyName ?? null,
       companySiret: dto.companySiret ?? null,
       amountTtc: (dto.amountTtc ?? 0).toFixed(2),
@@ -138,20 +169,78 @@ export class ReservationsService {
       },
     );
 
+    try {
+      await this.mailService.sendReservationAcknowledgement({
+        to: savedReservation.requesterEmail,
+        requesterName: savedReservation.requesterName,
+        publicReference: savedReservation.publicReference,
+      });
+
+      const adminEmail = this.configService.get<string>('ADMIN_EMAIL');
+      if (adminEmail) {
+        await this.mailService.sendReservationAdminNotification({
+          to: adminEmail,
+          requesterName: savedReservation.requesterName,
+          requesterEmail: savedReservation.requesterEmail,
+          publicReference: savedReservation.publicReference,
+        });
+      }
+
+      await this.notificationsService.createForAdmin({
+        type: 'reservation',
+        title: 'Nouvelle demande de reservation',
+        message: `${savedReservation.requesterName} a soumis la demande ${savedReservation.publicReference}.`,
+        metadata: {
+          reservationId: savedReservation.id,
+          publicReference: savedReservation.publicReference,
+        },
+      });
+
+      if (shouldSendGuestSetupEmail) {
+        const setupUrl = await this.authService.createPasswordSetupUrl(
+          savedReservation.requesterEmail,
+        );
+        if (setupUrl) {
+          await this.mailService.sendGuestAccountSetupEmail({
+            to: savedReservation.requesterEmail,
+            requesterName: savedReservation.requesterName,
+            publicReference: savedReservation.publicReference,
+            setupUrl,
+          });
+        }
+      }
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'unknown reason';
+      this.logger.warn(
+        `Reservation ${savedReservation.id} created but notification pipeline partially failed: ${reason}`,
+      );
+    }
+
     return this.findOne(savedReservation.id);
   }
 
   async findAll(
     page = 1,
     limit = 20,
+    userId?: string,
   ): Promise<PaginatedResponse<Reservation>> {
     const pagination = resolvePagination(page, limit);
-    const [items, totalItems] = await this.reservationRepository.findAndCount({
-      order: { createdAt: 'DESC' },
-      relations: { vehicle: true, user: true },
-      skip: pagination.skip,
-      take: pagination.limit,
-    });
+    const query = this.reservationRepository.createQueryBuilder('r');
+    
+    // Apply userId filter if provided
+    if (userId) {
+      query.andWhere('r.userId = :userId', { userId });
+    }
+    
+    query
+      .andWhere('r.archivedAt IS NULL')
+      .orderBy('r.createdAt', 'DESC')
+      .leftJoinAndSelect('r.vehicle', 'vehicle')
+      .leftJoinAndSelect('r.user', 'user')
+      .skip(pagination.skip)
+      .take(pagination.limit);
+
+    const [items, totalItems] = await query.getManyAndCount();
 
     return buildPaginatedResponse(
       items,
@@ -163,7 +252,7 @@ export class ReservationsService {
 
   async findOne(id: string): Promise<Reservation> {
     const reservation = await this.reservationRepository.findOne({
-      where: { id },
+      where: { id, archivedAt: IsNull() },
       relations: { vehicle: true, user: true, events: true },
       order: { events: { occurredAt: 'ASC' } },
     });
@@ -264,6 +353,20 @@ export class ReservationsService {
       { status: dto.status },
     );
 
+    try {
+      await this.mailService.sendReservationStatusUpdate({
+        to: reservation.requesterEmail,
+        requesterName: reservation.requesterName,
+        publicReference: reservation.publicReference,
+        newStatus: dto.status,
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'unknown reason';
+      this.logger.warn(
+        `Status notification email failed for reservation ${reservation.id}: ${reason}`,
+      );
+    }
+
     return this.findOne(reservation.id);
   }
 
@@ -298,6 +401,20 @@ export class ReservationsService {
     await this.appendSystemEvent(reservation.id, 'reservation_status_changed', {
       status: ReservationStatus.CONFIRMEE,
     });
+
+    try {
+      await this.mailService.sendReservationStatusUpdate({
+        to: reservation.requesterEmail,
+        requesterName: reservation.requesterName,
+        publicReference: reservation.publicReference,
+        newStatus: ReservationStatus.CONFIRMEE,
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'unknown reason';
+      this.logger.warn(
+        `Preauth confirmation email failed for reservation ${reservation.id}: ${reason}`,
+      );
+    }
 
     return this.findOne(reservation.id);
   }
@@ -350,7 +467,41 @@ export class ReservationsService {
       payload: dto.payload ?? {},
     });
 
-    return this.reservationEventRepository.save(event);
+    const savedEvent = await this.reservationEventRepository.save(event);
+
+    const shouldSendEmail =
+      !!dto.payload &&
+      typeof dto.payload === 'object' &&
+      dto.payload !== null &&
+      'sendEmail' in dto.payload &&
+      dto.payload.sendEmail === true;
+
+    if (shouldSendEmail) {
+      const payload = dto.payload as Record<string, unknown>;
+      const title =
+        typeof payload.title === 'string' && payload.title.trim().length > 0
+          ? payload.title
+          : dto.type;
+      const description =
+        typeof payload.description === 'string' ? payload.description : undefined;
+
+      try {
+        await this.mailService.sendReservationEventNotification({
+          to: reservation.requesterEmail,
+          requesterName: reservation.requesterName,
+          publicReference: reservation.publicReference,
+          title,
+          description,
+        });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : 'unknown reason';
+        this.logger.warn(
+          `Custom event email failed for reservation ${reservation.id}: ${reason}`,
+        );
+      }
+    }
+
+    return savedEvent;
   }
 
   async findEvents(
@@ -378,17 +529,20 @@ export class ReservationsService {
   }
 
   async remove(id: string): Promise<{ message: string }> {
-    const reservation = await this.reservationRepository.findOne({
-      where: { id },
-    });
+    const reservation = await this.reservationRepository.findOne({ where: { id } });
 
-    if (!reservation) {
+    if (!reservation || reservation.archivedAt) {
       throw new NotFoundException('Reservation not found');
     }
 
-    await this.reservationRepository.delete({ id });
+    reservation.archivedAt = new Date();
+    await this.reservationRepository.save(reservation);
 
-    return { message: 'Reservation deleted successfully' };
+    await this.appendSystemEvent(reservation.id, 'reservation_archived', {
+      status: reservation.status,
+    });
+
+    return { message: 'Reservation archived successfully' };
   }
 
   private async ensureVehicleAssignable(vehicleId: string): Promise<void> {
@@ -440,6 +594,7 @@ export class ReservationsService {
       where: {
         vehicleId,
         status: In(BLOCKING_STATUSES),
+        archivedAt: IsNull(),
         id: excludedReservationId ? Not(excludedReservationId) : undefined,
       },
     });
