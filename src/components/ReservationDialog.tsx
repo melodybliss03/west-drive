@@ -16,7 +16,16 @@ import { ApiHttpError } from "@/lib/api/types";
 
 type ClientType = "particulier" | "entreprise";
 
-const villes = ["Puteaux", "La Défense", "Neuilly-sur-Seine", "Levallois-Perret", "Boulogne-Billancourt", "Courbevoie", "Nanterre", "Suresnes"];
+const villes = [
+  "Puteaux",
+  "La Défense",
+  "Neuilly-sur-Seine",
+  "Levallois-Perret",
+  "Boulogne-Billancourt",
+  "Courbevoie",
+  "Nanterre",
+  "Suresnes",
+];
 
 interface ReservationDialogProps {
   children: React.ReactNode;
@@ -26,45 +35,131 @@ interface ReservationDialogProps {
   vehiculePrixJour?: number;
 }
 
-export default function ReservationDialog({ children, vehiculeId, vehiculeName, vehiculeCategorie, vehiculePrixJour }: ReservationDialogProps) {
+// ─── Helpers date/heure ───────────────────────────────────────────────────────
+
+// Retourne la date du jour au format YYYY-MM-DD (valeur min pour les inputs date)
+function getTodayString(): string {
+  return new Date().toISOString().split("T")[0];
+}
+
+// Retourne l'heure actuelle au format HH:MM (valeur min pour les inputs time si date = aujourd'hui)
+function getCurrentTimeString(): string {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+// Vérifie qu'une date saisie manuellement n'est pas antérieure à aujourd'hui
+function isDateInPast(dateStr: string): boolean {
+  if (!dateStr) return false;
+  return dateStr < getTodayString();
+}
+
+// Vérifie qu'une heure saisie manuellement n'est pas dans le passé
+// (uniquement pertinent si la date choisie est aujourd'hui)
+function isTimeInPast(dateStr: string, timeStr: string): boolean {
+  if (!dateStr || !timeStr) return false;
+  if (dateStr !== getTodayString()) return false;
+  return timeStr < getCurrentTimeString();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+export default function ReservationDialog({
+  children,
+  vehiculeId,
+  vehiculeName,
+  vehiculeCategorie,
+  vehiculePrixJour,
+}: ReservationDialogProps) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<ClientType>("particulier");
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
 
   const [form, setForm] = useState({
-    nom: "", email: "", telephone: "",
-    nomEntreprise: "", siret: "",
-    ville: "", dateDebut: "", heureDebut: "", dateFin: "", heureFin: "",
+    nom: "",
+    email: "",
+    telephone: "",
+    nomEntreprise: "",
+    siret: "",
+    ville: "",
+    dateDebut: "",
+    heureDebut: "",
+    dateFin: "",
+    heureFin: "",
+    commentaire: "",
   });
 
   const set = (key: string, val: string) => {
-    setForm(p => ({ ...p, [key]: val }));
-    setErrors(p => ({ ...p, [key]: "" }));
+    setForm((p) => ({ ...p, [key]: val }));
+    setErrors((p) => ({ ...p, [key]: "" }));
   };
 
+  // ─── Validation avec contrôles de date/heure ────────────────────────────────
   const validate = () => {
     const errs: Record<string, string> = {};
+
     if (!form.nom.trim()) errs.nom = "Le nom complet est requis.";
     if (!form.email.trim()) errs.email = "L'email est requis.";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = "Email invalide.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+      errs.email = "Email invalide.";
     if (!form.telephone.trim()) errs.telephone = "Le téléphone est requis.";
     if (!form.ville) errs.ville = "La ville est requise.";
-    if (!form.dateDebut) errs.dateDebut = "La date de prise est requise.";
-    if (!form.heureDebut) errs.heureDebut = "L'heure de prise est requise.";
-    if (!form.dateFin) errs.dateFin = "La date de retour est requise.";
-    if (!form.heureFin) errs.heureFin = "L'heure de retour est requise.";
-    if (form.dateDebut && form.dateFin && form.dateFin < form.dateDebut) errs.dateFin = "La date de retour doit être après la date de prise.";
+
+    // Date de prise
+    if (!form.dateDebut) {
+      errs.dateDebut = "La date de prise est requise.";
+    } else if (isDateInPast(form.dateDebut)) {
+      // Détection de saisie manuelle d'une date passée
+      errs.dateDebut = "La date de prise ne peut pas être dans le passé.";
+    }
+
+    // Heure de prise
+    if (!form.heureDebut) {
+      errs.heureDebut = "L'heure de prise est requise.";
+    } else if (isTimeInPast(form.dateDebut, form.heureDebut)) {
+      // Détection de saisie manuelle d'une heure passée (si date = aujourd'hui)
+      errs.heureDebut = "L'heure de prise ne peut pas être dans le passé.";
+    }
+
+    // Date de retour
+    if (!form.dateFin) {
+      errs.dateFin = "La date de retour est requise.";
+    } else if (isDateInPast(form.dateFin)) {
+      errs.dateFin = "La date de retour ne peut pas être dans le passé.";
+    } else if (form.dateDebut && form.dateFin < form.dateDebut) {
+      errs.dateFin = "La date de retour doit être après la date de prise.";
+    }
+
+    // Heure de retour
+    if (!form.heureFin) {
+      errs.heureFin = "L'heure de retour est requise.";
+    } else if (isTimeInPast(form.dateFin, form.heureFin)) {
+      errs.heureFin = "L'heure de retour ne peut pas être dans le passé.";
+    } else if (
+      form.dateDebut === form.dateFin &&
+      form.heureDebut &&
+      form.heureFin &&
+      form.heureFin <= form.heureDebut
+    ) {
+      // Si même jour → l'heure de retour doit être après l'heure de prise
+      errs.heureFin = "L'heure de retour doit être après l'heure de prise.";
+    }
+
     if (type === "entreprise") {
-      if (!form.nomEntreprise.trim()) errs.nomEntreprise = "Le nom de l'entreprise est requis.";
+      if (!form.nomEntreprise.trim())
+        errs.nomEntreprise = "Le nom de l'entreprise est requis.";
       if (!form.siret.trim()) errs.siret = "Le SIRET est requis.";
     }
+
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
+  // ────────────────────────────────────────────────────────────────────────────
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +168,12 @@ export default function ReservationDialog({ children, vehiculeId, vehiculeName, 
 
     const dateDebut = new Date(`${form.dateDebut}T${form.heureDebut}:00`);
     const dateFin = new Date(`${form.dateFin}T${form.heureFin}:00`);
-    const nbJours = Math.max(1, Math.ceil((dateFin.getTime() - dateDebut.getTime()) / (1000 * 60 * 60 * 24)));
+    const nbJours = Math.max(
+      1,
+      Math.ceil(
+        (dateFin.getTime() - dateDebut.getTime()) / (1000 * 60 * 60 * 24),
+      ),
+    );
     const prixJour = vehiculePrixJour || 50;
     const total = nbJours * prixJour;
 
@@ -96,7 +196,10 @@ export default function ReservationDialog({ children, vehiculeId, vehiculeName, 
 
       setLoading(false);
       setOpen(false);
-      toast({ title: "Réservation envoyée", description: "Votre demande a bien été enregistrée." });
+      toast({
+        title: "Réservation envoyée",
+        description: "Votre demande a bien été enregistrée.",
+      });
       navigate("/checkout", {
         state: {
           reservationBackendId: created.id,
@@ -114,131 +217,293 @@ export default function ReservationDialog({ children, vehiculeId, vehiculeName, 
         },
       });
     } catch (error) {
-      const message = error instanceof ApiHttpError ? error.message : "Impossible de créer la réservation.";
+      const message =
+        error instanceof ApiHttpError
+          ? error.message
+          : "Impossible de créer la réservation.";
       toast({ title: "Erreur", description: message, variant: "destructive" });
       setLoading(false);
     }
   };
 
   const reset = () => {
-    setForm({ nom: "", email: "", telephone: "", nomEntreprise: "", siret: "", ville: "", dateDebut: "", heureDebut: "", dateFin: "", heureFin: "" });
+    setForm({
+      nom: "",
+      email: "",
+      telephone: "",
+      nomEntreprise: "",
+      siret: "",
+      ville: "",
+      dateDebut: "",
+      heureDebut: "",
+      dateFin: "",
+      heureFin: "",
+      commentaire: "",
+    });
     setErrors({});
   };
 
   const handleOpenChange = (v: boolean) => {
     setOpen(v);
-    if (!v) { reset(); setType("particulier"); }
+    if (!v) {
+      reset();
+      setType("particulier");
+    }
   };
 
   const inputClass = (key: string) =>
     `flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${errors[key] ? "border-destructive" : "border-input"}`;
 
+  // Date du jour — utilisée comme attribut `min` sur les inputs date
+  // pour bloquer la sélection via le date picker natif
+  const today = getTodayString();
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="font-display text-xl font-bold">
-                Réserver{vehiculeName ? ` — ${vehiculeName}` : ""}
-              </DialogTitle>
-            </DialogHeader>
+        <DialogHeader>
+          <DialogTitle className="font-display text-xl font-bold">
+            Réserver{vehiculeName ? ` — ${vehiculeName}` : ""}
+          </DialogTitle>
+        </DialogHeader>
 
-            {/* Toggle */}
-            <div className="flex bg-secondary rounded-xl p-1 mb-4">
-              <button type="button" onClick={() => setType("particulier")}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${type === "particulier" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}>
-                <User className="h-4 w-4" /> Particulier
-              </button>
-              <button type="button" onClick={() => setType("entreprise")}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${type === "entreprise" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}>
-                <Building2 className="h-4 w-4" /> Entreprise
-              </button>
+        {/* Toggle particulier / entreprise */}
+        <div className="flex bg-secondary rounded-xl p-1 mb-4">
+          <button
+            type="button"
+            onClick={() => setType("particulier")}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${type === "particulier" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}
+          >
+            <User className="h-4 w-4" /> Particulier
+          </button>
+          <button
+            type="button"
+            onClick={() => setType("entreprise")}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${type === "entreprise" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}
+          >
+            <Building2 className="h-4 w-4" /> Entreprise
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-foreground">
+              Détails de la location
+            </p>
+
+            {/* Dates de prise */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">
+                  Date de prise <span className="text-primary">*</span>
+                </label>
+                <Input
+                  type="date"
+                  value={form.dateDebut}
+                  min={today} // ← bloque le date picker avant aujourd'hui
+                  onChange={(e) => set("dateDebut", e.target.value)}
+                  className={errors.dateDebut ? "border-destructive" : ""}
+                />
+                {/* Message affiché si saisie manuelle d'une date passée */}
+                {errors.dateDebut && (
+                  <p className="text-xs text-destructive">{errors.dateDebut}</p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">
+                  Heure de prise <span className="text-primary">*</span>
+                </label>
+                <Input
+                  type="time"
+                  value={form.heureDebut}
+                  // Si la date choisie est aujourd'hui, on bloque les heures passées dans le picker
+                  min={
+                    form.dateDebut === today
+                      ? getCurrentTimeString()
+                      : undefined
+                  }
+                  onChange={(e) => set("heureDebut", e.target.value)}
+                  className={errors.heureDebut ? "border-destructive" : ""}
+                />
+                {/* Message affiché si saisie manuelle d'une heure passée */}
+                {errors.heureDebut && (
+                  <p className="text-xs text-destructive">
+                    {errors.heureDebut}
+                  </p>
+                )}
+              </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-              {/* Location details */}
-              <div className="space-y-3">
-                <p className="text-sm font-semibold text-foreground">Détails de la location</p>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">Date de prise <span className="text-primary">*</span></label>
-                    <Input type="date" value={form.dateDebut} onChange={e => set("dateDebut", e.target.value)} className={errors.dateDebut ? "border-destructive" : ""} />
-                    {errors.dateDebut && <p className="text-xs text-destructive">{errors.dateDebut}</p>}
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">Heure de prise <span className="text-primary">*</span></label>
-                    <Input type="time" value={form.heureDebut} onChange={e => set("heureDebut", e.target.value)} className={errors.heureDebut ? "border-destructive" : ""} />
-                    {errors.heureDebut && <p className="text-xs text-destructive">{errors.heureDebut}</p>}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">Date de retour <span className="text-primary">*</span></label>
-                    <Input type="date" value={form.dateFin} onChange={e => set("dateFin", e.target.value)} className={errors.dateFin ? "border-destructive" : ""} />
-                    {errors.dateFin && <p className="text-xs text-destructive">{errors.dateFin}</p>}
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">Heure de retour <span className="text-primary">*</span></label>
-                    <Input type="time" value={form.heureFin} onChange={e => set("heureFin", e.target.value)} className={errors.heureFin ? "border-destructive" : ""} />
-                    {errors.heureFin && <p className="text-xs text-destructive">{errors.heureFin}</p>}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">Ville <span className="text-primary">*</span></label>
-                  <select value={form.ville} onChange={e => set("ville", e.target.value)} className={inputClass("ville")}>
-                    <option value="">Sélectionner une ville</option>
-                    {villes.map(v => <option key={v} value={v}>{v}</option>)}
-                  </select>
-                  {errors.ville && <p className="text-xs text-destructive">{errors.ville}</p>}
-                </div>
-              </div>
-
-              {/* Personal info */}
-              <div className="space-y-3">
-                <p className="text-sm font-semibold text-foreground">Vos informations</p>
-
-                {type === "entreprise" && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium">Nom entreprise <span className="text-primary">*</span></label>
-                      <Input value={form.nomEntreprise} onChange={e => set("nomEntreprise", e.target.value)} placeholder="Nom de l'entreprise" className={errors.nomEntreprise ? "border-destructive" : ""} />
-                      {errors.nomEntreprise && <p className="text-xs text-destructive">{errors.nomEntreprise}</p>}
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium">SIRET <span className="text-primary">*</span></label>
-                      <Input value={form.siret} onChange={e => set("siret", e.target.value)} placeholder="XXX XXX XXX XXXXX" className={errors.siret ? "border-destructive" : ""} />
-                      {errors.siret && <p className="text-xs text-destructive">{errors.siret}</p>}
-                    </div>
-                  </div>
+            {/* Dates de retour */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">
+                  Date de retour <span className="text-primary">*</span>
+                </label>
+                <Input
+                  type="date"
+                  value={form.dateFin}
+                  // La date de retour ne peut pas être avant la date de prise (ni avant aujourd'hui)
+                  min={form.dateDebut || today}
+                  onChange={(e) => set("dateFin", e.target.value)}
+                  className={errors.dateFin ? "border-destructive" : ""}
+                />
+                {errors.dateFin && (
+                  <p className="text-xs text-destructive">{errors.dateFin}</p>
                 )}
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">
+                  Heure de retour <span className="text-primary">*</span>
+                </label>
+                <Input
+                  type="time"
+                  value={form.heureFin}
+                  // Si retour = aujourd'hui, on bloque les heures passées
+                  min={
+                    form.dateFin === today ? getCurrentTimeString() : undefined
+                  }
+                  onChange={(e) => set("heureFin", e.target.value)}
+                  className={errors.heureFin ? "border-destructive" : ""}
+                />
+                {errors.heureFin && (
+                  <p className="text-xs text-destructive">{errors.heureFin}</p>
+                )}
+              </div>
+            </div>
 
+            <div className="space-y-1">
+              <label className="text-xs font-medium">
+                Ville <span className="text-primary">*</span>
+              </label>
+              <select
+                value={form.ville}
+                onChange={(e) => set("ville", e.target.value)}
+                className={inputClass("ville")}
+              >
+                <option value="">Sélectionner une ville</option>
+                {villes.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+              {errors.ville && (
+                <p className="text-xs text-destructive">{errors.ville}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Informations personnelles */}
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-foreground">
+              Vos informations
+            </p>
+
+            {type === "entreprise" && (
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium">Nom complet <span className="text-primary">*</span></label>
-                  <Input value={form.nom} onChange={e => set("nom", e.target.value)} placeholder="Prénom Nom" className={errors.nom ? "border-destructive" : ""} />
-                  {errors.nom && <p className="text-xs text-destructive">{errors.nom}</p>}
+                  <label className="text-xs font-medium">
+                    Nom entreprise <span className="text-primary">*</span>
+                  </label>
+                  <Input
+                    value={form.nomEntreprise}
+                    onChange={(e) => set("nomEntreprise", e.target.value)}
+                    placeholder="Nom de l'entreprise"
+                    className={errors.nomEntreprise ? "border-destructive" : ""}
+                  />
+                  {errors.nomEntreprise && (
+                    <p className="text-xs text-destructive">
+                      {errors.nomEntreprise}
+                    </p>
+                  )}
                 </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">Email <span className="text-primary">*</span></label>
-                    <Input type="email" value={form.email} onChange={e => set("email", e.target.value)} placeholder="votre@email.com" className={errors.email ? "border-destructive" : ""} />
-                    {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">Téléphone <span className="text-primary">*</span></label>
-                    <Input type="tel" value={form.telephone} onChange={e => set("telephone", e.target.value)} placeholder="06 XX XX XX XX" className={errors.telephone ? "border-destructive" : ""} />
-                    {errors.telephone && <p className="text-xs text-destructive">{errors.telephone}</p>}
-                  </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">
+                    SIRET <span className="text-primary">*</span>
+                  </label>
+                  <Input
+                    value={form.siret}
+                    onChange={(e) => set("siret", e.target.value)}
+                    placeholder="XXX XXX XXX XXXXX"
+                    className={errors.siret ? "border-destructive" : ""}
+                  />
+                  {errors.siret && (
+                    <p className="text-xs text-destructive">{errors.siret}</p>
+                  )}
                 </div>
               </div>
+            )}
 
-              <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                {loading ? "Envoi en cours..." : "Confirmer ma réservation"}
-              </Button>
-            </form>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">
+                Nom complet <span className="text-primary">*</span>
+              </label>
+              <Input
+                value={form.nom}
+                onChange={(e) => set("nom", e.target.value)}
+                placeholder="Prénom Nom"
+                className={errors.nom ? "border-destructive" : ""}
+              />
+              {errors.nom && (
+                <p className="text-xs text-destructive">{errors.nom}</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">
+                  Email <span className="text-primary">*</span>
+                </label>
+                <Input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => set("email", e.target.value)}
+                  placeholder="votre@email.com"
+                  className={errors.email ? "border-destructive" : ""}
+                />
+                {errors.email && (
+                  <p className="text-xs text-destructive">{errors.email}</p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">
+                  Téléphone <span className="text-primary">*</span>
+                </label>
+                <Input
+                  type="tel"
+                  value={form.telephone}
+                  onChange={(e) => set("telephone", e.target.value)}
+                  placeholder="06 XX XX XX XX"
+                  className={errors.telephone ? "border-destructive" : ""}
+                />
+                {errors.telephone && (
+                  <p className="text-xs text-destructive">{errors.telephone}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Commentaire optionnel */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium">
+              Commentaire{" "}
+              <span className="text-muted-foreground">(optionnel)</span>
+            </label>
+            <textarea
+              value={form.commentaire}
+              onChange={(e) => set("commentaire", e.target.value)}
+              placeholder="Informations complémentaires, besoins spécifiques..."
+              rows={3}
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+            />
+          </div>
+
+          <Button type="submit" className="w-full" size="lg" disabled={loading}>
+            {loading ? "Envoi en cours..." : "Confirmer ma réservation"}
+          </Button>
+        </form>
       </DialogContent>
     </Dialog>
   );
