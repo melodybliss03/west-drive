@@ -33,22 +33,17 @@ import { ReservationsService } from './reservations.service';
 @ApiTags('Reservations')
 @ApiBearerAuth()
 @Controller('reservations')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class ReservationsController {
   constructor(private readonly reservationsService: ReservationsService) {}
 
   @Post()
-  @RequirePermissions('reservations.manage')
   @ApiOperation({ summary: 'Creer une reservation' })
-  @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
-  @ApiForbiddenResponse({
-    description: 'Permission reservations.manage requise.',
-  })
   create(@Body() dto: CreateReservationDto) {
     return this.reservationsService.create(dto);
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions('reservations.read')
   @ApiOperation({ summary: 'Lister les reservations' })
   @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
@@ -64,6 +59,7 @@ export class ReservationsController {
   }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions('reservations.read')
   @ApiOperation({ summary: 'Recuperer une reservation par id' })
   @ApiParam({ name: 'id', description: 'UUID de la reservation' })
@@ -76,6 +72,7 @@ export class ReservationsController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions('reservations.manage')
   @ApiOperation({ summary: 'Mettre a jour une reservation' })
   @ApiParam({ name: 'id', description: 'UUID de la reservation' })
@@ -91,6 +88,7 @@ export class ReservationsController {
   }
 
   @Patch(':id/status')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions('reservations.manage')
   @ApiOperation({ summary: 'Changer le statut d une reservation' })
   @ApiParam({ name: 'id', description: 'UUID de la reservation' })
@@ -106,13 +104,8 @@ export class ReservationsController {
   }
 
   @Post(':id/stripe-preauth')
-  @RequirePermissions('reservations.manage')
   @ApiOperation({ summary: 'Creer une preautorisation Stripe de reservation' })
   @ApiParam({ name: 'id', description: 'UUID de la reservation' })
-  @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
-  @ApiForbiddenResponse({
-    description: 'Permission reservations.manage requise.',
-  })
   createStripePreauth(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: CreateStripePreauthDto,
@@ -121,6 +114,7 @@ export class ReservationsController {
   }
 
   @Post(':id/events')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions('reservations.manage')
   @ApiOperation({ summary: 'Ajouter un evenement timeline a une reservation' })
   @ApiParam({ name: 'id', description: 'UUID de la reservation' })
@@ -136,6 +130,7 @@ export class ReservationsController {
   }
 
   @Get(':id/events')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions('reservations.read')
   @ApiOperation({ summary: 'Lister la timeline d une reservation' })
   @ApiParam({ name: 'id', description: 'UUID de la reservation' })
@@ -152,6 +147,7 @@ export class ReservationsController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions('reservations.manage')
   @ApiOperation({ summary: 'Supprimer une reservation' })
   @ApiParam({ name: 'id', description: 'UUID de la reservation' })
