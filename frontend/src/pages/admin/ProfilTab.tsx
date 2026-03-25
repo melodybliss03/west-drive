@@ -10,8 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { iamService, usersService } from "@/lib/api/services";
-import type { AdminUser } from "./types";
+import { iamService } from "@/lib/api/services";
 import { Spinner } from "@/components/ui/spinner";
 
 type PermissionOption = {
@@ -53,10 +52,9 @@ export default function ProfilTab() {
     telephone: "06 12 34 56 78",
   });
   const [profileEditing, setProfileEditing] = useState(false);
-  const [availableUsers, setAvailableUsers] = useState<AdminUser[]>([]);
   const [permissions, setPermissions] = useState<PermissionOption[]>([]);
   const [roles, setRoles] = useState<RoleOption[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
   const [selectedRoleId, setSelectedRoleId] = useState("");
   const [newRoleName, setNewRoleName] = useState("");
   const [newRoleDescription, setNewRoleDescription] = useState("");
@@ -75,23 +73,10 @@ export default function ProfilTab() {
     const loadIamData = async () => {
       setIsLoadingIam(true);
       try {
-        const [usersResponse, permissionsResponse, rolesResponse] = await Promise.all([
-          usersService.list({ page: 1, limit: 100 }),
+        const [permissionsResponse, rolesResponse] = await Promise.all([
           iamService.permissions({ page: 1, limit: 100 }),
           iamService.roles({ page: 1, limit: 100 }),
         ]);
-
-        const mappedUsers = extractItems<Record<string, unknown>>(usersResponse).map((item) => ({
-          id: String(item.id || ""),
-          nom: String(item.lastName || item.companyName || "Client"),
-          prenom: String(item.firstName || "-"),
-          email: String(item.email || ""),
-          type: String(item.accountType || "particulier").toLowerCase(),
-          creeLe: String(item.createdAt || ""),
-          reservations: Number(item.reservationsCount || 0),
-          statut: String(item.status || "actif").toLowerCase(),
-          role: String(item.role || "client").toLowerCase(),
-        }));
 
         const mappedPermissions = extractItems<Record<string, unknown>>(permissionsResponse).map((permission) => {
           const code = String(permission.code || "");
@@ -123,7 +108,6 @@ export default function ProfilTab() {
           };
         }).filter((role) => role.id.length > 0);
 
-        setAvailableUsers(mappedUsers);
         setPermissions(mappedPermissions);
         setRoles(mappedRoles);
       } catch (error) {
@@ -185,10 +169,10 @@ export default function ProfilTab() {
   };
 
   const assignRole = async () => {
-    if (!selectedUserId || !selectedRoleId) {
+    if (!inviteEmail.trim() || !selectedRoleId) {
       toast({
         title: "Attribution incomplète",
-        description: "Sélectionnez un utilisateur et un rôle.",
+        description: "Saisissez un email et sélectionnez un rôle.",
         variant: "destructive",
       });
       return;
@@ -196,8 +180,17 @@ export default function ProfilTab() {
 
     try {
       setIsAssigningRole(true);
-      await iamService.assignRoleToUser(selectedRoleId, selectedUserId);
-      toast({ title: "Rôle attribué", description: "Le rôle a été assigné à l'utilisateur." });
+      const result = await iamService.inviteAndAssignRoleByEmail(
+        selectedRoleId,
+        inviteEmail.trim(),
+      );
+      setInviteEmail("");
+      toast({
+        title: "Rôle attribué",
+        description: result.invited
+          ? "Invitation envoyée et rôle assigné."
+          : "Le rôle a été assigné à l'utilisateur existant.",
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Impossible d'assigner ce rôle.";
       toast({ title: "Erreur", description: message, variant: "destructive" });
@@ -355,18 +348,12 @@ export default function ProfilTab() {
               <div className="p-4 rounded-xl border border-dashed border-border bg-muted/30 space-y-4">
                 <p className="text-sm font-medium flex items-center gap-2"><UserPlus className="h-4 w-4 text-primary" /> Assigner un rôle à un utilisateur</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choisir un utilisateur" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableUsers.map((member) => (
-                        <SelectItem key={member.id} value={member.id}>
-                          {member.prenom} {member.nom} ({member.email})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="email@entreprise.com"
+                  />
 
                   <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
                     <SelectTrigger>
@@ -381,9 +368,12 @@ export default function ProfilTab() {
 
                   <Button onClick={assignRole} className="gap-2" disabled={isAssigningRole}>
                     {isAssigningRole ? <Spinner /> : <UserPlus className="h-4 w-4" />}
-                    Assigner
+                    Inviter & assigner
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Si l'email n'existe pas encore, un compte invité est créé automatiquement et un email d'invitation est envoyé.
+                </p>
               </div>
 
               <div className="space-y-3">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Car, CheckCircle, AlertTriangle, XCircle, Wrench, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,58 +16,158 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { FlotteItem, mockFlotte, etatColors, getVehicleImage } from "./data";
-import { fleetService } from "@/lib/api/services";
+import { FlotteItem, etatColors, getVehicleImage } from "./data";
+import { FleetIncidentDto, fleetService, VehicleDto } from "@/lib/api/services";
+import { useToast } from "@/hooks/use-toast";
+import { ApiHttpError, PaginationMeta } from "@/lib/api/types";
+import {
+  Pagination as PaginationType,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+
+type FleetRow = FlotteItem & {
+  operationalStatus?: VehicleDto["operationalStatus"];
+  activeIncidentId?: string;
+};
+
+function toArray<T>(payload: T[] | { items: T[] }): T[] {
+  return Array.isArray(payload) ? payload : payload.items;
+}
+
+function mapOperationalStatusToEtat(
+  status: VehicleDto["operationalStatus"] | undefined,
+  hasActiveBreakdown: boolean,
+): string {
+  if (hasActiveBreakdown) return "en panne";
+  if (status === "MAINTENANCE") return "entretien requis";
+  if (status === "INDISPONIBLE") return "en panne";
+  return "bon";
+}
+
+function mapVehicleToFleetRow(
+  vehicle: VehicleDto,
+  incidents: FleetIncidentDto[],
+): FleetRow {
+  const activeIncident = incidents.find(
+    (incident) => incident.status !== "RESOLU" && incident.incidentType === "PANNE",
+  );
+
+  const history = incidents.map((incident) => ({
+    date: new Date(incident.openedAt).toLocaleDateString("fr-FR"),
+    detail: incident.description,
+    kmAuMoment: vehicle.mileage ?? 0,
+    repareLe: incident.resolvedAt
+      ? new Date(incident.resolvedAt).toLocaleDateString("fr-FR")
+      : undefined,
+  }));
+
+  const enPanne = Boolean(activeIncident);
+
+  return {
+    id: vehicle.id,
+    vehicule: vehicle.name,
+    plaque: vehicle.plateNumber || "-",
+    km: Number(vehicle.mileage || 0),
+    dernierEntretien: "-",
+    prochainEntretien: "-",
+    etat: mapOperationalStatusToEtat(vehicle.operationalStatus, enPanne),
+    enPanne,
+    detailPanne: activeIncident?.description,
+    historiquePannes: history,
+    operationalStatus: vehicle.operationalStatus,
+    activeIncidentId: activeIncident?.id,
+  };
+}
 
 export default function FlotteTab() {
-  const [fleetItems, setFleetItems] = useState<FlotteItem[]>(mockFlotte);
+  const { toast } = useToast();
+  const [fleetItems, setFleetItems] = useState<FleetRow[]>([]);
   const [overview, setOverview] = useState({
-    bonEtat: mockFlotte.filter(f => f.etat === "bon").length,
-    entretienRequis: mockFlotte.filter(f => f.etat === "entretien requis").length,
-    enPanne: mockFlotte.filter(f => f.etat === "en panne").length,
+    bonEtat: 0,
+    entretienRequis: 0,
+    enPanne: 0,
   });
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [meta, setMeta] = useState<PaginationMeta | null>(null);
 
   // Dialog states
   const [breakdownDialog, setBreakdownDialog] = useState(false);
   const [mileageDialog, setMileageDialog] = useState(false);
-  const [selectedVehicle, setSelectedVehicle] = useState<FlotteItem | null>(null);
+  const [selectedVehicle, setSelectedVehicle] = useState<FleetRow | null>(null);
   const [breakdownDetail, setBreakdownDetail] = useState("");
   const [newMileage, setNewMileage] = useState("");
+  const [isSavingBreakdown, setIsSavingBreakdown] = useState(false);
+  const [isSavingMileage, setIsSavingMileage] = useState(false);
+  const [resolvingVehicleId, setResolvingVehicleId] = useState<string | null>(null);
+
+  const loadFleet = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const [overviewDto, fleetVehicles, incidents] = await Promise.all([
+        fleetService.overview(),
+        fleetService.vehicles({ page, limit }),
+        fleetService.listIncidents({ page: 1, limit: 200 }),
+      ]);
+
+      const vehicles = toArray(fleetVehicles);
+      const incidentsList = toArray(incidents);
+
+      if (Array.isArray(fleetVehicles)) {
+        setMeta({
+          page,
+          limit,
+          totalItems: vehicles.length,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPreviousPage: page > 1,
+        });
+      } else {
+        setMeta(fleetVehicles.meta);
+      }
+
+      const incidentsByVehicle = new Map<string, FleetIncidentDto[]>();
+      for (const incident of incidentsList) {
+        const current = incidentsByVehicle.get(incident.vehicleId) ?? [];
+        current.push(incident);
+        incidentsByVehicle.set(incident.vehicleId, current);
+      }
+
+      setOverview({
+        bonEtat: overviewDto.bonEtat,
+        entretienRequis: overviewDto.entretienRequis,
+        enPanne: overviewDto.enPanne,
+      });
+
+      setFleetItems(
+        vehicles.map((vehicle) =>
+          mapVehicleToFleetRow(vehicle, incidentsByVehicle.get(vehicle.id) ?? []),
+        ),
+      );
+    } catch (error) {
+      const message =
+        error instanceof ApiHttpError
+          ? error.message
+          : "Impossible de charger les données flotte.";
+      setLoadError(message);
+      setFleetItems([]);
+      setOverview({ bonEtat: 0, entretienRequis: 0, enPanne: 0 });
+      setMeta(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [limit, page]);
 
   useEffect(() => {
-    const loadFleet = async () => {
-      try {
-        const [overviewDto, fleetVehicles] = await Promise.all([fleetService.overview(), fleetService.vehicles()]);
-
-        setOverview({
-          bonEtat: overviewDto.bonEtat,
-          entretienRequis: overviewDto.entretienRequis,
-          enPanne: overviewDto.enPanne,
-        });
-
-        const mapped = fleetVehicles.map((item, idx) => ({
-          id: String(item.id || `F${idx + 1}`),
-          vehicule: String(item.vehicleName || item.name || "Véhicule"),
-          plaque: String(item.plate || "-"),
-          km: Number(item.mileage || 0),
-          dernierEntretien: String(item.lastMaintenanceAt || "-"),
-          prochainEntretien: String(item.nextMaintenanceAt || "-"),
-          etat: String(item.state || "bon").toLowerCase(),
-          enPanne: item.enPanne ?? false,
-          detailPanne: item.detailPanne,
-          historiquePannes: item.historiquePannes ?? [],
-        }));
-
-        if (mapped.length > 0) {
-          setFleetItems(mapped);
-        }
-      } catch {
-        // Fallback mock
-      }
-    };
-
-    loadFleet();
-  }, []);
+    void loadFleet();
+  }, [loadFleet]);
 
   const stats = useMemo(
     () => [
@@ -78,109 +178,128 @@ export default function FlotteTab() {
     [overview]
   );
 
-  const handleDeclareBreakdown = (vehicle: FlotteItem) => {
+  const handleDeclareBreakdown = (vehicle: FleetRow) => {
     setSelectedVehicle(vehicle);
     setBreakdownDetail("");
     setBreakdownDialog(true);
   };
 
-  const handleUpdateMileage = (vehicle: FlotteItem) => {
+  const handleUpdateMileage = (vehicle: FleetRow) => {
     setSelectedVehicle(vehicle);
     setNewMileage(vehicle.km.toString());
     setMileageDialog(true);
   };
 
-  const saveBreakdown = () => {
+  const saveBreakdown = async () => {
     if (!selectedVehicle || !breakdownDetail.trim()) {
-      alert("Veuillez ajouter un détail de panne");
+      toast({
+        title: "Formulaire incomplet",
+        description: "Veuillez ajouter un détail de panne.",
+        variant: "destructive",
+      });
       return;
     }
 
-    const updated = fleetItems.map(item => {
-      if (item.id === selectedVehicle.id) {
-        return {
-          ...item,
-          enPanne: true,
-          etat: "en panne",
-          detailPanne: breakdownDetail,
-          historiquePannes: [
-            ...item.historiquePannes,
-            {
-              date: new Date().toLocaleDateString("fr-FR"),
-              detail: breakdownDetail,
-              kmAuMoment: item.km,
-              repareLe: undefined,
-            },
-          ],
-        };
-      }
-      return item;
-    });
+    setIsSavingBreakdown(true);
+    try {
+      await fleetService.createIncident({
+        vehicleId: selectedVehicle.id,
+        incidentType: "PANNE",
+        severity: "CRITIQUE",
+        description: breakdownDetail.trim(),
+        status: "OUVERT",
+      });
 
-    setFleetItems(updated);
-    setOverview(prev => ({
-      ...prev,
-      bonEtat: prev.bonEtat - 1,
-      enPanne: prev.enPanne + 1,
-    }));
-    setBreakdownDialog(false);
+      toast({
+        title: "Panne déclarée",
+        description: "L'incident a été enregistré et le véhicule est indisponible.",
+      });
+      setBreakdownDialog(false);
+      setSelectedVehicle(null);
+      setBreakdownDetail("");
+      await loadFleet();
+    } catch (error) {
+      const message =
+        error instanceof ApiHttpError
+          ? error.message
+          : "Impossible de déclarer la panne.";
+      toast({ title: "Erreur", description: message, variant: "destructive" });
+    } finally {
+      setIsSavingBreakdown(false);
+    }
   };
 
-  const saveMileage = () => {
+  const saveMileage = async () => {
     if (!selectedVehicle || !newMileage.trim()) {
-      alert("Veuillez entrer le kilométrage");
+      toast({
+        title: "Formulaire incomplet",
+        description: "Veuillez entrer le kilométrage.",
+        variant: "destructive",
+      });
       return;
     }
 
     const mileageValue = parseInt(newMileage, 10);
-    if (isNaN(mileageValue)) {
-      alert("Kilométrage invalide");
+    if (isNaN(mileageValue) || mileageValue < 0) {
+      toast({
+        title: "Saisie invalide",
+        description: "Le kilométrage doit être un entier positif.",
+        variant: "destructive",
+      });
       return;
     }
 
-    const updated = fleetItems.map(item => {
-      if (item.id === selectedVehicle.id) {
-        return {
-          ...item,
-          km: mileageValue,
-        };
-      }
-      return item;
-    });
-
-    setFleetItems(updated);
-    setMileageDialog(false);
+    setIsSavingMileage(true);
+    try {
+      await fleetService.updateVehicleMileage(selectedVehicle.id, mileageValue);
+      toast({ title: "Kilométrage mis à jour" });
+      setMileageDialog(false);
+      setSelectedVehicle(null);
+      setNewMileage("");
+      await loadFleet();
+    } catch (error) {
+      const message =
+        error instanceof ApiHttpError
+          ? error.message
+          : "Impossible de mettre à jour le kilométrage.";
+      toast({ title: "Erreur", description: message, variant: "destructive" });
+    } finally {
+      setIsSavingMileage(false);
+    }
   };
 
-  const resolveBreakdown = (vehicle: FlotteItem) => {
-    const updated = fleetItems.map(item => {
-      if (item.id === vehicle.id) {
-        const updatedHistorique = item.historiquePannes.map((panne, idx) => {
-          if (idx === item.historiquePannes.length - 1) {
-            return {
-              ...panne,
-              repareLe: new Date().toLocaleDateString("fr-FR"),
-            };
-          }
-          return panne;
-        });
-        return {
-          ...item,
-          enPanne: false,
-          etat: "bon",
-          detailPanne: undefined,
-          historiquePannes: updatedHistorique,
-        };
-      }
-      return item;
-    });
+  const resolveBreakdown = async (vehicle: FleetRow) => {
+    if (!vehicle.activeIncidentId) {
+      toast({
+        title: "Action impossible",
+        description: "Aucune panne active n'a été trouvée pour ce véhicule.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    setFleetItems(updated);
-    setOverview(prev => ({
-      ...prev,
-      bonEtat: prev.bonEtat + 1,
-      enPanne: prev.enPanne - 1,
-    }));
+    setResolvingVehicleId(vehicle.id);
+    try {
+      await fleetService.updateIncident(vehicle.activeIncidentId, {
+        status: "RESOLU",
+        resolvedAt: new Date().toISOString(),
+      });
+      await fleetService.updateVehicleStatus(vehicle.id, "DISPONIBLE");
+
+      toast({
+        title: "Panne résolue",
+        description: "Le véhicule a été remis en état disponible.",
+      });
+      await loadFleet();
+    } catch (error) {
+      const message =
+        error instanceof ApiHttpError
+          ? error.message
+          : "Impossible de clôturer la panne.";
+      toast({ title: "Erreur", description: message, variant: "destructive" });
+    } finally {
+      setResolvingVehicleId(null);
+    }
   };
 
   // Calculate maintenance alerts
@@ -206,6 +325,18 @@ export default function FlotteTab() {
           </Card>
         ))}
       </div>
+      {loadError && (
+        <Card className="border-destructive/20 bg-destructive/5">
+          <CardContent className="p-4 flex items-center justify-between gap-3">
+            <p className="text-sm text-destructive">
+              {loadError}
+            </p>
+            <Button variant="outline" onClick={() => void loadFleet()} disabled={isLoading}>
+              Réessayer
+            </Button>
+          </CardContent>
+        </Card>
+      )}
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -222,7 +353,21 @@ export default function FlotteTab() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {fleetItems.map(f => {
+                {isLoading && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      Chargement des données flotte...
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!isLoading && !loadError && fleetItems.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      Aucun véhicule de flotte à afficher.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!isLoading && !loadError && fleetItems.map(f => {
                   const img = getVehicleImage(f.vehicule);
                   const hasMaintenanceAlert = checkMaintenanceAlert(f);
                   return (
@@ -254,6 +399,7 @@ export default function FlotteTab() {
                             size="sm"
                             variant="ghost"
                             onClick={() => handleUpdateMileage(f)}
+                            disabled={isSavingMileage || isSavingBreakdown || resolvingVehicleId === f.id}
                             title="Mettre à jour le kilométrage"
                           >
                             <Wrench className="h-4 w-4" />
@@ -263,6 +409,7 @@ export default function FlotteTab() {
                               size="sm"
                               variant="ghost"
                               onClick={() => handleDeclareBreakdown(f)}
+                              disabled={isSavingMileage || isSavingBreakdown || resolvingVehicleId === f.id}
                               className="text-destructive "
                               title="Déclarer une panne"
                             >
@@ -272,7 +419,8 @@ export default function FlotteTab() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => resolveBreakdown(f)}
+                              onClick={() => void resolveBreakdown(f)}
+                              disabled={resolvingVehicleId === f.id || isSavingBreakdown || isSavingMileage}
                               className="text-emerald-500 hover:text-emerald-600"
                               title="Marquer comme réparé"
                             >
@@ -289,6 +437,43 @@ export default function FlotteTab() {
           </div>
         </CardContent>
       </Card>
+
+      {meta && (
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground text-center">
+            Page {meta.page} sur {Math.max(meta.totalPages, 1)} · {meta.totalItems} véhicules flotte
+          </p>
+          <PaginationType>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (meta.hasPreviousPage) setPage((prev) => Math.max(prev - 1, 1));
+                  }}
+                  className={!meta.hasPreviousPage ? "pointer-events-none opacity-50" : undefined}
+                />
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationLink href="#" isActive>
+                  {meta.page}
+                </PaginationLink>
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (meta.hasNextPage) setPage((prev) => prev + 1);
+                  }}
+                  className={!meta.hasNextPage ? "pointer-events-none opacity-50" : undefined}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </PaginationType>
+        </div>
+      )}
 
       {/* Breakdown Declaration Dialog */}
       <Dialog open={breakdownDialog} onOpenChange={setBreakdownDialog}>
@@ -318,8 +503,8 @@ export default function FlotteTab() {
             <Button variant="outline" onClick={() => setBreakdownDialog(false)}>
               Annuler
             </Button>
-            <Button onClick={saveBreakdown} className="bg-destructive hover:bg-destructive/90">
-              Déclarer la panne
+            <Button onClick={() => void saveBreakdown()} className="bg-destructive hover:bg-destructive/90" disabled={isSavingBreakdown}>
+              {isSavingBreakdown ? "Enregistrement..." : "Déclarer la panne"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -355,8 +540,8 @@ export default function FlotteTab() {
             <Button variant="outline" onClick={() => setMileageDialog(false)}>
               Annuler
             </Button>
-            <Button onClick={saveMileage}>
-              Mettre à jour
+            <Button onClick={() => void saveMileage()} disabled={isSavingMileage}>
+              {isSavingMileage ? "Mise à jour..." : "Mettre à jour"}
             </Button>
           </DialogFooter>
         </DialogContent>

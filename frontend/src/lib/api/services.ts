@@ -67,8 +67,9 @@ export type VehicleDto = {
   images?: VehicleImageDto[];
   city?: string;
   available?: boolean;
-  operationalStatus?: "DISPONIBLE" | "INDISPONIBLE";
+  operationalStatus?: "DISPONIBLE" | "INDISPONIBLE" | "MAINTENANCE";
   active?: boolean;
+  isActive?: boolean;
   rating?: number;
   reviewsCount?: number;
   additionalFeesLabels?: { label: string; amount: number }[];
@@ -118,6 +119,23 @@ export type FleetOverviewDto = {
   entretienRequis: number;
   enPanne: number;
   totalIncidentsOuverts: number;
+};
+
+export type FleetIncidentType = "DOMMAGE" | "PANNE" | "HISTORIQUE";
+export type FleetIncidentSeverity = "MINEUR" | "MAJEUR" | "CRITIQUE";
+export type FleetIncidentStatus = "OUVERT" | "EN_COURS" | "RESOLU";
+
+export type FleetIncidentDto = {
+  id: string;
+  vehicleId: string;
+  incidentType: FleetIncidentType;
+  severity: FleetIncidentSeverity;
+  status: FleetIncidentStatus;
+  description: string;
+  openedAt: string;
+  resolvedAt?: string | null;
+  createdAt: string;
+  vehicle?: VehicleDto;
 };
 
 export type IamPermissionDto = {
@@ -294,11 +312,54 @@ export const reservationsService = {
 
 export const fleetService = {
   overview: () => apiRequest<FleetOverviewDto>("/fleet/overview", { auth: true }),
-  vehicles: () => apiRequest<Array<Record<string, unknown>>>("/fleet/vehicles", { auth: true }),
-  updateVehicleStatus: (vehicleId: string, operationalStatus: "DISPONIBLE" | "INDISPONIBLE") =>
-    apiRequest<Record<string, unknown>>(`/fleet/vehicles/${vehicleId}/status`, {
+  vehicles: (params?: PaginationParams) =>
+    apiRequest<PaginatedCollection<VehicleDto> | VehicleDto[]>(`/fleet/vehicles${toPaginationQuery(params)}`, { auth: true }),
+  updateVehicleStatus: (vehicleId: string, operationalStatus: "DISPONIBLE" | "INDISPONIBLE" | "MAINTENANCE") =>
+    apiRequest<VehicleDto>(`/fleet/vehicles/${vehicleId}/status`, {
       method: "PATCH",
       body: { operationalStatus },
+      auth: true,
+    }),
+  updateVehicleMileage: (vehicleId: string, mileage: number) =>
+    apiRequest<VehicleDto>(`/fleet/vehicles/${vehicleId}/mileage`, {
+      method: "PATCH",
+      body: { mileage },
+      auth: true,
+    }),
+  createIncident: (payload: {
+    vehicleId: string;
+    incidentType: FleetIncidentType;
+    severity: FleetIncidentSeverity;
+    description: string;
+    status?: FleetIncidentStatus;
+    openedAt?: string;
+    resolvedAt?: string;
+  }) =>
+    apiRequest<FleetIncidentDto>("/fleet/incidents", {
+      method: "POST",
+      body: payload,
+      auth: true,
+    }),
+  listIncidents: (params?: PaginationParams) =>
+    apiRequest<PaginatedCollection<FleetIncidentDto> | FleetIncidentDto[]>(
+      `/fleet/incidents${toPaginationQuery(params)}`,
+      { auth: true },
+    ),
+  updateIncident: (
+    incidentId: string,
+    payload: {
+      vehicleId?: string;
+      incidentType?: FleetIncidentType;
+      severity?: FleetIncidentSeverity;
+      status?: FleetIncidentStatus;
+      description?: string;
+      openedAt?: string;
+      resolvedAt?: string;
+    },
+  ) =>
+    apiRequest<FleetIncidentDto>(`/fleet/incidents/${incidentId}`, {
+      method: "PATCH",
+      body: payload,
       auth: true,
     }),
 };
@@ -323,6 +384,15 @@ export const iamService = {
       method: "POST",
       auth: true,
     }),
+  inviteAndAssignRoleByEmail: (roleId: string, email: string) =>
+    apiRequest<{ roleId: string; userId: string; invited: boolean }>(
+      `/iam/roles/${roleId}/invite`,
+      {
+        method: "POST",
+        body: { email },
+        auth: true,
+      },
+    ),
 };
 
 export const notificationsService = {

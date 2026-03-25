@@ -6,7 +6,7 @@ import { type Vehicule } from "@/data/mock";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import type { TabKey, TeamMember, Notification as NotifType, Reservation } from "./data";
 import type { AdminUser } from "./types";
-import { initialTeamMembers, mockDevis } from "./data";
+import { mockDevis } from "./data";
 import type { MockDevis } from "./data";
 import AdminAuth from "./AdminAuth";
 import AdminSidebar from "./AdminSidebar";
@@ -84,7 +84,7 @@ export default function Boss() {
   const [reservationsPage, setReservationsPage] = useState(1);
   const [reservationsLimit] = useState(10);
   const [reservationsMeta, setReservationsMeta] = useState<PaginationMeta | null>(null);
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialTeamMembers);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [devis, setDevis] = useState<MockDevis[]>(mockDevis);
   const [notifications, setNotifications] = useState<NotifType[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
@@ -141,7 +141,7 @@ export default function Boss() {
   }, [isBootstrapping, user, tab, vehiclesPage, vehiclesLimit]);
 
   useEffect(() => {
-    if (isBootstrapping || !user || tab !== "reservations") return;
+    if (isBootstrapping || !user || (tab !== "reservations" && tab !== "kpi")) return;
 
     const loadReservations = async () => {
       setIsLoadingReservations(true);
@@ -187,6 +187,20 @@ export default function Boss() {
           "meta" in usersCollection;
 
         const mappedUsers: AdminUser[] = items.map((item) => {
+          const userRoles = Array.isArray(item.userRoles)
+            ? item.userRoles
+            : [];
+          const roleFromAssignments = userRoles
+            .map((userRole) => {
+              if (userRole && typeof userRole === "object" && "role" in userRole) {
+                const maybeRole = (userRole as { role?: { name?: unknown } }).role;
+                return maybeRole?.name ? String(maybeRole.name) : "";
+              }
+              return "";
+            })
+            .find(Boolean);
+
+          const effectiveRole = String(roleFromAssignments || item.role || "client").toLowerCase();
           const firstName = String(item.firstName || "");
           const lastName = String(item.lastName || "");
           return {
@@ -198,7 +212,7 @@ export default function Boss() {
             creeLe: String(item.createdAt || ""),
             reservations: Number(item.reservationsCount || 0),
             statut: String(item.status || "actif").toLowerCase(),
-            role: String(item.role || "client").toLowerCase(),
+            role: effectiveRole,
             telephone: item.telephone ? String(item.telephone) : undefined,
             ville: item.ville ? String(item.ville) : undefined,
             adresse: item.adresse ? String(item.adresse) : undefined,
@@ -206,6 +220,19 @@ export default function Boss() {
         });
 
         setUsers(mappedUsers);
+        setTeamMembers(
+          mappedUsers
+            .filter((u) => !["client", "customer"].includes(u.role))
+            .map((u) => ({
+              id: u.id,
+              nom: u.nom,
+              prenom: u.prenom,
+              email: u.email,
+              role: u.role,
+              permissions: [],
+              dateAttribution: u.creeLe || "",
+            })),
+        );
 
         if (!hasPaginatedMeta) {
           setUsersMeta({

@@ -36,7 +36,7 @@ export function mapVehicleDtoToVehicule(dto: VehicleDto): Vehicule {
     caution: dto.depositAmount ?? getCautionByCategory(dto.category),
     description: dto.description || "",
     photos: images,
-    actif: dto.active ?? true,
+    actif: dto.active ?? dto.isActive ?? true,
     villes: dto.availableCities || (dto.city ? [dto.city] : []),
     disponible: dto.available ?? availableFromStatus ?? true,
     note: dto.rating ?? 4.5,
