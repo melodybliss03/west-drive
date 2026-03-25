@@ -14,6 +14,7 @@ describe('FleetController', () => {
     getOverview: jest.fn(),
     listFleetVehicles: jest.fn(),
     updateVehicleStatus: jest.fn(),
+    updateVehicleMileage: jest.fn(),
     createIncident: jest.fn(),
     listIncidents: jest.fn(),
     getIncidentById: jest.fn(),
@@ -60,6 +61,20 @@ describe('FleetController', () => {
 
     await expect(
       controller.updateVehicleStatus(vehicleId, dto),
+    ).resolves.toEqual(expected);
+  });
+
+  it('PATCH /fleet/vehicles/:vehicleId/mileage calls updateVehicleMileage', async () => {
+    const vehicleId = '8c2d4cb8-6220-4fb8-a391-7a2ba81c9688';
+    const dto = { mileage: 58210 };
+    const expected = {
+      id: vehicleId,
+      mileage: dto.mileage,
+    };
+    fleetServiceMock.updateVehicleMileage.mockResolvedValue(expected);
+
+    await expect(
+      controller.updateVehicleMileage(vehicleId, dto),
     ).resolves.toEqual(expected);
   });
 

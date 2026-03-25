@@ -30,12 +30,21 @@ export class VehiclesService {
     const vehicle = this.vehicleRepository.create({
       ...dto,
       pricePerDay: dto.pricePerDay.toFixed(2),
+      pricePerHour: (dto.pricePerHour ?? 0).toFixed(2),
+      depositAmount:
+        dto.depositAmount !== undefined ? dto.depositAmount.toFixed(2) : null,
       rating: (dto.rating ?? 0).toFixed(2),
+      mileage: dto.mileage ?? 0,
+      description: dto.description ?? null,
+      plateNumber: dto.plateNumber ?? null,
+      isHybride: dto.isHybride ?? false,
       availableCities: dto.availableCities ?? [],
       isActive: dto.isActive ?? true,
       reviewCount: dto.reviewCount ?? 0,
-      latitude: dto.latitude.toString(),
-      longitude: dto.longitude.toString(),
+      latitude: (dto.latitude ?? 0).toString(),
+      longitude: (dto.longitude ?? 0).toString(),
+      additionalFeesLabels: dto.additionalFeesLabels ?? [],
+      maintenanceRequired: dto.maintenanceRequired ?? null,
     });
 
     const savedVehicle = await this.vehicleRepository.save(vehicle);
@@ -105,6 +114,14 @@ export class VehiclesService {
         dto.pricePerDay !== undefined
           ? dto.pricePerDay.toFixed(2)
           : vehicle.pricePerDay,
+      pricePerHour:
+        dto.pricePerHour !== undefined
+          ? dto.pricePerHour.toFixed(2)
+          : vehicle.pricePerHour,
+      depositAmount:
+        dto.depositAmount !== undefined
+          ? dto.depositAmount.toFixed(2)
+          : vehicle.depositAmount,
       rating: dto.rating !== undefined ? dto.rating.toFixed(2) : vehicle.rating,
       latitude:
         dto.latitude !== undefined ? dto.latitude.toString() : vehicle.latitude,
@@ -113,6 +130,16 @@ export class VehiclesService {
           ? dto.longitude.toString()
           : vehicle.longitude,
       availableCities: dto.availableCities ?? vehicle.availableCities,
+      mileage: dto.mileage ?? vehicle.mileage,
+      description:
+        dto.description !== undefined ? dto.description : vehicle.description,
+      plateNumber:
+        dto.plateNumber !== undefined ? dto.plateNumber : vehicle.plateNumber,
+      isHybride: dto.isHybride ?? vehicle.isHybride,
+      additionalFeesLabels:
+        dto.additionalFeesLabels ?? vehicle.additionalFeesLabels,
+      maintenanceRequired:
+        dto.maintenanceRequired ?? vehicle.maintenanceRequired,
     });
 
     await this.vehicleRepository.save(vehicle);

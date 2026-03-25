@@ -28,6 +28,7 @@ import { PermissionsGuard } from '../iam/guards/permissions.guard';
 import { CreateFleetIncidentDto } from './dto/create-fleet-incident.dto';
 import { CreateVehicleScheduleSlotDto } from './dto/create-vehicle-schedule-slot.dto';
 import { UpdateFleetIncidentDto } from './dto/update-fleet-incident.dto';
+import { UpdateFleetVehicleMileageDto } from './dto/update-fleet-vehicle-mileage.dto';
 import { UpdateFleetVehicleStatusDto } from './dto/update-fleet-vehicle-status.dto';
 import { UpdateVehicleScheduleSlotDto } from './dto/update-vehicle-schedule-slot.dto';
 import { FleetService } from './fleet.service';
@@ -71,6 +72,19 @@ export class FleetController {
     @Body() dto: UpdateFleetVehicleStatusDto,
   ) {
     return this.fleetService.updateVehicleStatus(vehicleId, dto);
+  }
+
+  @Patch('vehicles/:vehicleId/mileage')
+  @RequirePermissions('fleet.manage')
+  @ApiOperation({
+    summary: 'Mettre a jour le kilometrage d un vehicule',
+  })
+  @ApiParam({ name: 'vehicleId', description: 'UUID du vehicule' })
+  updateVehicleMileage(
+    @Param('vehicleId', new ParseUUIDPipe()) vehicleId: string,
+    @Body() dto: UpdateFleetVehicleMileageDto,
+  ) {
+    return this.fleetService.updateVehicleMileage(vehicleId, dto);
   }
 
   @Post('incidents')

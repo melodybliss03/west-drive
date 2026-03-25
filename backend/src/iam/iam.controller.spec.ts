@@ -11,6 +11,7 @@ describe('IamController', () => {
     createRole: jest.fn(),
     updateRolePermissions: jest.fn(),
     assignRoleToUser: jest.fn(),
+    assignRoleToEmail: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -85,6 +86,25 @@ describe('IamController', () => {
     expect(iamServiceMock.assignRoleToUser).toHaveBeenCalledWith(
       roleId,
       userId,
+    );
+  });
+
+  it('POST /iam/roles/:roleId/invite calls assignRoleToEmail', async () => {
+    const roleId = '8c2d4cb8-6220-4fb8-a391-7a2ba81c9688';
+    const dto = { email: 'ops@westdrive.fr' };
+    const expected = {
+      roleId,
+      userId: 'f7c3084e-6a3b-4dcf-a9f2-b6dbfae436c0',
+      invited: true,
+    };
+    iamServiceMock.assignRoleToEmail.mockResolvedValue(expected);
+
+    await expect(controller.assignRoleToEmail(roleId, dto)).resolves.toEqual(
+      expected,
+    );
+    expect(iamServiceMock.assignRoleToEmail).toHaveBeenCalledWith(
+      roleId,
+      dto.email,
     );
   });
 });

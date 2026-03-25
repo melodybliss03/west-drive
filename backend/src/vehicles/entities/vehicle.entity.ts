@@ -39,14 +39,32 @@ export class Vehicle {
   @Column({ type: 'varchar' })
   energy!: string;
 
+  @Column({ type: 'boolean', name: 'is_hybride', default: false })
+  isHybride!: boolean;
+
   @Column({ type: 'int' })
   seats!: number;
 
   @Column({ type: 'int', name: 'included_km_per_day' })
   includedKmPerDay!: number;
 
+  @Column({ type: 'int', default: 0 })
+  mileage!: number;
+
   @Column({ type: 'decimal', precision: 10, scale: 2, name: 'price_per_day' })
   pricePerDay!: string;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, name: 'price_per_hour', default: 0 })
+  pricePerHour!: string;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, name: 'deposit_amount', nullable: true })
+  depositAmount!: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  description!: string | null;
+
+  @Column({ type: 'varchar', name: 'plate_number', nullable: true })
+  plateNumber!: string | null;
 
   @Column({ type: 'boolean', name: 'is_active', default: true })
   isActive!: boolean;
@@ -83,6 +101,23 @@ export class Vehicle {
 
   @Column({ type: 'decimal', precision: 10, scale: 7 })
   longitude!: string;
+
+  @Column({
+    type: 'jsonb',
+    name: 'additional_fees_labels',
+    default: () => "'[]'::jsonb",
+  })
+  additionalFeesLabels!: Array<{ label: string; amount: number }>;
+
+  @Column({
+    type: 'jsonb',
+    name: 'maintenance_required',
+    nullable: true,
+  })
+  maintenanceRequired!: {
+    mileage?: number;
+    days?: number;
+  } | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;

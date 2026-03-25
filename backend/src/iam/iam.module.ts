@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { MailModule } from '../shared/mail/mail.module';
 import { User } from '../users/entities/user.entity';
 import { Permission } from './entities/permission.entity';
 import { RolePermission } from './entities/role-permission.entity';
@@ -11,6 +12,7 @@ import { IamService } from './iam.service';
 
 @Module({
   imports: [
+    MailModule,
     TypeOrmModule.forFeature([
       User,
       Permission,

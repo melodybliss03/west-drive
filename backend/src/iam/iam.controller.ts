@@ -22,6 +22,7 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RequirePermissions } from './decorators/require-permissions.decorator';
+import { AssignRoleByEmailDto } from './dto/assign-role-by-email.dto';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRolePermissionsDto } from './dto/update-role-permissions.dto';
 import { PermissionsGuard } from './guards/permissions.guard';
@@ -172,5 +173,27 @@ export class IamController {
     @Param('userId', new ParseUUIDPipe()) userId: string,
   ) {
     return this.iamService.assignRoleToUser(roleId, userId);
+  }
+
+  @Post('roles/:roleId/invite')
+  @RequirePermissions('roles.assign')
+  @ApiOperation({
+    summary: 'Assigner un role a une adresse email (invite si inexistant)',
+    description:
+      'Assigne un role a un utilisateur existant ou cree un compte invite puis envoie un email de finalisation.',
+  })
+  @ApiParam({
+    name: 'roleId',
+    description: 'UUID du role a assigner',
+    example: '4ca247ea-c8fa-4747-a434-81c520ddf3d2',
+  })
+  @ApiOkResponse({ description: 'Role assigne par email.' })
+  @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
+  @ApiForbiddenResponse({ description: 'Permission roles.assign requise.' })
+  assignRoleToEmail(
+    @Param('roleId', new ParseUUIDPipe()) roleId: string,
+    @Body() dto: AssignRoleByEmailDto,
+  ) {
+    return this.iamService.assignRoleToEmail(roleId, dto.email);
   }
 }

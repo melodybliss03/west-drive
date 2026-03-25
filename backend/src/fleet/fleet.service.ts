@@ -17,6 +17,7 @@ import {
 import { CreateFleetIncidentDto } from './dto/create-fleet-incident.dto';
 import { CreateVehicleScheduleSlotDto } from './dto/create-vehicle-schedule-slot.dto';
 import { UpdateFleetIncidentDto } from './dto/update-fleet-incident.dto';
+import { UpdateFleetVehicleMileageDto } from './dto/update-fleet-vehicle-mileage.dto';
 import { UpdateFleetVehicleStatusDto } from './dto/update-fleet-vehicle-status.dto';
 import { UpdateVehicleScheduleSlotDto } from './dto/update-vehicle-schedule-slot.dto';
 import {
@@ -92,6 +93,16 @@ export class FleetService {
     const vehicle = await this.findVehicleOrFail(vehicleId);
 
     vehicle.operationalStatus = dto.operationalStatus;
+    return this.vehicleRepository.save(vehicle);
+  }
+
+  async updateVehicleMileage(
+    vehicleId: string,
+    dto: UpdateFleetVehicleMileageDto,
+  ): Promise<Vehicle> {
+    const vehicle = await this.findVehicleOrFail(vehicleId);
+
+    vehicle.mileage = dto.mileage;
     return this.vehicleRepository.save(vehicle);
   }
 

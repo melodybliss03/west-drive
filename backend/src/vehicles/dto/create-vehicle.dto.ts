@@ -29,6 +29,31 @@ class CreateVehicleImageDto {
   sortOrder?: number;
 }
 
+class AdditionalFeeLabelDto {
+  @ApiProperty({ example: 'Nettoyage premium' })
+  @IsString()
+  label!: string;
+
+  @ApiProperty({ example: 25 })
+  @IsNumber()
+  @Min(0)
+  amount!: number;
+}
+
+class MaintenanceRequiredDto {
+  @ApiPropertyOptional({ example: 150000 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  mileage?: number;
+
+  @ApiPropertyOptional({ example: 30 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  days?: number;
+}
+
 export class CreateVehicleDto {
   @ApiProperty({ example: 'Tesla Model X 2024' })
   @IsString()
@@ -58,6 +83,11 @@ export class CreateVehicleDto {
   @IsString()
   energy!: string;
 
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  isHybride?: boolean;
+
   @ApiProperty({ example: 7 })
   @IsInt()
   @Min(1)
@@ -72,6 +102,34 @@ export class CreateVehicleDto {
   @IsNumber()
   @Min(0)
   pricePerDay!: number;
+
+  @ApiPropertyOptional({ example: 18.5 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  pricePerHour?: number;
+
+  @ApiPropertyOptional({ example: 1200 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  depositAmount?: number;
+
+  @ApiPropertyOptional({ example: 45200 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  mileage?: number;
+
+  @ApiPropertyOptional({ example: 'SUV premium 7 places, parfait pour les longs trajets.' })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({ example: 'AB-123-CD' })
+  @IsOptional()
+  @IsString()
+  plateNumber?: string;
 
   @ApiPropertyOptional({ example: true })
   @IsOptional()
@@ -110,13 +168,28 @@ export class CreateVehicleDto {
   @IsString()
   city!: string;
 
-  @ApiProperty({ example: 48.856614 })
+  @ApiPropertyOptional({ example: 48.856614 })
+  @IsOptional()
   @IsNumber()
-  latitude!: number;
+  latitude?: number;
 
-  @ApiProperty({ example: 2.3522219 })
+  @ApiPropertyOptional({ example: 2.3522219 })
+  @IsOptional()
   @IsNumber()
-  longitude!: number;
+  longitude?: number;
+
+  @ApiPropertyOptional({ type: [AdditionalFeeLabelDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AdditionalFeeLabelDto)
+  additionalFeesLabels?: AdditionalFeeLabelDto[];
+
+  @ApiPropertyOptional({ type: MaintenanceRequiredDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => MaintenanceRequiredDto)
+  maintenanceRequired?: MaintenanceRequiredDto;
 
   @ApiPropertyOptional({ type: [CreateVehicleImageDto] })
   @IsOptional()

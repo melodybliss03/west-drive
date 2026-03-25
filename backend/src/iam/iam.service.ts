@@ -8,7 +8,9 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
+import { randomUUID } from 'crypto';
 import { In, Repository } from 'typeorm';
+import { MailService } from '../shared/mail/mail.service';
 import {
   buildPaginatedResponse,
   resolvePagination,
@@ -39,6 +41,7 @@ export class IamService implements OnApplicationBootstrap {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly configService: ConfigService,
+    private readonly mailService: MailService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -166,6 +169,68 @@ export class IamService implements OnApplicationBootstrap {
     });
 
     return this.userRoleRepository.save(userRole);
+  }
+
+  async assignRoleToEmail(
+    roleId: string,
+    emailInput: string,
+  ): Promise<{ roleId: string; userId: string; invited: boolean }> {
+    const role = await this.roleRepository.findOne({ where: { id: roleId } });
+    if (!role) {
+      throw new NotFoundException('Role not found');
+    }
+
+    const email = this.normalizeEmail(emailInput);
+    let user = await this.userRepository.findOne({ where: { email } });
+    let invited = false;
+
+    if (!user) {
+      invited = true;
+      const temporaryPasswordHash = await argon2.hash(`invite-${randomUUID()}`);
+      user = await this.userRepository.save(
+        this.userRepository.create({
+          email,
+          passwordHash: temporaryPasswordHash,
+          firstName: 'Invite',
+          lastName: 'WestDrive',
+          phone: '+33000000000',
+          role: role.name,
+          status: UserStatus.ACTIF,
+        }),
+      );
+    }
+
+    const existingLink = await this.userRoleRepository.findOne({
+      where: { roleId, userId: user.id },
+    });
+
+    if (!existingLink) {
+      await this.userRoleRepository.save(
+        this.userRoleRepository.create({
+          roleId,
+          userId: user.id,
+        }),
+      );
+    }
+
+    user.role = role.name;
+    await this.userRepository.save(user);
+
+    if (invited) {
+      const frontendBaseUrl = this.configService.get<string>(
+        'FRONTEND_BASE_URL',
+        'http://localhost:8080',
+      );
+      const setupUrl = `${frontendBaseUrl.replace(/\/$/, '')}/mot-de-passe-oublie?email=${encodeURIComponent(email)}`;
+      await this.mailService.sendGuestAccountSetupEmail({
+        to: email,
+        requesterName: `${user.firstName} ${user.lastName}`,
+        publicReference: 'INVITE-EQUIPE',
+        setupUrl,
+      });
+    }
+
+    return { roleId, userId: user.id, invited };
   }
 
   async getUserSecurityContext(userId: string): Promise<{
@@ -321,5 +386,9 @@ export class IamService implements OnApplicationBootstrap {
     );
 
     await this.rolePermissionRepository.save(newLinks);
+  }
+
+  private normalizeEmail(emailInput: string): string {
+    return emailInput.trim().toLowerCase();
   }
 }
