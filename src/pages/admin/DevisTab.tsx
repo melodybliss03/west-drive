@@ -201,7 +201,7 @@ export default function DevisTab({ devis, setDevis }: DevisTabProps) {
                             <Button variant="ghost" size="icon" onClick={() => openDetail(d)}>
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setDeleteConfirm(d.id)}>
+                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeleteConfirm(d.id)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>

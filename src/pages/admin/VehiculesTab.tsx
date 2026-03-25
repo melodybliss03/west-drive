@@ -91,6 +91,7 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
     pricePerHour: vehicle.prixHeure || 0,
     additionalFeesLabels: vehicle.autreFraisLibelle || [],
     maintenanceRequired: vehicle.entretenueRequis,
+    plateNumber: vehicle.plaqueImmatriculation,
     streetAddress: locationForm.streetAddress,
     city: locationForm.city,
     availableCities: vehicle.villes,
@@ -223,7 +224,7 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                     <TableHead>Prix/jour</TableHead>
                     <TableHead className="hidden md:table-cell">Km actuel</TableHead>
                     <TableHead className="hidden lg:table-cell">Statut</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -278,7 +279,7 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                                 size="icon"
                                 onClick={() => setDeleteConfirm(v.id)}
                                 disabled={isSaving || !!deletingVehicleId}
-                                className="text-destructive hover:text-destructive"
+                                className="text-destructive"
                               >
                                 {deletingVehicleId === v.id ? <Spinner className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
                               </Button>
@@ -459,6 +460,14 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                   <span>{saveLabel || "Traitement en cours..."}</span>
                 </div>
               )}
+              <div>
+                <Label>Plaque d'immatriculation</Label>
+                <Input 
+                  value={editVehicle.plaqueImmatriculation || ""} 
+                  onChange={e => setEditVehicle({ ...editVehicle, plaqueImmatriculation: e.target.value })}
+                  placeholder="Ex: AB-123-CD"
+                />
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Marque *</Label>

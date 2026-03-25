@@ -58,6 +58,7 @@ export type VehicleDto = {
   seats: number;
   includedKmPerDay: number;
   mileage: number;
+  plateNumber?: string;
   pricePerDay: number;
   pricePerHour: number;
   depositAmount?: number;

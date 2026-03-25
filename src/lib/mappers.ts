@@ -41,6 +41,7 @@ export function mapVehicleDtoToVehicule(dto: VehicleDto): Vehicule {
     disponible: dto.available ?? availableFromStatus ?? true,
     note: dto.rating ?? 4.5,
     nbAvis: dto.reviewsCount ?? 0,
+    plaqueImmatriculation: dto.plateNumber,
     autreFraisLibelle: dto.additionalFeesLabels ?? [],
     entretenueRequis: {
       kilométrage: dto.maintenanceRequired?.mileage,

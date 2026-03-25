@@ -200,7 +200,7 @@ export default function UtilisateursTab({ users, setUsers, page, setPage, meta, 
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="text-destructive hover:text-destructive"
+                              className="text-destructive"
                               onClick={() => deleteUser(u)}
                               disabled={!!loadingUserId}
                             >

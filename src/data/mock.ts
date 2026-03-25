@@ -30,6 +30,7 @@ export interface Vehicule {
     kilométrage?: number;
     jours?: number;
   };
+  plaqueImmatriculation?: string;
 }
 
 export interface Ville {
@@ -76,6 +77,7 @@ export const vehicules: Vehicule[] = [
     nbAvis: 23,
     autreFraisLibelle: [],
     entretenueRequis: { kilométrage: 150000, jours: 14 },
+    plaqueImmatriculation: "AB-001-CD",
   },
   {
     id: "2",
@@ -102,6 +104,7 @@ export const vehicules: Vehicule[] = [
     nbAvis: 18,
     autreFraisLibelle: [],
     entretenueRequis: { kilométrage: 120000, jours: 30 },
+    plaqueImmatriculation: "EF-002-GH",
   },
   {
     id: "9",
@@ -128,6 +131,7 @@ export const vehicules: Vehicule[] = [
     nbAvis: 14,
     autreFraisLibelle: [],
     entretenueRequis: { kilométrage: 150000, jours: 14 },
+    plaqueImmatriculation: "IJ-009-KL",
   },
   {
     id: "3",
@@ -154,6 +158,7 @@ export const vehicules: Vehicule[] = [
     nbAvis: 31,
     autreFraisLibelle: [],
     entretenueRequis: { kilométrage: 150000, jours: 30 },
+    plaqueImmatriculation: "MN-003-OP",
   },
   {
     id: "4",
@@ -180,6 +185,7 @@ export const vehicules: Vehicule[] = [
     nbAvis: 15,
     autreFraisLibelle: [],
     entretenueRequis: { kilométrage: 180000, jours: 30 },
+    plaqueImmatriculation: "QR-004-ST",
   },
   {
     id: "5",
@@ -206,6 +212,7 @@ export const vehicules: Vehicule[] = [
     nbAvis: 27,
     autreFraisLibelle: [{ label: "GPS premium", amount: 10 }],
     entretenueRequis: { kilométrage: 180000, jours: 30 },
+    plaqueImmatriculation: "UV-005-WX",
   },
   {
     id: "6",
@@ -232,6 +239,7 @@ export const vehicules: Vehicule[] = [
     nbAvis: 12,
     autreFraisLibelle: [{ label: "Chauffeur professionnel", amount: 50 }],
     entretenueRequis: { kilométrage: 150000, jours: 14 },
+    plaqueImmatriculation: "YZ-006-AA",
   },
   {
     id: "10",
@@ -258,6 +266,7 @@ export const vehicules: Vehicule[] = [
     nbAvis: 22,
     autreFraisLibelle: [],
     entretenueRequis: { kilométrage: 150000, jours: 30 },
+    plaqueImmatriculation: "BB-010-CC",
   },
   {
     id: "11",
@@ -284,6 +293,7 @@ export const vehicules: Vehicule[] = [
     nbAvis: 16,
     autreFraisLibelle: [{ label: "Assistance routière 24h", amount: 15 }],
     entretenueRequis: { kilométrage: 180000, jours: 30 },
+    plaqueImmatriculation: "DD-011-EE",
   },
   {
     id: "12",
@@ -310,6 +320,7 @@ export const vehicules: Vehicule[] = [
     nbAvis: 25,
     autreFraisLibelle: [],
     entretenueRequis: { kilométrage: 150000, jours: 30 },
+    plaqueImmatriculation: "FF-012-GG",
   },
   {
     id: "7",
@@ -336,6 +347,7 @@ export const vehicules: Vehicule[] = [
     nbAvis: 34,
     autreFraisLibelle: [],
     entretenueRequis: { kilométrage: 150000, jours: 30 },
+    plaqueImmatriculation: "HH-007-II",
   },
   {
     id: "8",
@@ -362,6 +374,7 @@ export const vehicules: Vehicule[] = [
     nbAvis: 19,
     autreFraisLibelle: [{ label: "Assurance tous risques", amount: 20 }],
     entretenueRequis: { kilométrage: 200000, jours: 30 },
+    plaqueImmatriculation: "JJ-008-KK",
   },
 ];
 

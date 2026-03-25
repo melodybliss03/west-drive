@@ -71,6 +71,14 @@ export interface FlotteItem {
   dernierEntretien: string;
   prochainEntretien: string;
   etat: string;
+  enPanne: boolean;
+  detailPanne?: string;
+  historiquePannes: {
+    date: string;
+    detail: string;
+    kmAuMoment: number;
+    repareLe?: string;
+  }[];
 }
 
 export interface Notification {
@@ -150,11 +158,157 @@ export const mockDevis: MockDevis[] = [
 ];
 
 export const mockFlotte: FlotteItem[] = [
-  { id: "F001", vehicule: "Peugeot 108", plaque: "AB-123-CD", km: 24500, dernierEntretien: "2025-02-01", prochainEntretien: "2025-05-01", etat: "bon" },
-  { id: "F002", vehicule: "Fiat 500", plaque: "EF-456-GH", km: 18200, dernierEntretien: "2025-01-15", prochainEntretien: "2025-04-15", etat: "bon" },
-  { id: "F003", vehicule: "BMW Série 3", plaque: "IJ-789-KL", km: 45000, dernierEntretien: "2025-01-20", prochainEntretien: "2025-04-20", etat: "entretien requis" },
-  { id: "F004", vehicule: "Audi Q5", plaque: "MN-012-OP", km: 32000, dernierEntretien: "2025-02-10", prochainEntretien: "2025-05-10", etat: "bon" },
-  { id: "F005", vehicule: "Mercedes Classe C", plaque: "QR-345-ST", km: 52000, dernierEntretien: "2024-12-20", prochainEntretien: "2025-03-20", etat: "en panne" },
+  { 
+    id: "F001", 
+    vehicule: "Peugeot 108", 
+    plaque: "AB-001-CD", 
+    km: 45000, 
+    dernierEntretien: "2025-02-01", 
+    prochainEntretien: "2025-05-01", 
+    etat: "bon",
+    enPanne: false,
+    detailPanne: undefined,
+    historiquePannes: [],
+  },
+  { 
+    id: "F002", 
+    vehicule: "Fiat 500", 
+    plaque: "EF-002-GH", 
+    km: 25000, 
+    dernierEntretien: "2025-01-15", 
+    prochainEntretien: "2025-04-15", 
+    etat: "bon",
+    enPanne: false,
+    detailPanne: undefined,
+    historiquePannes: [],
+  },
+  { 
+    id: "F009", 
+    vehicule: "Citroën C1", 
+    plaque: "IJ-009-KL", 
+    km: 52000, 
+    dernierEntretien: "2024-12-15", 
+    prochainEntretien: "2025-03-15", 
+    etat: "bon",
+    enPanne: false,
+    detailPanne: undefined,
+    historiquePannes: [],
+  },
+  { 
+    id: "F003", 
+    vehicule: "Renault Clio V", 
+    plaque: "MN-003-OP", 
+    km: 38000, 
+    dernierEntretien: "2025-01-20", 
+    prochainEntretien: "2025-04-20", 
+    etat: "bon",
+    enPanne: false,
+    detailPanne: undefined,
+    historiquePannes: [],
+  },
+  { 
+    id: "F004", 
+    vehicule: "Peugeot 308", 
+    plaque: "QR-004-ST", 
+    km: 15000, 
+    dernierEntretien: "2025-02-10", 
+    prochainEntretien: "2025-05-10", 
+    etat: "bon",
+    enPanne: false,
+    detailPanne: undefined,
+    historiquePannes: [],
+  },
+  { 
+    id: "F005", 
+    vehicule: "BMW Série 3", 
+    plaque: "UV-005-WX", 
+    km: 22000, 
+    dernierEntretien: "2025-01-20", 
+    prochainEntretien: "2025-04-20", 
+    etat: "entretien requis",
+    enPanne: false,
+    detailPanne: undefined,
+    historiquePannes: [],
+  },
+  { 
+    id: "F006", 
+    vehicule: "Mercedes Classe C", 
+    plaque: "YZ-006-AA", 
+    km: 35000, 
+    dernierEntretien: "2024-12-20", 
+    prochainEntretien: "2025-03-20", 
+    etat: "en panne",
+    enPanne: true,
+    detailPanne: "Problème de transmission - hors service temporaire",
+    historiquePannes: [
+      {
+        date: "2025-02-15",
+        detail: "Problème de transmission - hors service temporaire",
+        kmAuMoment: 35000,
+        repareLe: undefined,
+      }
+    ],
+  },
+  { 
+    id: "F010", 
+    vehicule: "Volkswagen Golf 8", 
+    plaque: "BB-010-CC", 
+    km: 18000, 
+    dernierEntretien: "2025-02-05", 
+    prochainEntretien: "2025-05-05", 
+    etat: "bon",
+    enPanne: false,
+    detailPanne: undefined,
+    historiquePannes: [],
+  },
+  { 
+    id: "F011", 
+    vehicule: "Audi A4", 
+    plaque: "DD-011-EE", 
+    km: 12000, 
+    dernierEntretien: "2025-02-01", 
+    prochainEntretien: "2025-05-01", 
+    etat: "bon",
+    enPanne: false,
+    detailPanne: undefined,
+    historiquePannes: [],
+  },
+  { 
+    id: "F012", 
+    vehicule: "Renault Captur", 
+    plaque: "FF-012-GG", 
+    km: 28000, 
+    dernierEntretien: "2025-01-25", 
+    prochainEntretien: "2025-04-25", 
+    etat: "bon",
+    enPanne: false,
+    detailPanne: undefined,
+    historiquePannes: [],
+  },
+  { 
+    id: "F007", 
+    vehicule: "Peugeot 3008", 
+    plaque: "HH-007-II", 
+    km: 19000, 
+    dernierEntretien: "2025-02-03", 
+    prochainEntretien: "2025-05-03", 
+    etat: "bon",
+    enPanne: false,
+    detailPanne: undefined,
+    historiquePannes: [],
+  },
+  { 
+    id: "F008", 
+    vehicule: "Audi Q5", 
+    plaque: "JJ-008-KK", 
+    km: 11000, 
+    dernierEntretien: "2025-02-08", 
+    prochainEntretien: "2025-05-08", 
+    etat: "bon",
+    enPanne: false,
+    detailPanne: undefined,
+    historiquePannes: [],
+  },
 ];
 
 export const initialTeamMembers: TeamMember[] = [
@@ -207,4 +361,12 @@ export const emptyVehicle: Partial<Vehicule> = {
   transmission: "MANUELLE", energie: "ESSENCE", isHybride: false, nbPlaces: 5, kmInclus: 200,
   kilométrage: 0, prixJour: 50, prixHeure: 12, description: "", actif: true, villes: [], disponible: true,
   note: 0, nbAvis: 0, photos: [], autreFraisLibelle: [], entretenueRequis: { kilométrage: 150000, jours: 14 },
+  plaqueImmatriculation: generatePlate(),
 };
+
+function generatePlate(): string {
+  const letters = Math.random().toString(36).substring(2, 4).toUpperCase();
+  const numbers = Math.floor(Math.random() * 900) + 100;
+  const letters2 = Math.random().toString(36).substring(2, 4).toUpperCase();
+  return `${letters}-${numbers}-${letters2}`;
+}
