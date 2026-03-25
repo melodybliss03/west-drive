@@ -14,6 +14,15 @@ export interface TeamMember {
   dateAttribution: string;
 }
 
+export type Evenement = {
+  id: string;
+  titre: string;
+  description: string;
+  date: string;
+  visibleClient: boolean;
+  envoiEmail: boolean;
+  type: "systeme" | "custom";
+};
 export interface Reservation {
   id: string;
   client: string;
@@ -27,6 +36,16 @@ export interface Reservation {
   montant: number;
   caution: number;
   ville: string;
+   heureDebut?: string;
+  heureFin?: string;
+  commentaireConfirmation?: string; // infos récupération véhicule
+  commentaireAnnulation?: string;
+  commentaireRefus?: string;
+  kmDebut?: number;
+  kmFin?: number;
+  photosDebut?: string[];
+  photosFin?: string[];
+  evenements?: Evenement[];
 }
 
 export interface MockUser {
@@ -76,8 +95,9 @@ export interface MockDevis {
   dateFin: string;
   typeVehicule: string;
   nombreVehicules: number;
-  statut: "en attente" | "traité" | "refusé";
+  statut: "en attente" | "validé" | "refusé" | "traité";
   creeLe: string;
+  commentaireRefus?: string;
 }
 
 // ── Mock data ──

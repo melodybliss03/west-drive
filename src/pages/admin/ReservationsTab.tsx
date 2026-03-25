@@ -1,17 +1,37 @@
-import { useState } from "react";
-import { Car, Eye, Search, Users, CheckCircle, XCircle, Mail, Phone, MapPin, Clock } from "lucide-react";
+import { useState, useMemo } from "react";
+import {
+  Car, Eye, Search, Users, CheckCircle, XCircle, Mail, Phone,
+  MapPin, Clock, Plus, ChevronLeft, Play, Flag, Calendar, Filter
+} from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import type { Reservation } from "./data";
+import type { Reservation, Evenement } from "./data";
 import { statColors, getVehicleImage } from "./data";
 import { reservationsService } from "@/lib/api/services";
 import { ApiHttpError } from "@/lib/api/types";
+
+// ─── Types locaux ─────────────────────────────────────────────────────────────
+
+// Contrôle la vue active dans la modal
+type ActionType =
+  | "confirmer"   // admin accepte + envoie infos récupération
+  | "annuler"     // admin annule + commentaire obligatoire si déjà confirmée
+  | "refuser"     // admin refuse + commentaire
+  | "demarrer"    // démarrage location : km + photos
+  | "terminer"    // fin location : km + photos
+  | "evenement"   // créer un événement custom
+  | "timeline"    // voir tous les événements
+  | null;
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface ReservationsTabProps {
   reservations: Reservation[];
@@ -20,40 +40,388 @@ interface ReservationsTabProps {
 
 export default function ReservationsTab({ reservations, setReservations }: ReservationsTabProps) {
   const { toast } = useToast();
+
+  // ── États de la liste ──────────────────────────────────────────────────────
   const [searchR, setSearchR] = useState("");
+  const [filterStatut, setFilterStatut] = useState("");
+  const [filterVehicule, setFilterVehicule] = useState("");
+  const [filterDate, setFilterDate] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+
+  // ── États de la modal ──────────────────────────────────────────────────────
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [action, setAction] = useState<ActionType>(null);
 
-  const filteredRes = reservations.filter(r => r.client.toLowerCase().includes(searchR.toLowerCase()) || r.vehicule.toLowerCase().includes(searchR.toLowerCase()));
+  // Champs partagés entre plusieurs actions
+  const [commentaire, setCommentaire] = useState("");
+  const [commentaireError, setCommentaireError] = useState("");
+  const [kmInput, setKmInput] = useState("");
+  const [kmError, setKmError] = useState("");
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
 
-  const updateReservationStatus = async (id: string, nextLegacyStatus: Reservation["statut"]) => {
-    const toBackendStatus: Record<string, string> = {
-      "en attente": "EN_ANALYSE",
-      "confirmée": "CONFIRMEE",
-      "en cours": "EN_COURS",
-      "terminée": "CLOTUREE",
-      "annulée": "ANNULEE",
+  // Champs pour un événement custom
+  const [evtTitre, setEvtTitre] = useState("");
+  const [evtDescription, setEvtDescription] = useState("");
+  const [evtVisibleClient, setEvtVisibleClient] = useState(true);
+  const [evtEnvoiEmail, setEvtEnvoiEmail] = useState(false);
+  const [evtTitreError, setEvtTitreError] = useState("");
+
+  // ── Filtrage de la liste ───────────────────────────────────────────────────
+  const filteredRes = useMemo(() => {
+    return reservations.filter(r => {
+      // Recherche texte (client ou véhicule)
+      const matchSearch =
+        r.client.toLowerCase().includes(searchR.toLowerCase()) ||
+        r.vehicule.toLowerCase().includes(searchR.toLowerCase());
+
+      // Filtre statut
+      const matchStatut = filterStatut ? r.statut === filterStatut : true;
+
+      // Filtre véhicule
+      const matchVehicule = filterVehicule
+        ? r.vehicule.toLowerCase().includes(filterVehicule.toLowerCase())
+        : true;
+
+      // Filtre date (compare avec debut)
+      const matchDate = filterDate ? r.debut.startsWith(filterDate) : true;
+
+      return matchSearch && matchStatut && matchVehicule && matchDate;
+    });
+  }, [reservations, searchR, filterStatut, filterVehicule, filterDate]);
+
+  // ── Ouverture / fermeture modal ────────────────────────────────────────────
+  const openDetail = (r: Reservation) => {
+    setSelectedReservation(r);
+    setAction(null);
+    resetActionFields();
+  };
+
+  const closeModal = () => {
+    setSelectedReservation(null);
+    setAction(null);
+    resetActionFields();
+  };
+
+  const goBack = () => {
+    setAction(null);
+    resetActionFields();
+  };
+
+  const resetActionFields = () => {
+    setCommentaire("");
+    setCommentaireError("");
+    setKmInput("");
+    setKmError("");
+    setPhotoFiles([]);
+    setEvtTitre("");
+    setEvtDescription("");
+    setEvtVisibleClient(true);
+    setEvtEnvoiEmail(false);
+    setEvtTitreError("");
+  };
+
+  // ── Mise à jour du statut backend ──────────────────────────────────────────
+  const updateStatus = async (id: string, nextStatus: Reservation["statut"]) => {
+    const map: Record<string, string> = {
+      "en attente":  "EN_ANALYSE",
+      "confirmée":   "CONFIRMEE",
+      "en cours":    "EN_COURS",
+      "terminée":    "CLOTUREE",
+      "annulée":     "ANNULEE",
+      "refusée":     "REFUSEE",
     };
-
     try {
-      await reservationsService.patchStatus(id, toBackendStatus[nextLegacyStatus] as any);
-      setReservations(prev => prev.map(r => r.id === id ? { ...r, statut: nextLegacyStatus } : r));
-      setSelectedReservation(prev => (prev && prev.id === id ? { ...prev, statut: nextLegacyStatus } : prev));
+      await reservationsService.patchStatus(id, map[nextStatus] as never);
     } catch (error) {
-      const message = error instanceof ApiHttpError ? error.message : "Impossible de mettre à jour cette réservation.";
+      const message = error instanceof ApiHttpError ? error.message : "Impossible de mettre à jour.";
       toast({ title: "Erreur", description: message, variant: "destructive" });
+      throw error;
     }
   };
 
+  // Ajoute un événement système ou custom à la réservation
+  const addEvenement = (
+    reservationId: string,
+    evt: Omit<Evenement, "id" | "date">
+  ) => {
+    const nouvelEvt: Evenement = {
+      ...evt,
+      id: `evt-${Date.now()}`,
+      date: new Date().toLocaleString("fr-FR"),
+    };
+    setReservations(prev =>
+      prev.map(r =>
+        r.id === reservationId
+          ? { ...r, evenements: [...(r.evenements || []), nouvelEvt] }
+          : r
+      )
+    );
+    // Synchronise selectedReservation pour que la timeline se mette à jour
+    setSelectedReservation(prev =>
+      prev && prev.id === reservationId
+        ? { ...prev, evenements: [...(prev.evenements || []), nouvelEvt] }
+        : prev
+    );
+  };
+
+  // ── Action : Confirmer ─────────────────────────────────────────────────────
+  const handleConfirmer = async () => {
+    if (!commentaire.trim()) {
+      setCommentaireError("Les informations de récupération sont requises.");
+      return;
+    }
+    if (!selectedReservation) return;
+    try {
+      await updateStatus(selectedReservation.id, "confirmée");
+      setReservations(prev =>
+        prev.map(r =>
+          r.id === selectedReservation.id
+            ? { ...r, statut: "confirmée", commentaireConfirmation: commentaire }
+            : r
+        )
+      );
+      // Événement système visible client
+      addEvenement(selectedReservation.id, {
+        titre: "Réservation confirmée",
+        description: commentaire,
+        visibleClient: true,
+        envoiEmail: true,
+        type: "systeme",
+      });
+      toast({ title: "Réservation confirmée", description: "Le client a été notifié." });
+      closeModal();
+    } catch (_) { /* géré dans updateStatus */ }
+  };
+
+  // ── Action : Annuler ───────────────────────────────────────────────────────
+  const handleAnnuler = async () => {
+    // Commentaire obligatoire si la réservation était déjà confirmée
+    const isConfirmee = selectedReservation?.statut === "confirmée";
+    if (isConfirmee && !commentaire.trim()) {
+      setCommentaireError("Un commentaire est requis pour annuler une réservation confirmée.");
+      return;
+    }
+    if (!selectedReservation) return;
+    try {
+      await updateStatus(selectedReservation.id, "annulée");
+      setReservations(prev =>
+        prev.map(r =>
+          r.id === selectedReservation.id
+            ? { ...r, statut: "annulée", commentaireAnnulation: commentaire }
+            : r
+        )
+      );
+      addEvenement(selectedReservation.id, {
+        titre: "Réservation annulée",
+        description: commentaire || "Annulation par l'administration.",
+        visibleClient: true,
+        envoiEmail: true,
+        type: "systeme",
+      });
+      toast({ title: "Réservation annulée" });
+      closeModal();
+    } catch (_) { /* géré dans updateStatus */ }
+  };
+
+  // ── Action : Refuser ───────────────────────────────────────────────────────
+  const handleRefuser = async () => {
+    if (!commentaire.trim()) {
+      setCommentaireError("Un motif de refus est requis.");
+      return;
+    }
+    if (!selectedReservation) return;
+    try {
+      await updateStatus(selectedReservation.id, "annulée");
+      setReservations(prev =>
+        prev.map(r =>
+          r.id === selectedReservation.id
+            ? { ...r, statut: "annulée", commentaireRefus: commentaire }
+            : r
+        )
+      );
+      addEvenement(selectedReservation.id, {
+        titre: "Réservation refusée",
+        description: commentaire,
+        visibleClient: true,
+        envoiEmail: true,
+        type: "systeme",
+      });
+      toast({ title: "Réservation refusée", description: "Le client a été notifié." });
+      closeModal();
+    } catch (_) { /* géré dans updateStatus */ }
+  };
+
+  // ── Action : Démarrer location ─────────────────────────────────────────────
+  const handleDemarrer = async () => {
+    if (!kmInput.trim() || isNaN(Number(kmInput))) {
+      setKmError("Le kilométrage de départ est requis.");
+      return;
+    }
+    if (!selectedReservation) return;
+    try {
+      await updateStatus(selectedReservation.id, "en cours");
+      setReservations(prev =>
+        prev.map(r =>
+          r.id === selectedReservation.id
+            ? { ...r, statut: "en cours", kmDebut: Number(kmInput) }
+            : r
+        )
+      );
+      // Événement système — visible client + email
+      addEvenement(selectedReservation.id, {
+        titre: "Location démarrée",
+        description: `Kilométrage de départ : ${kmInput} km${commentaire ? ` — ${commentaire}` : ""}`,
+        visibleClient: true,
+        envoiEmail: true,
+        type: "systeme",
+      });
+      toast({ title: "Location démarrée" });
+      closeModal();
+    } catch (_) { /* géré dans updateStatus */ }
+  };
+
+  // ── Action : Terminer location ─────────────────────────────────────────────
+  const handleTerminer = async () => {
+    if (!kmInput.trim() || isNaN(Number(kmInput))) {
+      setKmError("Le kilométrage de retour est requis.");
+      return;
+    }
+    if (!selectedReservation) return;
+    try {
+      await updateStatus(selectedReservation.id, "terminée");
+      setReservations(prev =>
+        prev.map(r =>
+          r.id === selectedReservation.id
+            ? { ...r, statut: "terminée", kmFin: Number(kmInput) }
+            : r
+        )
+      );
+      addEvenement(selectedReservation.id, {
+        titre: "Location terminée",
+        description: `Kilométrage de retour : ${kmInput} km${commentaire ? ` — ${commentaire}` : ""}`,
+        visibleClient: true,
+        envoiEmail: true,
+        type: "systeme",
+      });
+      toast({ title: "Location terminée" });
+      closeModal();
+    } catch (_) { /* géré dans updateStatus */ }
+  };
+
+  // ── Action : Créer événement custom ───────────────────────────────────────
+  const handleAjouterEvenement = () => {
+    if (!evtTitre.trim()) {
+      setEvtTitreError("Le titre de l'événement est requis.");
+      return;
+    }
+    if (!selectedReservation) return;
+    addEvenement(selectedReservation.id, {
+      titre: evtTitre,
+      description: evtDescription,
+      visibleClient: evtVisibleClient,
+      envoiEmail: evtEnvoiEmail,
+      type: "custom",
+    });
+    toast({ title: "Événement ajouté" });
+    goBack();
+  };
+
+  // ── Titre de la modal selon l'action active ────────────────────────────────
+  const modalTitle = () => {
+    if (action === "confirmer") return "Confirmer la réservation";
+    if (action === "annuler")   return "Annuler la réservation";
+    if (action === "refuser")   return "Refuser la réservation";
+    if (action === "demarrer")  return "Démarrer la location";
+    if (action === "terminer")  return "Terminer la location";
+    if (action === "evenement") return "Ajouter un événement";
+    if (action === "timeline")  return "Historique des événements";
+    return `Réservation ${selectedReservation?.id}`;
+  };
+
+  // ── Rendu ──────────────────────────────────────────────────────────────────
   return (
     <>
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <h2 className="text-2xl font-display font-bold">Réservations</h2>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Rechercher…" value={searchR} onChange={e => setSearchR(e.target.value)} className="pl-9 w-56" />
+          <div className="flex items-center gap-2">
+            {/* Recherche texte */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Client ou véhicule…"
+                value={searchR}
+                onChange={e => setSearchR(e.target.value)}
+                className="pl-9 w-48"
+              />
+            </div>
+            {/* Toggle filtres avancés */}
+            <Button
+              variant={showFilters ? "default" : "outline"}
+              size="sm"
+              className="gap-2"
+              onClick={() => setShowFilters(v => !v)}
+            >
+              <Filter className="h-4 w-4" />
+              Filtres
+            </Button>
           </div>
         </div>
+
+        {/* ── Filtres avancés ──────────────────────────────────── */}
+        {showFilters && (
+          <Card>
+            <CardContent className="p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Filtre statut */}
+                <div>
+                  <Label className="text-xs mb-1 block">Statut</Label>
+                  <select
+                    value={filterStatut}
+                    onChange={e => setFilterStatut(e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">Tous les statuts</option>
+                    {["en attente", "confirmée", "en cours", "terminée", "annulée"].map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+                {/* Filtre véhicule */}
+                <div>
+                  <Label className="text-xs mb-1 block">Véhicule</Label>
+                  <Input
+                    placeholder="Nom du véhicule…"
+                    value={filterVehicule}
+                    onChange={e => setFilterVehicule(e.target.value)}
+                  />
+                </div>
+                {/* Filtre date */}
+                <div>
+                  <Label className="text-xs mb-1 block">Date de début</Label>
+                  <Input
+                    type="date"
+                    value={filterDate}
+                    onChange={e => setFilterDate(e.target.value)}
+                  />
+                </div>
+              </div>
+              {/* Reset filtres */}
+              {(filterStatut || filterVehicule || filterDate) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2 text-muted-foreground"
+                  onClick={() => { setFilterStatut(""); setFilterVehicule(""); setFilterDate(""); }}
+                >
+                  Réinitialiser les filtres
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── Tableau ────────────────────────────────────────────── */}
         <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -73,36 +441,54 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredRes.map(r => {
-                    const img = getVehicleImage(r.vehicule, r.vehiculeId);
-                    return (
-                      <TableRow key={r.id}>
-                        <TableCell className="font-mono text-xs">{r.id}</TableCell>
-                        <TableCell className="font-medium">{r.client}</TableCell>
-                        <TableCell className="text-xs hidden md:table-cell">{r.email}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {img ? (
-                              <img src={img} alt={r.vehicule} className="h-8 w-8 rounded-lg object-cover flex-shrink-0" />
-                            ) : (
-                              <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0"><Car className="h-3 w-3 text-muted-foreground" /></div>
-                            )}
-                            <span>{r.vehicule}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-xs hidden sm:table-cell">{r.debut}</TableCell>
-                        <TableCell className="text-xs hidden sm:table-cell">{r.fin}</TableCell>
-                        <TableCell className="font-semibold">{r.montant} €</TableCell>
-                        <TableCell className="font-semibold">{r.caution} €</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={statColors[r.statut] || ""}>{r.statut}</Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => setSelectedReservation(r)}><Eye className="h-4 w-4" /></Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {filteredRes.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={10} className="py-10 text-center text-sm text-muted-foreground">
+                        {reservations.length === 0
+                          ? "Aucune réservation pour le moment."
+                          : "Aucune réservation ne correspond à vos filtres."}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredRes.map(r => {
+                      const img = getVehicleImage(r.vehicule, r.vehiculeId);
+                      return (
+                        <TableRow key={r.id}>
+                          <TableCell className="font-mono text-xs">{r.id}</TableCell>
+                          <TableCell className="font-medium">{r.client}</TableCell>
+                          <TableCell className="text-xs hidden md:table-cell">{r.email}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {img ? (
+                                <img src={img} alt={r.vehicule} className="h-8 w-8 rounded-lg object-cover flex-shrink-0" />
+                              ) : (
+                                <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                                  <Car className="h-3 w-3 text-muted-foreground" />
+                                </div>
+                              )}
+                              <span>{r.vehicule}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs hidden sm:table-cell">
+                            {r.debut}{r.heureDebut ? ` ${r.heureDebut}` : ""}
+                          </TableCell>
+                          <TableCell className="text-xs hidden sm:table-cell">
+                            {r.fin}{r.heureFin ? ` ${r.heureFin}` : ""}
+                          </TableCell>
+                          <TableCell className="font-semibold">{r.montant} €</TableCell>
+                          <TableCell className="font-semibold">{r.caution} €</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={statColors[r.statut] || ""}>{r.statut}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" onClick={() => openDetail(r)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
                 </TableBody>
               </Table>
             </div>
@@ -110,28 +496,44 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
         </Card>
       </motion.div>
 
-      {/* Reservation Detail Modal */}
-      <Dialog open={!!selectedReservation} onOpenChange={() => setSelectedReservation(null)}>
+      {/* ── Modal principale ───────────────────────────────────── */}
+      <Dialog open={!!selectedReservation} onOpenChange={closeModal}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Détails de la réservation {selectedReservation?.id}</DialogTitle>
+            <div className="flex items-center gap-2">
+              {/* Bouton retour depuis un sous-formulaire */}
+              {action && (
+                <button onClick={goBack} className="text-muted-foreground hover:text-foreground transition-colors">
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+              )}
+              <DialogTitle>{modalTitle()}</DialogTitle>
+            </div>
           </DialogHeader>
-          {selectedReservation && (() => {
+
+          {/* ── Vue détail ──────────────────────────────────────── */}
+          {!action && selectedReservation && (() => {
             const img = getVehicleImage(selectedReservation.vehicule, selectedReservation.vehiculeId);
             return (
               <div className="space-y-5">
+                {/* Véhicule + statut */}
                 <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/40">
                   {img ? (
                     <img src={img} alt={selectedReservation.vehicule} className="h-16 w-16 rounded-xl object-cover flex-shrink-0" />
                   ) : (
-                    <div className="h-16 w-16 rounded-xl bg-muted flex items-center justify-center flex-shrink-0"><Car className="h-6 w-6 text-muted-foreground" /></div>
+                    <div className="h-16 w-16 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
+                      <Car className="h-6 w-6 text-muted-foreground" />
+                    </div>
                   )}
                   <div>
                     <p className="font-display font-bold text-lg">{selectedReservation.vehicule}</p>
-                    <Badge variant="outline" className={statColors[selectedReservation.statut] || ""}>{selectedReservation.statut}</Badge>
+                    <Badge variant="outline" className={statColors[selectedReservation.statut] || ""}>
+                      {selectedReservation.statut}
+                    </Badge>
                   </div>
                 </div>
 
+                {/* Client */}
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">Client</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -142,14 +544,40 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
                   </div>
                 </div>
 
+                {/* Période avec heures précises */}
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">Période</p>
-                  <div className="flex items-center gap-3 text-sm">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span>{selectedReservation.debut} → {selectedReservation.fin}</span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 rounded-xl bg-muted/40">
+                      <p className="text-xs text-muted-foreground mb-1">Début</p>
+                      <div className="flex items-center gap-1 text-sm font-medium">
+                        <Calendar className="h-3.5 w-3.5 text-primary" />
+                        {selectedReservation.debut}
+                      </div>
+                      {selectedReservation.heureDebut && (
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
+                          <Clock className="h-3.5 w-3.5" />
+                          {selectedReservation.heureDebut}
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3 rounded-xl bg-muted/40">
+                      <p className="text-xs text-muted-foreground mb-1">Fin</p>
+                      <div className="flex items-center gap-1 text-sm font-medium">
+                        <Calendar className="h-3.5 w-3.5 text-primary" />
+                        {selectedReservation.fin}
+                      </div>
+                      {selectedReservation.heureFin && (
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
+                          <Clock className="h-3.5 w-3.5" />
+                          {selectedReservation.heureFin}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
+                {/* Financier */}
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">Financier</p>
                   <div className="grid grid-cols-2 gap-3">
@@ -164,38 +592,376 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Gérer la réservation</p>
+                {/* Kilométrages si renseignés */}
+                {(selectedReservation.kmDebut !== undefined || selectedReservation.kmFin !== undefined) && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">Kilométrage</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {selectedReservation.kmDebut !== undefined && (
+                        <div className="p-3 rounded-xl bg-muted/40 text-center">
+                          <p className="text-xs text-muted-foreground">Départ</p>
+                          <p className="text-lg font-bold">{selectedReservation.kmDebut} km</p>
+                        </div>
+                      )}
+                      {selectedReservation.kmFin !== undefined && (
+                        <div className="p-3 rounded-xl bg-muted/40 text-center">
+                          <p className="text-xs text-muted-foreground">Retour</p>
+                          <p className="text-lg font-bold">{selectedReservation.kmFin} km</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Commentaire de confirmation */}
+                {selectedReservation.commentaireConfirmation && (
+                  <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-200 space-y-1">
+                    <p className="text-xs font-medium text-emerald-700">Infos de récupération</p>
+                    <p className="text-sm text-muted-foreground">{selectedReservation.commentaireConfirmation}</p>
+                  </div>
+                )}
+
+                {/* Commentaire d'annulation */}
+                {selectedReservation.commentaireAnnulation && (
+                  <div className="p-3 rounded-xl bg-destructive/5 border border-destructive/20 space-y-1">
+                    <p className="text-xs font-medium text-destructive">Motif d'annulation</p>
+                    <p className="text-sm text-muted-foreground">{selectedReservation.commentaireAnnulation}</p>
+                  </div>
+                )}
+
+                {/* Commentaire de refus */}
+                {selectedReservation.commentaireRefus && (
+                  <div className="p-3 rounded-xl bg-destructive/5 border border-destructive/20 space-y-1">
+                    <p className="text-xs font-medium text-destructive">Motif de refus</p>
+                    <p className="text-sm text-muted-foreground">{selectedReservation.commentaireRefus}</p>
+                  </div>
+                )}
+
+                {/* Bouton timeline */}
+                {(selectedReservation.evenements?.length ?? 0) > 0 && (
+                  <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => setAction("timeline")}>
+                    <Clock className="h-4 w-4" />
+                    Voir l'historique ({selectedReservation.evenements?.length} événements)
+                  </Button>
+                )}
+
+                {/* ── Boutons d'action selon le statut ────────────── */}
+                <div className="space-y-2 pt-2 border-t border-border">
+                  <p className="text-sm font-medium text-muted-foreground">Actions</p>
                   <div className="flex flex-wrap gap-2">
+
+                    {/* Confirmer — si en attente */}
                     {selectedReservation.statut === "en attente" && (
-                      <Button size="sm" className="gap-1" onClick={async () => {
-                        await updateReservationStatus(selectedReservation.id, "confirmée");
-                        toast({ title: "Réservation confirmée" });
-                      }}>
+                      <Button size="sm" className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setAction("confirmer")}>
                         <CheckCircle className="h-3.5 w-3.5" /> Confirmer
                       </Button>
                     )}
-                    {["confirmée", "en attente"].includes(selectedReservation.statut) && (
-                      <Button size="sm" variant="destructive" className="gap-1" onClick={async () => {
-                        await updateReservationStatus(selectedReservation.id, "annulée");
-                        toast({ title: "Réservation annulée" });
-                      }}>
+
+                    {/* Refuser — si en attente */}
+                    {selectedReservation.statut === "en attente" && (
+                      <Button size="sm" variant="destructive" className="gap-1" onClick={() => setAction("refuser")}>
+                        <XCircle className="h-3.5 w-3.5" /> Refuser
+                      </Button>
+                    )}
+
+                    {/* Annuler — si en attente ou confirmée */}
+                    {["en attente", "confirmée"].includes(selectedReservation.statut) && (
+                      <Button size="sm" variant="outline" className="gap-1 text-destructive border-destructive/40 hover:bg-destructive/10" onClick={() => setAction("annuler")}>
                         <XCircle className="h-3.5 w-3.5" /> Annuler
                       </Button>
                     )}
-                    {selectedReservation.statut === "en cours" && (
-                      <Button size="sm" variant="outline" className="gap-1" onClick={async () => {
-                        await updateReservationStatus(selectedReservation.id, "terminée");
-                        toast({ title: "Réservation terminée" });
-                      }}>
-                        <CheckCircle className="h-3.5 w-3.5" /> Terminer
+
+                    {/* Démarrer — si confirmée */}
+                    {selectedReservation.statut === "confirmée" && (
+                      <Button size="sm" className="gap-1" onClick={() => setAction("demarrer")}>
+                        <Play className="h-3.5 w-3.5" /> Démarrer la location
                       </Button>
                     )}
+
+                    {/* Terminer — si en cours */}
+                    {selectedReservation.statut === "en cours" && (
+                      <Button size="sm" variant="outline" className="gap-1" onClick={() => setAction("terminer")}>
+                        <Flag className="h-3.5 w-3.5" /> Terminer la location
+                      </Button>
+                    )}
+
+                    {/* Ajouter un événement — toujours disponible */}
+                    <Button size="sm" variant="outline" className="gap-1" onClick={() => setAction("evenement")}>
+                      <Plus className="h-3.5 w-3.5" /> Ajouter un événement
+                    </Button>
                   </div>
                 </div>
               </div>
             );
           })()}
+
+          {/* ── Vue : Confirmer ──────────────────────────────────── */}
+          {action === "confirmer" && selectedReservation && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Indiquez à <span className="font-medium text-foreground">{selectedReservation.client}</span> les
+                informations de récupération du véhicule. Ce message lui sera envoyé par email.
+              </p>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Informations de récupération *</Label>
+                <textarea
+                  value={commentaire}
+                  onChange={e => { setCommentaire(e.target.value); setCommentaireError(""); }}
+                  placeholder="Ex : Merci de vous présenter au 12 Rue de Rivoli, Puteaux à 09h00. Munissez-vous de votre permis et d'une pièce d'identité."
+                  rows={5}
+                  className={`flex w-full rounded-md border bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${commentaireError ? "border-destructive" : "border-input"}`}
+                />
+                {commentaireError && <p className="text-xs text-destructive">{commentaireError}</p>}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={goBack}>Annuler</Button>
+                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2" onClick={handleConfirmer}>
+                  <CheckCircle className="h-4 w-4" /> Confirmer et envoyer
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {/* ── Vue : Annuler ────────────────────────────────────── */}
+          {action === "annuler" && selectedReservation && (
+            <div className="space-y-4">
+              {/* Avertissement pénalité si déjà confirmée */}
+              {selectedReservation.statut === "confirmée" && (
+                <div className="p-3 rounded-xl bg-yellow-500/10 border border-yellow-300 text-sm text-yellow-800">
+                  ⚠️ Cette réservation est déjà confirmée. L'annulation peut entraîner des pénalités pour le client.
+                  Précisez les conditions dans votre commentaire.
+                </div>
+              )}
+              <p className="text-sm text-muted-foreground">
+                {selectedReservation.statut === "confirmée"
+                  ? "Un commentaire expliquant les conditions d'annulation est obligatoire."
+                  : "Ajoutez un commentaire optionnel pour informer le client."}
+              </p>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">
+                  Commentaire {selectedReservation.statut === "confirmée" ? "*" : "(optionnel)"}
+                </Label>
+                <textarea
+                  value={commentaire}
+                  onChange={e => { setCommentaire(e.target.value); setCommentaireError(""); }}
+                  placeholder="Ex : Suite à un problème technique, nous devons annuler votre réservation. Aucune pénalité ne sera appliquée."
+                  rows={4}
+                  className={`flex w-full rounded-md border bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${commentaireError ? "border-destructive" : "border-input"}`}
+                />
+                {commentaireError && <p className="text-xs text-destructive">{commentaireError}</p>}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={goBack}>Retour</Button>
+                <Button variant="destructive" className="gap-2" onClick={handleAnnuler}>
+                  <XCircle className="h-4 w-4" /> Confirmer l'annulation
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {/* ── Vue : Refuser ────────────────────────────────────── */}
+          {action === "refuser" && selectedReservation && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Expliquez à <span className="font-medium text-foreground">{selectedReservation.client}</span> pourquoi
+                sa demande est refusée.
+              </p>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Motif du refus *</Label>
+                <textarea
+                  value={commentaire}
+                  onChange={e => { setCommentaire(e.target.value); setCommentaireError(""); }}
+                  placeholder="Ex : Les dates demandées ne sont pas disponibles pour ce véhicule."
+                  rows={4}
+                  className={`flex w-full rounded-md border bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${commentaireError ? "border-destructive" : "border-input"}`}
+                />
+                {commentaireError && <p className="text-xs text-destructive">{commentaireError}</p>}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={goBack}>Retour</Button>
+                <Button variant="destructive" className="gap-2" onClick={handleRefuser}>
+                  <XCircle className="h-4 w-4" /> Refuser la réservation
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {/* ── Vue : Démarrer location ──────────────────────────── */}
+          {action === "demarrer" && selectedReservation && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Renseignez le kilométrage de départ du véhicule. Ces données seront transmises à la gestion de flotte.
+              </p>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Kilométrage de départ *</Label>
+                <Input
+                  type="number"
+                  value={kmInput}
+                  onChange={e => { setKmInput(e.target.value); setKmError(""); }}
+                  placeholder="Ex : 24500"
+                  className={kmError ? "border-destructive" : ""}
+                />
+                {kmError && <p className="text-xs text-destructive">{kmError}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Observations (optionnel)</Label>
+                <textarea
+                  value={commentaire}
+                  onChange={e => setCommentaire(e.target.value)}
+                  placeholder="Ex : Véhicule remis avec plein d'essence, aucune rayure constatée."
+                  rows={3}
+                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Photos (optionnel)</Label>
+                <Input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={e => setPhotoFiles(Array.from(e.target.files || []))}
+                />
+                {photoFiles.length > 0 && (
+                  <p className="text-xs text-muted-foreground">{photoFiles.length} photo(s) sélectionnée(s)</p>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={goBack}>Retour</Button>
+                <Button className="gap-2" onClick={handleDemarrer}>
+                  <Play className="h-4 w-4" /> Démarrer la location
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {/* ── Vue : Terminer location ──────────────────────────── */}
+          {action === "terminer" && selectedReservation && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Renseignez le kilométrage de retour. L'écart avec le kilométrage de départ
+                ({selectedReservation.kmDebut ?? "??"} km) mettra à jour la flotte automatiquement.
+              </p>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Kilométrage de retour *</Label>
+                <Input
+                  type="number"
+                  value={kmInput}
+                  onChange={e => { setKmInput(e.target.value); setKmError(""); }}
+                  placeholder="Ex : 25100"
+                  className={kmError ? "border-destructive" : ""}
+                />
+                {kmError && <p className="text-xs text-destructive">{kmError}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Observations (optionnel)</Label>
+                <textarea
+                  value={commentaire}
+                  onChange={e => setCommentaire(e.target.value)}
+                  placeholder="Ex : Véhicule rendu en bon état, caution restituée."
+                  rows={3}
+                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Photos (optionnel)</Label>
+                <Input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={e => setPhotoFiles(Array.from(e.target.files || []))}
+                />
+                {photoFiles.length > 0 && (
+                  <p className="text-xs text-muted-foreground">{photoFiles.length} photo(s) sélectionnée(s)</p>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={goBack}>Retour</Button>
+                <Button variant="outline" className="gap-2" onClick={handleTerminer}>
+                  <Flag className="h-4 w-4" /> Terminer la location
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {/* ── Vue : Créer événement custom ─────────────────────── */}
+          {action === "evenement" && selectedReservation && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Créez un événement lié à cette réservation. Vous pouvez choisir de le rendre visible au client.
+              </p>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Titre *</Label>
+                <Input
+                  value={evtTitre}
+                  onChange={e => { setEvtTitre(e.target.value); setEvtTitreError(""); }}
+                  placeholder="Ex : Appel client, Incident signalé, Document reçu…"
+                  className={evtTitreError ? "border-destructive" : ""}
+                />
+                {evtTitreError && <p className="text-xs text-destructive">{evtTitreError}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Description (optionnel)</Label>
+                <textarea
+                  value={evtDescription}
+                  onChange={e => setEvtDescription(e.target.value)}
+                  placeholder="Détails de l'événement…"
+                  rows={3}
+                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Visible par le client</p>
+                  <p className="text-xs text-muted-foreground">Apparaîtra dans l'espace client</p>
+                </div>
+                <Switch checked={evtVisibleClient} onCheckedChange={setEvtVisibleClient} />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Envoyer par email</p>
+                  <p className="text-xs text-muted-foreground">Notifie le client par email</p>
+                </div>
+                <Switch checked={evtEnvoiEmail} onCheckedChange={setEvtEnvoiEmail} />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={goBack}>Annuler</Button>
+                <Button className="gap-2" onClick={handleAjouterEvenement}>
+                  <Plus className="h-4 w-4" /> Ajouter l'événement
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {/* ── Vue : Timeline des événements ───────────────────── */}
+          {action === "timeline" && selectedReservation && (
+            <div className="space-y-3">
+              {(selectedReservation.evenements ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Aucun événement enregistré.</p>
+              ) : (
+                [...(selectedReservation.evenements ?? [])].reverse().map(evt => (
+                  <div key={evt.id} className="flex gap-3">
+                    {/* Indicateur type */}
+                    <div className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${evt.type === "systeme" ? "bg-primary" : "bg-muted-foreground"}`} />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{evt.titre}</p>
+                        {evt.visibleClient && (
+                          <Badge variant="outline" className="text-[10px] py-0 px-1.5">Client</Badge>
+                        )}
+                        {evt.envoiEmail && (
+                          <Badge variant="outline" className="text-[10px] py-0 px-1.5">Email</Badge>
+                        )}
+                      </div>
+                      {evt.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{evt.description}</p>
+                      )}
+                      <p className="text-[10px] text-muted-foreground mt-1">{evt.date}</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>

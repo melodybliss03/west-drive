@@ -47,8 +47,6 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
   const [locationForm, setLocationForm] = useState({
     streetAddress: "",
     city: "",
-    latitude: "48.856614",
-    longitude: "2.3522219",
   });
   const [isNew, setIsNew] = useState(false);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -65,14 +63,14 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
 
   const openNew = () => {
     setEditVehicle({ ...emptyVehicle, id: `v-${Date.now()}` });
-    setLocationForm({ streetAddress: "", city: "", latitude: "48.856614", longitude: "2.3522219" });
+    setLocationForm({ streetAddress: "", city: ""});
     setImageFiles([]);
     setIsNew(true);
   };
 
   const openEdit = (v: Vehicule) => {
     setEditVehicle({ ...v });
-    setLocationForm({ streetAddress: "Adresse non renseignée", city: v.villes[0] || "", latitude: "48.856614", longitude: "2.3522219" });
+    setLocationForm({ streetAddress: "Adresse non renseignée", city: v.villes[0] || ""});
     setImageFiles([]);
     setIsNew(false);
   };
@@ -90,8 +88,6 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
     pricePerDay: vehicle.prixJour,
     streetAddress: locationForm.streetAddress,
     city: locationForm.city,
-    latitude: Number(locationForm.latitude),
-    longitude: Number(locationForm.longitude),
     availableCities: vehicle.villes,
   });
 
@@ -109,13 +105,6 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
       return;
     }
 
-    const latitude = Number(locationForm.latitude);
-    const longitude = Number(locationForm.longitude);
-
-    if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
-      toast({ title: "Coordonnées invalides", description: "Latitude/longitude doivent être des nombres valides.", variant: "destructive" });
-      return;
-    }
 
     const firstCity = locationForm.city.trim();
     const cities = (editVehicle.villes || []).filter(Boolean);
@@ -502,16 +491,6 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                     }}
                     placeholder="Paris"
                   />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Latitude *</Label>
-                    <Input type="number" step="any" value={locationForm.latitude} onChange={(e) => setLocationForm((prev) => ({ ...prev, latitude: e.target.value }))} />
-                  </div>
-                  <div>
-                    <Label>Longitude *</Label>
-                    <Input type="number" step="any" value={locationForm.longitude} onChange={(e) => setLocationForm((prev) => ({ ...prev, longitude: e.target.value }))} />
-                  </div>
                 </div>
               </div>
               <div className="flex items-center justify-between">
