@@ -9,6 +9,7 @@ import {
   type PaginatedResponse,
 } from '../shared/pagination/pagination.util';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateMeDto } from './dto/update-me.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User, UserStatus } from './entities/user.entity';
 
@@ -133,6 +134,25 @@ export class UsersService {
     }
     if (dto.password !== undefined) {
       user.passwordHash = await argon2.hash(dto.password);
+    }
+
+    return this.userRepository.save(user);
+  }
+
+  async updateMe(userId: string, dto: UpdateMeDto): Promise<User> {
+    const user = await this.getById(userId);
+
+    if (dto.email !== undefined) {
+      user.email = dto.email.trim().toLowerCase();
+    }
+    if (dto.firstName !== undefined) {
+      user.firstName = dto.firstName;
+    }
+    if (dto.lastName !== undefined) {
+      user.lastName = dto.lastName;
+    }
+    if (dto.phone !== undefined) {
+      user.phone = dto.phone;
     }
 
     return this.userRepository.save(user);

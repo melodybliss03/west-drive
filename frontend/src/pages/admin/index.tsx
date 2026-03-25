@@ -4,9 +4,9 @@ import { Bell, CalendarCheck, FileText, Car, Users as UsersIcon, AlertTriangle }
 import { useAuth } from "@/contexts/AuthContext";
 import { type Vehicule } from "@/data/mock";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import type { TabKey, TeamMember, Notification as NotifType } from "./data";
+import type { TabKey, TeamMember, Notification as NotifType, Reservation } from "./data";
 import type { AdminUser } from "./types";
-import { mockReservations, initialTeamMembers, mockNotifications, mockDevis } from "./data";
+import { initialTeamMembers, mockDevis } from "./data";
 import type { MockDevis } from "./data";
 import AdminAuth from "./AdminAuth";
 import AdminSidebar from "./AdminSidebar";
@@ -19,6 +19,7 @@ import ProfilTab from "./ProfilTab";
 import DevisTab from "./DevisTab";
 import {
   reservationsService,
+  notificationsService,
   usersService,
   vehiclesService,
 } from "@/lib/api/services";
@@ -79,10 +80,13 @@ export default function Boss() {
   const [usersPage, setUsersPage] = useState(1);
   const [usersLimit] = useState(10);
   const [usersMeta, setUsersMeta] = useState<PaginationMeta | null>(null);
-  const [reservations, setReservations] = useState(mockReservations);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [reservationsPage, setReservationsPage] = useState(1);
+  const [reservationsLimit] = useState(10);
+  const [reservationsMeta, setReservationsMeta] = useState<PaginationMeta | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialTeamMembers);
   const [devis, setDevis] = useState<MockDevis[]>(mockDevis);
-  const [notifications, setNotifications] = useState<NotifType[]>(mockNotifications);
+  const [notifications, setNotifications] = useState<NotifType[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(false);
@@ -92,10 +96,16 @@ export default function Boss() {
   const unreadCount = notifications.filter(n => !n.lu).length;
 
   const markAsRead = (id: string) => {
+    notificationsService.markAsRead(id).catch(() => {
+      // UI stays optimistic in case of transient API failure.
+    });
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, lu: true } : n));
   };
 
   const markAllAsRead = () => {
+    notificationsService.markAllAsRead().catch(() => {
+      // UI stays optimistic in case of transient API failure.
+    });
     setNotifications(prev => prev.map(n => ({ ...n, lu: true })));
   };
 
@@ -136,15 +146,32 @@ export default function Boss() {
     const loadReservations = async () => {
       setIsLoadingReservations(true);
       try {
-        const reservationsDto = await reservationsService.list();
-        setReservations(reservationsDto.map(mapReservationDtoToAdminReservation));
+        const collection = await reservationsService.list(
+          { page: reservationsPage, limit: reservationsLimit },
+        );
+
+        if (Array.isArray(collection)) {
+          const mapped = collection.map(mapReservationDtoToAdminReservation);
+          setReservations(mapped);
+          setReservationsMeta({
+            page: reservationsPage,
+            limit: reservationsLimit,
+            totalItems: mapped.length,
+            totalPages: 1,
+            hasNextPage: false,
+            hasPreviousPage: reservationsPage > 1,
+          });
+        } else {
+          setReservations(collection.items.map(mapReservationDtoToAdminReservation));
+          setReservationsMeta(collection.meta);
+        }
       } finally {
         setIsLoadingReservations(false);
       }
     };
 
     loadReservations();
-  }, [isBootstrapping, tab, user]);
+  }, [isBootstrapping, tab, user, reservationsPage, reservationsLimit]);
 
   useEffect(() => {
     if (isBootstrapping || !user) return;
@@ -199,6 +226,32 @@ export default function Boss() {
 
     loadUsers();
   }, [isBootstrapping, user, tab, usersPage, usersLimit]);
+
+  useEffect(() => {
+    if (isBootstrapping || !user) return;
+
+    const loadNotifications = async () => {
+      try {
+        const collection = await notificationsService.list({ page: 1, limit: 25 });
+        const items = Array.isArray(collection) ? collection : collection.items;
+        const mapped: NotifType[] = items.map((n) => ({
+          id: n.id,
+          type: (n.type === "reservation" || n.type === "devis" || n.type === "utilisateur" || n.type === "flotte")
+            ? n.type
+            : "reservation",
+          titre: n.title,
+          message: n.message,
+          date: new Date(n.createdAt).toLocaleString("fr-FR"),
+          lu: n.isRead,
+        }));
+        setNotifications(mapped);
+      } catch {
+        setNotifications([]);
+      }
+    };
+
+    loadNotifications();
+  }, [isBootstrapping, user]);
 
   if (isBootstrapping) {
     return (
@@ -324,7 +377,13 @@ export default function Boss() {
                 />
               )}
               {tab === "reservations" && (
-                <ReservationsTab reservations={reservations} setReservations={setReservations} />
+                <ReservationsTab
+                  reservations={reservations}
+                  setReservations={setReservations}
+                  page={reservationsPage}
+                  setPage={setReservationsPage}
+                  meta={reservationsMeta}
+                />
               )}
               {tab === "devis" && <DevisTab devis={devis} setDevis={setDevis} />}
               {tab === "flotte" && <FlotteTab />}

@@ -109,6 +109,10 @@ export type ReservationDto = {
   vehicleName?: string;
 };
 
+export type ReservationsListResponse =
+  | PaginatedCollection<ReservationDto>
+  | ReservationDto[];
+
 export type FleetOverviewDto = {
   bonEtat: number;
   entretienRequis: number;
@@ -135,6 +139,16 @@ export type IamRoleDto = {
       description?: string;
     };
   }>;
+};
+
+export type NotificationDto = {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
 };
 
 export const systemService = {
@@ -178,6 +192,12 @@ export const authService = {
 
 export const usersService = {
   me: () => apiRequest<MeResponse>("/users/me", { auth: true }),
+  updateMe: (payload: { email?: string; firstName?: string; lastName?: string; phone?: string }) =>
+    apiRequest<UserDto>("/users/me", {
+      method: "PATCH",
+      body: payload,
+      auth: true,
+    }),
   list: (params?: PaginationParams) =>
     apiRequest<PaginatedCollection<UserDto> | UserDto[]>(`/users${toPaginationQuery(params)}`, { auth: true }),
   detail: (id: string) => apiRequest<UserDto>(`/users/${id}`, { auth: true }),
@@ -223,8 +243,20 @@ export const vehiclesService = {
   remove: (id: string) => apiRequest<{ id: string }>(`/vehicles/${id}`, { method: "DELETE", auth: true }),
 };
 
+export type ReservationEventDto = {
+  id: string;
+  type: string;
+  occurredAt: string;
+  payload?: Record<string, unknown>;
+  createdAt?: string;
+};
+
 export const reservationsService = {
-  list: () => apiRequest<ReservationDto[]>("/reservations", { auth: true }),
+  list: (params?: PaginationParams, userId?: string) => {
+    const query = toPaginationQuery(params);
+    const userIdParam = userId ? `&userId=${encodeURIComponent(userId)}` : "";
+    return apiRequest<ReservationsListResponse>(`/reservations${query}${userIdParam}`, { auth: true });
+  },
   detail: (id: string) => apiRequest<ReservationDto>(`/reservations/${id}`, { auth: true }),
   create: (payload: Record<string, unknown>) =>
     apiRequest<ReservationDto>("/reservations", { method: "POST", body: payload }),
@@ -242,6 +274,22 @@ export const reservationsService = {
       body: { amount },
       auth: true,
     }),
+  remove: (id: string) =>
+    apiRequest<{ message: string }>(`/reservations/${id}`, {
+      method: "DELETE",
+      auth: true,
+    }),
+  createEvent: (id: string, payload: { type: string; occurredAt?: string; payload?: Record<string, unknown> }) =>
+    apiRequest<ReservationEventDto>(`/reservations/${id}/events`, {
+      method: "POST",
+      body: payload,
+      auth: true,
+    }),
+  findEvents: (id: string, params?: PaginationParams) =>
+    apiRequest<PaginatedCollection<ReservationEventDto> | ReservationEventDto[]>(
+      `/reservations/${id}/events${toPaginationQuery(params)}`,
+      { auth: true }
+    ),
 };
 
 export const fleetService = {
@@ -273,6 +321,24 @@ export const iamService = {
   assignRoleToUser: (roleId: string, userId: string) =>
     apiRequest<{ message?: string }>(`/iam/roles/${roleId}/users/${userId}`, {
       method: "POST",
+      auth: true,
+    }),
+};
+
+export const notificationsService = {
+  list: (params?: PaginationParams) =>
+    apiRequest<PaginatedCollection<NotificationDto> | NotificationDto[]>(
+      `/notifications${toPaginationQuery(params)}`,
+      { auth: true }
+    ),
+  markAsRead: (id: string) =>
+    apiRequest<NotificationDto>(`/notifications/${id}/read`, {
+      method: "PATCH",
+      auth: true,
+    }),
+  markAllAsRead: () =>
+    apiRequest<{ message: string }>(`/notifications/read-all`, {
+      method: "PATCH",
       auth: true,
     }),
 };

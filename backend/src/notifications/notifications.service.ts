@@ -33,6 +33,27 @@ export class NotificationsService {
     return this.notificationRepository.save(notification);
   }
 
+  async createForUser(payload: {
+    type: string;
+    title: string;
+    message: string;
+    recipientUserId: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<Notification> {
+    const notification = this.notificationRepository.create({
+      type: payload.type,
+      title: payload.title,
+      message: payload.message,
+      recipientUserId: payload.recipientUserId,
+      recipientRole: null,
+      isRead: false,
+      readAt: null,
+      metadata: payload.metadata ?? {},
+    });
+
+    return this.notificationRepository.save(notification);
+  }
+
   async listForUser(
     userId: string,
     roles: string[],

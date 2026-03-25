@@ -9,6 +9,7 @@ describe('UsersController', () => {
   const usersServiceMock = {
     create: jest.fn(),
     getById: jest.fn(),
+    updateMe: jest.fn(),
     listUsers: jest.fn(),
     update: jest.fn(),
     updateStatus: jest.fn(),
@@ -41,6 +42,22 @@ describe('UsersController', () => {
     };
 
     expect(controller.getMe(authUser)).toEqual(authUser);
+  });
+
+  it('PATCH /users/me calls updateMe', async () => {
+    const authUser = {
+      sub: 'f7c3084e-6a3b-4dcf-a9f2-b6dbfae436c0',
+      email: 'client@westdrive.fr',
+      role: 'CUSTOMER',
+      roles: ['CUSTOMER'],
+      permissions: [],
+    };
+    const dto = { firstName: 'Nouveau', lastName: 'Nom' };
+    const expected = { id: authUser.sub, firstName: 'Nouveau', lastName: 'Nom' };
+    usersServiceMock.updateMe.mockResolvedValue(expected);
+
+    await expect(controller.updateMe(authUser, dto)).resolves.toEqual(expected);
+    expect(usersServiceMock.updateMe).toHaveBeenCalledWith(authUser.sub, dto);
   });
 
   it('GET /users calls listUsers', async () => {

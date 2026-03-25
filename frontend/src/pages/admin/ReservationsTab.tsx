@@ -1,7 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Car, Eye, Search, Users, CheckCircle, XCircle, Mail, Phone,
-  MapPin, Clock, Plus, ChevronLeft, Play, Flag, Calendar, Filter
+  MapPin, Clock, Plus, ChevronLeft, Play, Flag, Calendar, Filter, Pencil, Trash2
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -12,11 +12,19 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Pagination as PaginationType,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { useToast } from "@/hooks/use-toast";
 import type { Reservation, Evenement } from "./data";
 import { statColors, getVehicleImage } from "./data";
 import { reservationsService } from "@/lib/api/services";
-import { ApiHttpError } from "@/lib/api/types";
+import { ApiHttpError, PaginationMeta } from "@/lib/api/types";
 
 // ─── Types locaux ─────────────────────────────────────────────────────────────
 
@@ -28,6 +36,8 @@ type ActionType =
   | "demarrer"    // démarrage location : km + photos
   | "terminer"    // fin location : km + photos
   | "evenement"   // créer un événement custom
+  | "modifier"    // modifier une reservation
+  | "supprimer"   // supprimer une reservation
   | "timeline"    // voir tous les événements
   | null;
 
@@ -36,9 +46,18 @@ type ActionType =
 interface ReservationsTabProps {
   reservations: Reservation[];
   setReservations: React.Dispatch<React.SetStateAction<Reservation[]>>;
+  page: number;
+  setPage: React.Dispatch<React.SetStateAction<number>>;
+  meta: PaginationMeta | null;
 }
 
-export default function ReservationsTab({ reservations, setReservations }: ReservationsTabProps) {
+export default function ReservationsTab({
+  reservations,
+  setReservations,
+  page,
+  setPage,
+  meta,
+}: ReservationsTabProps) {
   const { toast } = useToast();
 
   // ── États de la liste ──────────────────────────────────────────────────────
@@ -65,6 +84,18 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
   const [evtVisibleClient, setEvtVisibleClient] = useState(true);
   const [evtEnvoiEmail, setEvtEnvoiEmail] = useState(false);
   const [evtTitreError, setEvtTitreError] = useState("");
+
+  // Champs pour modification reservation
+  const [editStartAt, setEditStartAt] = useState("");
+  const [editEndAt, setEditEndAt] = useState("");
+  const [editPickupCity, setEditPickupCity] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  const [editDeposit, setEditDeposit] = useState("");
+  const [editError, setEditError] = useState("");
+  
+  // Timeline loading state
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineEvents, setTimelineEvents] = useState<any[]>([]);
 
   // ── Filtrage de la liste ───────────────────────────────────────────────────
   const filteredRes = useMemo(() => {
@@ -94,6 +125,11 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
     setSelectedReservation(r);
     setAction(null);
     resetActionFields();
+    setEditStartAt(r.debut ? new Date(r.debut).toISOString().slice(0, 16) : "");
+    setEditEndAt(r.fin ? new Date(r.fin).toISOString().slice(0, 16) : "");
+    setEditPickupCity(r.ville || "");
+    setEditAmount(String(r.montant ?? ""));
+    setEditDeposit(String(r.caution ?? ""));
   };
 
   const closeModal = () => {
@@ -105,6 +141,8 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
   const goBack = () => {
     setAction(null);
     resetActionFields();
+    setTimelineEvents([]);
+    setTimelineLoading(false);
   };
 
   const resetActionFields = () => {
@@ -118,7 +156,29 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
     setEvtVisibleClient(true);
     setEvtEnvoiEmail(false);
     setEvtTitreError("");
+    setEditError("");
   };
+
+  // Load timeline events when timeline view is opened
+  useEffect(() => {
+    if (action === "timeline" && selectedReservation) {
+      const loadEvents = async () => {
+        setTimelineLoading(true);
+        try {
+          const result = await reservationsService.findEvents(selectedReservation.id, { page: 1, limit: 100 });
+          // Handle both paginated and direct array response
+          const events = Array.isArray(result) ? result : result.items || [];
+          setTimelineEvents(events);
+        } catch (error) {
+          const message = error instanceof ApiHttpError ? error.message : "Impossible de charger l'historique.";
+          toast({ title: "Erreur", description: message, variant: "destructive" });
+        } finally {
+          setTimelineLoading(false);
+        }
+      };
+      loadEvents();
+    }
+  }, [action, selectedReservation]);
 
   // ── Mise à jour du statut backend ──────────────────────────────────────────
   const updateStatus = async (id: string, nextStatus: Reservation["statut"]) => {
@@ -173,6 +233,15 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
     if (!selectedReservation) return;
     try {
       await updateStatus(selectedReservation.id, "confirmée");
+      await reservationsService.createEvent(selectedReservation.id, {
+        type: "reservation_comment_added",
+        payload: {
+          title: "Réservation confirmée",
+          description: commentaire,
+          visibleClient: true,
+          sendEmail: true,
+        },
+      });
       setReservations(prev =>
         prev.map(r =>
           r.id === selectedReservation.id
@@ -180,14 +249,6 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
             : r
         )
       );
-      // Événement système visible client
-      addEvenement(selectedReservation.id, {
-        titre: "Réservation confirmée",
-        description: commentaire,
-        visibleClient: true,
-        envoiEmail: true,
-        type: "systeme",
-      });
       toast({ title: "Réservation confirmée", description: "Le client a été notifié." });
       closeModal();
     } catch (_) { /* géré dans updateStatus */ }
@@ -204,6 +265,15 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
     if (!selectedReservation) return;
     try {
       await updateStatus(selectedReservation.id, "annulée");
+      await reservationsService.createEvent(selectedReservation.id, {
+        type: "reservation_comment_added",
+        payload: {
+          title: "Réservation annulée",
+          description: commentaire || "Annulation par l'administration.",
+          visibleClient: true,
+          sendEmail: true,
+        },
+      });
       setReservations(prev =>
         prev.map(r =>
           r.id === selectedReservation.id
@@ -211,13 +281,6 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
             : r
         )
       );
-      addEvenement(selectedReservation.id, {
-        titre: "Réservation annulée",
-        description: commentaire || "Annulation par l'administration.",
-        visibleClient: true,
-        envoiEmail: true,
-        type: "systeme",
-      });
       toast({ title: "Réservation annulée" });
       closeModal();
     } catch (_) { /* géré dans updateStatus */ }
@@ -231,21 +294,23 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
     }
     if (!selectedReservation) return;
     try {
-      await updateStatus(selectedReservation.id, "annulée");
+      await updateStatus(selectedReservation.id, "refusée");
+      await reservationsService.createEvent(selectedReservation.id, {
+        type: "reservation_comment_added",
+        payload: {
+          title: "Réservation refusée",
+          description: commentaire,
+          visibleClient: true,
+          sendEmail: true,
+        },
+      });
       setReservations(prev =>
         prev.map(r =>
           r.id === selectedReservation.id
-            ? { ...r, statut: "annulée", commentaireRefus: commentaire }
+            ? { ...r, statut: "refusée", commentaireRefus: commentaire }
             : r
         )
       );
-      addEvenement(selectedReservation.id, {
-        titre: "Réservation refusée",
-        description: commentaire,
-        visibleClient: true,
-        envoiEmail: true,
-        type: "systeme",
-      });
       toast({ title: "Réservation refusée", description: "Le client a été notifié." });
       closeModal();
     } catch (_) { /* géré dans updateStatus */ }
@@ -259,7 +324,16 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
     }
     if (!selectedReservation) return;
     try {
-      await updateStatus(selectedReservation.id, "en cours");
+      await reservationsService.createEvent(selectedReservation.id, {
+        type: "reservation_vehicle_handover",
+        payload: {
+          title: "Location démarrée",
+          description: `Kilométrage de départ : ${kmInput} km${commentaire ? ` — ${commentaire}` : ""}`,
+          visibleClient: true,
+          sendEmail: true,
+          kmStart: Number(kmInput),
+        },
+      });
       setReservations(prev =>
         prev.map(r =>
           r.id === selectedReservation.id
@@ -267,14 +341,6 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
             : r
         )
       );
-      // Événement système — visible client + email
-      addEvenement(selectedReservation.id, {
-        titre: "Location démarrée",
-        description: `Kilométrage de départ : ${kmInput} km${commentaire ? ` — ${commentaire}` : ""}`,
-        visibleClient: true,
-        envoiEmail: true,
-        type: "systeme",
-      });
       toast({ title: "Location démarrée" });
       closeModal();
     } catch (_) { /* géré dans updateStatus */ }
@@ -288,7 +354,16 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
     }
     if (!selectedReservation) return;
     try {
-      await updateStatus(selectedReservation.id, "terminée");
+      await reservationsService.createEvent(selectedReservation.id, {
+        type: "reservation_closed",
+        payload: {
+          title: "Location terminée",
+          description: `Kilométrage de retour : ${kmInput} km${commentaire ? ` — ${commentaire}` : ""}`,
+          visibleClient: true,
+          sendEmail: true,
+          kmEnd: Number(kmInput),
+        },
+      });
       setReservations(prev =>
         prev.map(r =>
           r.id === selectedReservation.id
@@ -296,34 +371,98 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
             : r
         )
       );
-      addEvenement(selectedReservation.id, {
-        titre: "Location terminée",
-        description: `Kilométrage de retour : ${kmInput} km${commentaire ? ` — ${commentaire}` : ""}`,
-        visibleClient: true,
-        envoiEmail: true,
-        type: "systeme",
-      });
       toast({ title: "Location terminée" });
       closeModal();
     } catch (_) { /* géré dans updateStatus */ }
   };
 
   // ── Action : Créer événement custom ───────────────────────────────────────
-  const handleAjouterEvenement = () => {
+  const handleAjouterEvenement = async () => {
     if (!evtTitre.trim()) {
       setEvtTitreError("Le titre de l'événement est requis.");
       return;
     }
     if (!selectedReservation) return;
-    addEvenement(selectedReservation.id, {
-      titre: evtTitre,
-      description: evtDescription,
-      visibleClient: evtVisibleClient,
-      envoiEmail: evtEnvoiEmail,
-      type: "custom",
-    });
-    toast({ title: "Événement ajouté" });
-    goBack();
+    try {
+      await reservationsService.createEvent(selectedReservation.id, {
+        type: "custom_event",
+        payload: {
+          title: evtTitre,
+          description: evtDescription,
+          visibleClient: evtVisibleClient,
+          sendEmail: evtEnvoiEmail,
+        },
+      });
+      toast({ title: "Événement ajouté", description: "L'événement a été enregistré." });
+      // Reload events from backend
+      const result = await reservationsService.findEvents(selectedReservation.id, { page: 1, limit: 100 });
+      const events = Array.isArray(result) ? result : result.items || [];
+      setTimelineEvents(events);
+      goBack();
+    } catch (error) {
+      const message = error instanceof ApiHttpError ? error.message : "Impossible d'ajouter l'événement.";
+      toast({ title: "Erreur", description: message, variant: "destructive" });
+    }
+  };
+
+  const handleModifierReservation = async () => {
+    if (!selectedReservation) return;
+
+    if (!editStartAt || !editEndAt || !editPickupCity.trim()) {
+      setEditError("Dates et ville sont obligatoires.");
+      return;
+    }
+
+    const amount = Number(editAmount);
+    const deposit = Number(editDeposit);
+    if (Number.isNaN(amount) || Number.isNaN(deposit) || amount < 0 || deposit < 0) {
+      setEditError("Montant et caution doivent être des nombres positifs.");
+      return;
+    }
+
+    try {
+      await reservationsService.patch(selectedReservation.id, {
+        startAt: new Date(editStartAt).toISOString(),
+        endAt: new Date(editEndAt).toISOString(),
+        pickupCity: editPickupCity.trim(),
+        amountTtc: amount,
+        depositAmount: deposit,
+      });
+
+      setReservations((prev) =>
+        prev.map((r) =>
+          r.id === selectedReservation.id
+            ? {
+                ...r,
+                debut: new Date(editStartAt).toISOString(),
+                fin: new Date(editEndAt).toISOString(),
+                ville: editPickupCity.trim(),
+                montant: amount,
+                caution: deposit,
+              }
+            : r,
+        ),
+      );
+
+      toast({ title: "Réservation modifiée", description: "Les informations ont été enregistrées." });
+      closeModal();
+    } catch (error) {
+      const message = error instanceof ApiHttpError ? error.message : "Impossible de modifier la réservation.";
+      setEditError(message);
+    }
+  };
+
+  const handleSupprimerReservation = async () => {
+    if (!selectedReservation) return;
+    try {
+      await reservationsService.remove(selectedReservation.id);
+      setReservations((prev) => prev.filter((r) => r.id !== selectedReservation.id));
+      toast({ title: "Réservation supprimée" });
+      closeModal();
+    } catch (error) {
+      const message = error instanceof ApiHttpError ? error.message : "Impossible de supprimer la réservation.";
+      toast({ title: "Erreur", description: message, variant: "destructive" });
+    }
   };
 
   // ── Titre de la modal selon l'action active ────────────────────────────────
@@ -334,6 +473,8 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
     if (action === "demarrer")  return "Démarrer la location";
     if (action === "terminer")  return "Terminer la location";
     if (action === "evenement") return "Ajouter un événement";
+    if (action === "modifier") return "Modifier la réservation";
+    if (action === "supprimer") return "Supprimer la réservation";
     if (action === "timeline")  return "Historique des événements";
     return `Réservation ${selectedReservation?.id}`;
   };
@@ -382,7 +523,7 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   >
                     <option value="">Tous les statuts</option>
-                    {["en attente", "confirmée", "en cours", "terminée", "annulée"].map(s => (
+                    {["en attente", "confirmée", "en cours", "terminée", "annulée", "refusée"].map(s => (
                       <option key={s} value={s}>{s}</option>
                     ))}
                   </select>
@@ -638,12 +779,10 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
                 )}
 
                 {/* Bouton timeline */}
-                {(selectedReservation.evenements?.length ?? 0) > 0 && (
-                  <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => setAction("timeline")}>
-                    <Clock className="h-4 w-4" />
-                    Voir l'historique ({selectedReservation.evenements?.length} événements)
-                  </Button>
-                )}
+                <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => setAction("timeline")}>
+                  <Clock className="h-4 w-4" />
+                  Voir l'historique
+                </Button>
 
                 {/* ── Boutons d'action selon le statut ────────────── */}
                 <div className="space-y-2 pt-2 border-t border-border">
@@ -689,11 +828,73 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
                     <Button size="sm" variant="outline" className="gap-1" onClick={() => setAction("evenement")}>
                       <Plus className="h-3.5 w-3.5" /> Ajouter un événement
                     </Button>
+
+                    <Button size="sm" variant="outline" className="gap-1" onClick={() => setAction("modifier")}>
+                      <Pencil className="h-3.5 w-3.5" /> Modifier
+                    </Button>
+
+                    <Button size="sm" variant="destructive" className="gap-1" onClick={() => setAction("supprimer")}>
+                      <Trash2 className="h-3.5 w-3.5" /> Supprimer
+                    </Button>
                   </div>
                 </div>
               </div>
             );
           })()}
+
+          {action === "modifier" && selectedReservation && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Date début *</Label>
+                  <Input type="datetime-local" value={editStartAt} onChange={(e) => { setEditStartAt(e.target.value); setEditError(""); }} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Date fin *</Label>
+                  <Input type="datetime-local" value={editEndAt} onChange={(e) => { setEditEndAt(e.target.value); setEditError(""); }} />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Ville de retrait *</Label>
+                <Input value={editPickupCity} onChange={(e) => { setEditPickupCity(e.target.value); setEditError(""); }} />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Montant TTC (€)</Label>
+                  <Input type="number" min="0" step="0.01" value={editAmount} onChange={(e) => { setEditAmount(e.target.value); setEditError(""); }} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Caution (€)</Label>
+                  <Input type="number" min="0" step="0.01" value={editDeposit} onChange={(e) => { setEditDeposit(e.target.value); setEditError(""); }} />
+                </div>
+              </div>
+
+              {editError && <p className="text-xs text-destructive">{editError}</p>}
+
+              <DialogFooter>
+                <Button variant="outline" onClick={goBack}>Annuler</Button>
+                <Button className="gap-2" onClick={handleModifierReservation}>
+                  <Pencil className="h-4 w-4" /> Enregistrer
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {action === "supprimer" && selectedReservation && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Cette action est irreversible. La réservation <span className="font-medium text-foreground">{selectedReservation.id}</span> sera supprimée.
+              </p>
+              <DialogFooter>
+                <Button variant="outline" onClick={goBack}>Annuler</Button>
+                <Button variant="destructive" className="gap-2" onClick={handleSupprimerReservation}>
+                  <Trash2 className="h-4 w-4" /> Supprimer définitivement
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
 
           {/* ── Vue : Confirmer ──────────────────────────────────── */}
           {action === "confirmer" && selectedReservation && (
@@ -935,27 +1136,31 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
           {/* ── Vue : Timeline des événements ───────────────────── */}
           {action === "timeline" && selectedReservation && (
             <div className="space-y-3">
-              {(selectedReservation.evenements ?? []).length === 0 ? (
+              {timelineLoading ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Chargement de l'historique...</p>
+              ) : timelineEvents.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">Aucun événement enregistré.</p>
               ) : (
-                [...(selectedReservation.evenements ?? [])].reverse().map(evt => (
+                [...timelineEvents].reverse().map((evt: any) => (
                   <div key={evt.id} className="flex gap-3">
                     {/* Indicateur type */}
                     <div className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${evt.type === "systeme" ? "bg-primary" : "bg-muted-foreground"}`} />
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium">{evt.titre}</p>
-                        {evt.visibleClient && (
+                        <p className="text-sm font-medium">{evt.payload?.title || evt.type}</p>
+                        {evt.payload?.visibleClient && (
                           <Badge variant="outline" className="text-[10px] py-0 px-1.5">Client</Badge>
                         )}
-                        {evt.envoiEmail && (
+                        {evt.payload?.sendEmail && (
                           <Badge variant="outline" className="text-[10px] py-0 px-1.5">Email</Badge>
                         )}
                       </div>
-                      {evt.description && (
-                        <p className="text-xs text-muted-foreground mt-0.5">{evt.description}</p>
+                      {evt.payload?.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{evt.payload.description}</p>
                       )}
-                      <p className="text-[10px] text-muted-foreground mt-1">{evt.date}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        {new Date(evt.occurredAt).toLocaleString("fr-FR")}
+                      </p>
                     </div>
                   </div>
                 ))
@@ -964,6 +1169,41 @@ export default function ReservationsTab({ reservations, setReservations }: Reser
           )}
         </DialogContent>
       </Dialog>
+
+      {meta && (
+        <div className="space-y-2 mt-4">
+          <p className="text-sm text-muted-foreground text-center">
+            Page {meta.page} sur {Math.max(meta.totalPages, 1)} · {meta.totalItems} réservations
+          </p>
+          <PaginationType>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (meta.hasPreviousPage) setPage((prev) => Math.max(prev - 1, 1));
+                  }}
+                  className={!meta.hasPreviousPage ? "pointer-events-none opacity-50" : undefined}
+                />
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationLink href="#" isActive>{meta.page}</PaginationLink>
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (meta.hasNextPage) setPage((prev) => prev + 1);
+                  }}
+                  className={!meta.hasNextPage ? "pointer-events-none opacity-50" : undefined}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </PaginationType>
+        </div>
+      )}
     </>
   );
 }

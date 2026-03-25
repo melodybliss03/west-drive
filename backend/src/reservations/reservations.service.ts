@@ -196,6 +196,20 @@ export class ReservationsService {
         },
       });
 
+      if (savedReservation.userId) {
+        await this.notificationsService.createForUser({
+          type: 'reservation',
+          title: 'Demande de reservation enregistree',
+          message: `Votre demande ${savedReservation.publicReference} a bien ete enregistree.`,
+          recipientUserId: savedReservation.userId,
+          metadata: {
+            reservationId: savedReservation.id,
+            publicReference: savedReservation.publicReference,
+            status: savedReservation.status,
+          },
+        });
+      }
+
       if (shouldSendGuestSetupEmail) {
         const setupUrl = await this.authService.createPasswordSetupUrl(
           savedReservation.requesterEmail,
@@ -354,6 +368,20 @@ export class ReservationsService {
     );
 
     try {
+      if (reservation.userId) {
+        await this.notificationsService.createForUser({
+          type: 'reservation',
+          title: 'Mise a jour de reservation',
+          message: `Le statut de votre reservation ${reservation.publicReference} est maintenant ${dto.status}.`,
+          recipientUserId: reservation.userId,
+          metadata: {
+            reservationId: reservation.id,
+            publicReference: reservation.publicReference,
+            status: dto.status,
+          },
+        });
+      }
+
       await this.mailService.sendReservationStatusUpdate({
         to: reservation.requesterEmail,
         requesterName: reservation.requesterName,
@@ -403,6 +431,20 @@ export class ReservationsService {
     });
 
     try {
+      if (reservation.userId) {
+        await this.notificationsService.createForUser({
+          type: 'reservation',
+          title: 'Paiement confirme',
+          message: `Votre reservation ${reservation.publicReference} est confirmee.`,
+          recipientUserId: reservation.userId,
+          metadata: {
+            reservationId: reservation.id,
+            publicReference: reservation.publicReference,
+            status: ReservationStatus.CONFIRMEE,
+          },
+        });
+      }
+
       await this.mailService.sendReservationStatusUpdate({
         to: reservation.requesterEmail,
         requesterName: reservation.requesterName,
@@ -499,6 +541,37 @@ export class ReservationsService {
           `Custom event email failed for reservation ${reservation.id}: ${reason}`,
         );
       }
+    }
+
+    const isVisibleClient =
+      !!dto.payload &&
+      typeof dto.payload === 'object' &&
+      dto.payload !== null &&
+      'visibleClient' in dto.payload &&
+      dto.payload.visibleClient !== false;
+
+    if (reservation.userId && isVisibleClient) {
+      const payload = dto.payload as Record<string, unknown>;
+      const title =
+        typeof payload?.title === 'string' && payload.title.trim().length > 0
+          ? payload.title
+          : 'Nouvel evenement de reservation';
+      const description =
+        typeof payload?.description === 'string' && payload.description.trim().length > 0
+          ? payload.description
+          : `Un nouvel evenement a ete ajoute pour ${reservation.publicReference}.`;
+
+      await this.notificationsService.createForUser({
+        type: 'reservation',
+        title,
+        message: description,
+        recipientUserId: reservation.userId,
+        metadata: {
+          reservationId: reservation.id,
+          publicReference: reservation.publicReference,
+          eventType: dto.type,
+        },
+      });
     }
 
     return savedEvent;

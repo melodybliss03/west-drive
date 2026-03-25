@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Mail, KeyRound, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ type Step = "email" | "otp" | "password";
 
 export default function MotDePasseOublie() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const [step, setStep] = useState<Step>("email");
   const [loading, setLoading] = useState(false);
@@ -23,6 +24,23 @@ export default function MotDePasseOublie() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const emailFromQuery = searchParams.get("email");
+    const otpFromQuery = searchParams.get("otp");
+
+    if (emailFromQuery) {
+      setEmail(emailFromQuery);
+      setStep("otp");
+    }
+
+    if (otpFromQuery) {
+      setOtp(formatOtp(otpFromQuery));
+      if (emailFromQuery) {
+        setStep("password");
+      }
+    }
+  }, [searchParams]);
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -197,8 +215,21 @@ export default function MotDePasseOublie() {
                   Vous n'avez pas reçu le code ?{" "}
                   <button
                     type="button"
-                    onClick={() => {
-                      toast({ title: "Code renvoyé", description: `Un nouveau code a été envoyé à ${email}.` });
+                    onClick={async () => {
+                      if (!email.trim()) {
+                        toast({ title: "Erreur", description: "Email manquant.", variant: "destructive" });
+                        return;
+                      }
+                      try {
+                        await authService.forgotPassword(email);
+                        toast({ title: "Code renvoyé", description: `Un nouveau code a été envoyé à ${email}.` });
+                      } catch (error) {
+                        const message =
+                          error instanceof ApiHttpError
+                            ? error.message
+                            : "Impossible de renvoyer le code OTP.";
+                        toast({ title: "Erreur", description: message, variant: "destructive" });
+                      }
                     }}
                     className="text-primary font-medium hover:underline"
                   >

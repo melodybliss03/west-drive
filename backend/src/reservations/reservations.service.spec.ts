@@ -61,6 +61,7 @@ describe('ReservationsService', () => {
 
   const notificationsService = {
     createForAdmin: jest.fn(),
+    createForUser: jest.fn(),
   };
 
   const configService = {
@@ -132,5 +133,62 @@ describe('ReservationsService', () => {
 
     expect(reservationRepository.save).toHaveBeenCalled();
     expect(result).toEqual({ message: 'Reservation archived successfully' });
+  });
+
+  it('creates in-app admin and customer notifications on reservation create', async () => {
+    const now = new Date('2026-03-25T10:00:00.000Z');
+    const createDto = {
+      requesterType: 'PARTICULIER',
+      requesterName: 'Sophie Martin',
+      requesterEmail: 'sophie@westdrive.fr',
+      requesterPhone: '+33612345678',
+      startAt: new Date('2026-04-01T09:00:00.000Z'),
+      endAt: new Date('2026-04-02T09:00:00.000Z'),
+      pickupCity: 'Paris',
+      requestedVehicleType: 'SUV',
+      amountTtc: 100,
+      depositAmount: 200,
+    } as any;
+
+    usersService.findByEmail.mockResolvedValue({ id: 'user-1' });
+    reservationRepository.create.mockImplementation((payload) => ({
+      id: 'res-1',
+      ...payload,
+      createdAt: now,
+    }));
+    reservationRepository.save.mockImplementation(async (payload) => payload);
+    reservationEventRepository.create.mockImplementation((payload) => ({ id: 'evt-1', ...payload }));
+    reservationEventRepository.save.mockResolvedValue({ id: 'evt-1' });
+    reservationRepository.findOne.mockResolvedValue({
+      id: 'res-1',
+      userId: 'user-1',
+      requesterName: 'Sophie Martin',
+      requesterEmail: 'sophie@westdrive.fr',
+      requesterPhone: '+33612345678',
+      publicReference: 'RES-20260325-ABCD',
+      status: ReservationStatus.NOUVELLE_DEMANDE,
+      amountTtc: '100.00',
+      depositAmount: '200.00',
+      startAt: createDto.startAt,
+      endAt: createDto.endAt,
+      pickupCity: createDto.pickupCity,
+      requestedVehicleType: createDto.requestedVehicleType,
+      companyName: null,
+      companySiret: null,
+      vehicleId: null,
+      vehicle: null,
+      user: null,
+      events: [],
+      archivedAt: null,
+    });
+
+    await service.create(createDto);
+
+    expect(notificationsService.createForAdmin).toHaveBeenCalled();
+    expect(notificationsService.createForUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipientUserId: 'user-1',
+      }),
+    );
   });
 });

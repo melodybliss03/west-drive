@@ -4,6 +4,8 @@ import { ArrowLeft, CreditCard, Lock, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { reservationsService } from "@/lib/api/services";
+import { ApiHttpError } from "@/lib/api/types";
 
 type Devise = "FCFA" | "EUR";
 
@@ -37,6 +39,7 @@ type ReservationState = {
   nbJours: number;
   total: number;
   reservationId: string;
+  reservationBackendId: string;
   email: string;
   nom: string;
   caution?: number;
@@ -98,14 +101,38 @@ export default function Checkout() {
     return v;
   };
 
-  const handlePay = (e: React.FormEvent) => {
+  const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Basic client-side validation
+    if (!cardForm.numero || cardForm.numero.replace(/\s/g, "").length !== 16) {
+      toast({ title: "Erreur", description: "Numéro de carte invalide.", variant: "destructive" });
+      return;
+    }
+    if (!cardForm.expiration || cardForm.expiration.length < 5) {
+      toast({ title: "Erreur", description: "Date d'expiration invalide.", variant: "destructive" });
+      return;
+    }
+    if (!cardForm.cvc || cardForm.cvc.length < 3) {
+      toast({ title: "Erreur", description: "CVC invalide.", variant: "destructive" });
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
+    try {
+      // Call backend preauth endpoint
+      const depositAmount = reservation.caution || 0;
+      await reservationsService.preauth(reservation.reservationBackendId, depositAmount);
+      
+      // Success: show confirmation
       setLoading(false);
       setSuccess(true);
       toast({ title: "Paiement effectué !", description: "Votre réservation est confirmée." });
-    }, 2500);
+    } catch (error) {
+      setLoading(false);
+      const message = error instanceof ApiHttpError ? error.message : "Erreur de paiement. Veuillez réessayer.";
+      toast({ title: "Erreur", description: message, variant: "destructive" });
+    }
   };
 
   if (success) {

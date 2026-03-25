@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Car,
   FileText,
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,7 +21,15 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import TopBar from "@/components/TopBar";
 import ScrollToTop from "@/components/ScrollToTop";
-import { reservationsService, ReservationDto } from "@/lib/api/services";
+import { notificationsService, reservationsService, ReservationDto, ReservationEventDto, usersService } from "@/lib/api/services";
+
+type UiNotification = {
+  id: string;
+  title: string;
+  desc: string;
+  date: string;
+  read: boolean;
+};
 
 type UiReservation = {
   id: string;
@@ -31,12 +40,6 @@ type UiReservation = {
   montant: number;
   ville: string;
 };
-
-const mockNotifications = [
-  { id: 1, title: "Réservation confirmée", desc: "Votre Renault Clio V est confirmée pour le 15 mars.", date: "Il y a 2h", read: false },
-  { id: 2, title: "Rappel J-1", desc: "Votre location BMW Série 3 commence demain à 9h.", date: "Il y a 1j", read: true },
-  { id: 3, title: "Facture disponible", desc: "La facture F-2024-002 est prête à télécharger.", date: "Il y a 3j", read: true },
-];
 
 const statutColors: Record<string, string> = {
   EN_ATTENTE: "bg-amber-500/10 text-amber-600 border-amber-200",
@@ -73,19 +76,46 @@ function mapReservationDto(dto: ReservationDto): UiReservation {
 }
 
 export default function Espace() {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState("reservations");
   const [reservations, setReservations] = useState<UiReservation[]>([]);
   const [loadingReservations, setLoadingReservations] = useState(true);
+  const [notifications, setNotifications] = useState<UiNotification[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(true);
+  const [selectedReservation, setSelectedReservation] = useState<UiReservation | null>(null);
+  const [reservationEvents, setReservationEvents] = useState<ReservationEventDto[]>([]);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    firstName: user?.prenom || "",
+    lastName: user?.nom || "",
+    email: user?.email || "",
+    phone: user?.phone || "",
+  });
+
+  useEffect(() => {
+    if (!user) {
+      navigate("/connexion");
+    }
+  }, [user, navigate]);
+
+  useEffect(() => {
+    setProfileForm({
+      firstName: user?.prenom || "",
+      lastName: user?.nom || "",
+      email: user?.email || "",
+      phone: user?.phone || "",
+    });
+  }, [user?.prenom, user?.nom, user?.email, user?.phone]);
 
   useEffect(() => {
     const loadReservations = async () => {
       try {
-        const list = await reservationsService.list();
+        // Load user's own reservations by passing userId filter
+        const collection = await reservationsService.list({ page: 1, limit: 50 }, user?.id);
+        const list = Array.isArray(collection) ? collection : collection.items;
         const mapped = list.map(mapReservationDto);
-
-        // En l'absence d'endpoint dédié client, on affiche la liste renvoyée par l'API.
         setReservations(mapped);
       } catch {
         setReservations([]);
@@ -94,8 +124,92 @@ export default function Espace() {
       }
     };
 
-    loadReservations();
-  }, [user?.email]);
+    if (user?.id) {
+      loadReservations();
+    } else {
+      setLoadingReservations(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    const loadNotifications = async () => {
+      if (!user) {
+        setLoadingNotifications(false);
+        return;
+      }
+
+      try {
+        const collection = await notificationsService.list({ page: 1, limit: 50 });
+        const items = Array.isArray(collection) ? collection : collection.items;
+        setNotifications(
+          items.map((item) => ({
+            id: item.id,
+            title: item.title,
+            desc: item.message,
+            date: new Date(item.createdAt).toLocaleString("fr-FR"),
+            read: item.isRead,
+          })),
+        );
+      } catch {
+        setNotifications([]);
+      } finally {
+        setLoadingNotifications(false);
+      }
+    };
+
+    loadNotifications();
+  }, [user]);
+
+  const openReservationDetails = async (reservation: UiReservation) => {
+    setSelectedReservation(reservation);
+    setLoadingDetails(true);
+    try {
+      const collection = await reservationsService.findEvents(reservation.id, { page: 1, limit: 100 });
+      const items = Array.isArray(collection) ? collection : collection.items;
+      setReservationEvents(
+        items.filter((evt) => {
+          const payload = (evt.payload || {}) as Record<string, unknown>;
+          return payload.visibleClient !== false;
+        }),
+      );
+    } catch {
+      setReservationEvents([]);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  const markNotificationRead = async (id: string) => {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    try {
+      await notificationsService.markAsRead(id);
+    } catch {
+      // optimistic UI keeps UX fluid
+    }
+  };
+
+  const markAllNotificationsRead = async () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    try {
+      await notificationsService.markAllAsRead();
+    } catch {
+      // optimistic UI keeps UX fluid
+    }
+  };
+
+  const saveProfile = async () => {
+    try {
+      await usersService.updateMe({
+        firstName: profileForm.firstName,
+        lastName: profileForm.lastName,
+        email: profileForm.email,
+        phone: profileForm.phone,
+      });
+      toast({ title: "Profil mis à jour", description: "Vos informations ont été enregistrées." });
+    } catch {
+      toast({ title: "Erreur", description: "Impossible de mettre à jour votre profil.", variant: "destructive" });
+    }
+  };
 
   const factures = useMemo(
     () =>
@@ -171,7 +285,7 @@ export default function Espace() {
                 Notifications
               </div>
               <p className="font-display text-2xl font-bold">
-                {mockNotifications.filter((n) => !n.read).length}
+                {notifications.filter((n) => !n.read).length}
                 <span className="text-sm font-normal text-muted-foreground"> nouvelles</span>
               </p>
             </div>
@@ -193,9 +307,9 @@ export default function Espace() {
               >
                 <Bell className="h-4 w-4 mr-2" />
                 Notifications
-                {mockNotifications.filter((n) => !n.read).length > 0 && (
+                {notifications.filter((n) => !n.read).length > 0 && (
                   <span className="ml-1.5 bg-primary text-primary-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    {mockNotifications.filter((n) => !n.read).length}
+                    {notifications.filter((n) => !n.read).length}
                   </span>
                 )}
               </TabsTrigger>
@@ -238,7 +352,7 @@ export default function Espace() {
                     </div>
                     <div className="flex items-center gap-4">
                       <span className="font-display font-bold text-lg text-primary">{r.montant}€</span>
-                      <Button variant="outline" size="sm" className="gap-1.5">
+                      <Button variant="outline" size="sm" className="gap-1.5" onClick={() => openReservationDetails(r)}>
                         Détails <ChevronRight className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -249,10 +363,19 @@ export default function Espace() {
 
             {/* Notifications */}
             <TabsContent value="notifications">
+              <div className="flex justify-end mb-3">
+                <Button variant="outline" size="sm" onClick={markAllNotificationsRead}>
+                  Tout marquer comme lu
+                </Button>
+              </div>
               <div className="space-y-3">
-                {mockNotifications.map((n) => (
+                {loadingNotifications && (
+                  <p className="text-sm text-muted-foreground">Chargement des notifications...</p>
+                )}
+                {notifications.map((n) => (
                   <div
                     key={n.id}
+                    onClick={() => markNotificationRead(n.id)}
                     className={`bg-card border rounded-xl p-5 ${!n.read ? "border-primary/30 bg-primary/[0.02]" : "border-border"}`}
                   >
                     <div className="flex items-start justify-between gap-4">
@@ -302,25 +425,81 @@ export default function Espace() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">Prénom</label>
-                    <input className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card" defaultValue="Sophie" />
+                      <input
+                        className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
+                        value={profileForm.firstName}
+                        onChange={(e) => setProfileForm((prev) => ({ ...prev, firstName: e.target.value }))}
+                      />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">Nom</label>
-                    <input className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card" defaultValue="Martin" />
+                      <input
+                        className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
+                        value={profileForm.lastName}
+                        onChange={(e) => setProfileForm((prev) => ({ ...prev, lastName: e.target.value }))}
+                      />
                   </div>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Email</label>
-                  <input className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card" defaultValue="sophie.martin@email.com" />
+                    <input
+                      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
+                      value={profileForm.email}
+                      onChange={(e) => setProfileForm((prev) => ({ ...prev, email: e.target.value }))}
+                    />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Téléphone</label>
-                  <input className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card" defaultValue="06 12 34 56 78" />
+                    <input
+                      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
+                      value={profileForm.phone}
+                      onChange={(e) => setProfileForm((prev) => ({ ...prev, phone: e.target.value }))}
+                    />
                 </div>
-                <Button className="mt-2" onClick={() => toast({ title: "Profil mis à jour", description: "Vos informations ont été enregistrées." })}>Enregistrer les modifications</Button>
+                  <Button className="mt-2" onClick={saveProfile}>Enregistrer les modifications</Button>
               </div>
             </TabsContent>
           </Tabs>
+
+            <Dialog open={!!selectedReservation} onOpenChange={(open) => !open && setSelectedReservation(null)}>
+              <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>
+                    {selectedReservation ? `Détails réservation ${selectedReservation.id}` : "Détails réservation"}
+                  </DialogTitle>
+                </DialogHeader>
+                {selectedReservation && (
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      {selectedReservation.vehicule} · {selectedReservation.ville}
+                    </p>
+                    <Badge variant="outline" className={statutColors[selectedReservation.statut] || ""}>
+                      {statutLabels[selectedReservation.statut] || selectedReservation.statut}
+                    </Badge>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Historique</p>
+                      {loadingDetails ? (
+                        <p className="text-sm text-muted-foreground">Chargement de l'historique...</p>
+                      ) : reservationEvents.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">Aucun événement visible pour le moment.</p>
+                      ) : (
+                        reservationEvents.map((evt) => (
+                          <div key={evt.id} className="border border-border rounded-lg p-3">
+                            <p className="text-sm font-medium">{(evt.payload as Record<string, unknown>)?.title as string || evt.type}</p>
+                            {typeof (evt.payload as Record<string, unknown>)?.description === "string" && (
+                              <p className="text-sm text-muted-foreground mt-1">{(evt.payload as Record<string, unknown>).description as string}</p>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-2">
+                              {new Date(evt.occurredAt).toLocaleString("fr-FR")}
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
         </div>
       </main>
       <Footer />

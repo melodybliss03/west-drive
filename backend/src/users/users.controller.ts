@@ -29,6 +29,7 @@ import { PermissionsGuard } from '../iam/guards/permissions.guard';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateMeDto } from './dto/update-me.dto';
 import { UsersService } from './users.service';
 
 @ApiTags('Users')
@@ -66,6 +67,17 @@ export class UsersController {
   @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
   getMe(@CurrentUser() user: AuthUser) {
     return user;
+  }
+
+  @Patch('me')
+  @ApiOperation({
+    summary: 'Mettre a jour mon profil',
+    description:
+      'Permet a un utilisateur authentifie de mettre a jour ses informations de base.',
+  })
+  @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
+  updateMe(@CurrentUser() user: AuthUser, @Body() dto: UpdateMeDto) {
+    return this.usersService.updateMe(user.sub, dto);
   }
 
   @Get()

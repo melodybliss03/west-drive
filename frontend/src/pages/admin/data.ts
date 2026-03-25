@@ -141,15 +141,6 @@ export const mockUsers: MockUser[] = [
   { id: "U005", nom: "Leroy", prenom: "Paul", email: "paul@mail.com", type: "particulier", creeLe: "2025-03-01", reservations: 0, statut: "suspendu", role: "client", telephone: "06 45 67 89 01", ville: "La Défense", adresse: "3 Place de la Défense" },
 ];
 
-export const mockNotifications: Notification[] = [
-  { id: "N001", type: "reservation", titre: "Nouvelle réservation", message: "Sophie Martin a effectué une réservation pour la Peugeot 108.", date: "2025-03-10 09:30", lu: false },
-  { id: "N002", type: "devis", titre: "Demande de devis", message: "Entreprise ABC a soumis une demande de devis pour 3 SUV.", date: "2025-03-10 10:15", lu: false },
-  { id: "N003", type: "reservation", titre: "Réservation annulée", message: "Paul Leroy a annulé sa réservation pour la Mercedes Classe C.", date: "2025-03-09 14:00", lu: false },
-  { id: "N004", type: "utilisateur", titre: "Nouvel utilisateur", message: "Paul Leroy vient de s'inscrire sur la plateforme.", date: "2025-03-08 16:45", lu: true },
-  { id: "N005", type: "flotte", titre: "Entretien requis", message: "La BMW Série 3 (IJ-789-KL) nécessite un entretien.", date: "2025-03-07 08:00", lu: true },
-  { id: "N006", type: "devis", titre: "Demande de devis", message: "Marie Laurent a soumis une demande de devis pour une Berline.", date: "2025-03-06 11:30", lu: true },
-];
-
 export const mockDevis: MockDevis[] = [
   { id: "D001", client: "Marie Laurent", email: "marie@mail.com", telephone: "06 34 56 78 90", type: "particulier", ville: "Nanterre", dateDebut: "2025-04-01", dateFin: "2025-04-05", typeVehicule: "Berline", nombreVehicules: 1, statut: "en attente", creeLe: "2025-03-06" },
   { id: "D002", client: "Entreprise ABC", email: "contact@abc.com", telephone: "01 23 45 67 89", type: "entreprise", nomEntreprise: "Entreprise ABC", siret: "123 456 789 00001", ville: "Rueil-Malmaison", dateDebut: "2025-04-10", dateFin: "2025-04-20", typeVehicule: "SUV", nombreVehicules: 3, statut: "en attente", creeLe: "2025-03-10" },
@@ -326,6 +317,7 @@ export const statColors: Record<string, string> = {
   "terminée": "bg-muted text-muted-foreground border-border",
   "en attente": "bg-amber-500/10 text-amber-600 border-amber-200",
   "annulée": "bg-destructive/10 text-destructive border-destructive/20",
+  "refusée": "bg-destructive/10 text-destructive border-destructive/20",
 };
 
 export const devisStatColors: Record<string, string> = {
