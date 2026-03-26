@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import DevisDialog from "@/components/DevisDialog";
 import { motion } from "framer-motion";
-import { Star, ChevronRight, Check, Phone, Car, MapPin } from "lucide-react";
+import { Star, ChevronRight, Check, Phone, Car } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -24,6 +24,7 @@ import heroBg from "@/assets/hero-bg.jpg";
 import TopBar from "@/components/TopBar";
 import ScrollToTop from "@/components/ScrollToTop";
 import { useVehiclesCatalogPage } from "@/hooks/useVehiclesCatalog";
+import VehicleCoverageMap from "@/components/VehicleCoverageMap";
 
 
 const categories: { value: Categorie; label: string }[] = [
@@ -354,92 +355,7 @@ export default function Index() {
               Nous opérons dans un rayon de 20 km autour de Puteaux.
             </p>
           </div>
-          <div className="relative max-w-5xl mx-auto rounded-2xl overflow-hidden border border-border shadow-lg mb-10">
-            <iframe
-              title="Zone de couverture WEST DRIVE"
-              src="https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d42000!2d2.2384!3d48.8847!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sfr!2sfr!4v1700000000000!5m2!1sfr!2sfr"
-              width="100%"
-              height="550"
-              style={{ border: 0 }}
-              allowFullScreen
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
-            {/* City markers overlaid on map */}
-            {[
-              { name: "Puteaux", top: "46%", left: "50%", major: true, info: "Siège WEST DRIVE — Livraison express" },
-              { name: "Courbevoie", top: "42%", left: "51%", major: true, info: "Livraison sous 30 min" },
-              { name: "Nanterre", top: "46%", left: "44%", major: true, info: "Point relais disponible" },
-              { name: "Neuilly", top: "43%", left: "55%", major: true, info: "Livraison à domicile" },
-              { name: "Boulogne-B.", top: "52%", left: "55%", major: true, info: "Livraison sous 30 min" },
-              { name: "Rueil", top: "48%", left: "38%", major: true, info: "Point relais disponible" },
-              { name: "Paris 16e", top: "48%", left: "59%", major: true, info: "Livraison express" },
-              { name: "Paris 17e", top: "38%", left: "58%", major: true, info: "Livraison express" },
-              { name: "St-Germain", top: "44%", left: "22%", major: true, info: "Livraison sous 1h" },
-              { name: "Colombes", top: "37%", left: "48%", major: true, info: "Livraison sous 30 min" },
-              { name: "Levallois", top: "40%", left: "54%", major: false, info: "Livraison sous 30 min" },
-              { name: "Suresnes", top: "50%", left: "51%", major: false, info: "Livraison sous 30 min" },
-              { name: "La Défense", top: "44%", left: "48%", major: true, info: "Hub principal — retrait sur place" },
-              { name: "Clichy", top: "38%", left: "55%", major: false, info: "Livraison sous 45 min" },
-              { name: "Asnières", top: "35%", left: "53%", major: false, info: "Livraison sous 45 min" },
-              { name: "Gennevilliers", top: "33%", left: "50%", major: false, info: "Livraison sous 45 min" },
-              { name: "Issy-les-M.", top: "55%", left: "57%", major: false, info: "Livraison sous 45 min" },
-              { name: "Saint-Cloud", top: "53%", left: "49%", major: false, info: "Livraison sous 30 min" },
-              { name: "Clamart", top: "59%", left: "53%", major: false, info: "Livraison sous 1h" },
-              { name: "Meudon", top: "57%", left: "51%", major: false, info: "Livraison sous 45 min" },
-              { name: "Sèvres", top: "56%", left: "47%", major: false, info: "Livraison sous 45 min" },
-              { name: "Argenteuil", top: "27%", left: "47%", major: false, info: "Livraison sous 1h" },
-              { name: "Bezons", top: "31%", left: "44%", major: false, info: "Livraison sous 1h" },
-              { name: "Houilles", top: "30%", left: "40%", major: false, info: "Livraison sous 1h" },
-              { name: "Sartrouville", top: "27%", left: "38%", major: false, info: "Livraison sous 1h" },
-              { name: "Chatou", top: "40%", left: "35%", major: false, info: "Livraison sous 1h" },
-              { name: "Le Vésinet", top: "38%", left: "30%", major: false, info: "Livraison sous 1h" },
-              { name: "Poissy", top: "38%", left: "24%", major: false, info: "Livraison sous 1h30" },
-              { name: "Maisons-L.", top: "32%", left: "34%", major: false, info: "Livraison sous 1h" },
-              { name: "Herblay", top: "25%", left: "40%", major: false, info: "Livraison sous 1h" },
-              { name: "Cormeilles", top: "28%", left: "42%", major: false, info: "Livraison sous 1h" },
-              { name: "Franconville", top: "23%", left: "44%", major: false, info: "Livraison sous 1h" },
-              { name: "Paris 8e", top: "42%", left: "60%", major: false, info: "Livraison express" },
-              { name: "Paris 15e", top: "53%", left: "58%", major: false, info: "Livraison express" },
-              { name: "Paris 7e", top: "47%", left: "61%", major: false, info: "Livraison express" },
-              { name: "Garches", top: "51%", left: "42%", major: false, info: "Livraison sous 45 min" },
-              { name: "Montesson", top: "37%", left: "32%", major: false, info: "Livraison sous 1h" },
-              { name: "Le Pecq", top: "40%", left: "28%", major: false, info: "Livraison sous 1h" },
-              { name: "Carrières", top: "38%", left: "33%", major: false, info: "Livraison sous 1h" },
-            ].map((city, i) => (
-              <motion.div
-                key={city.name}
-                initial={{ scale: 0, opacity: 0 }}
-                whileInView={{ scale: 1, opacity: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.2 + i * 0.04, type: "spring", stiffness: 260, damping: 20 }}
-                className="absolute z-10 flex flex-col items-center group pointer-events-auto cursor-pointer"
-                style={{ top: city.top, left: city.left, transform: "translate(-50%, -50%)" }}
-              >
-                {/* Hover tooltip */}
-                <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-all duration-200 scale-90 group-hover:scale-100 pointer-events-none z-20">
-                  <div className="bg-foreground text-background text-[10px] font-medium px-3 py-2 rounded-xl shadow-xl whitespace-nowrap border border-primary/30">
-                    <p className="font-bold text-primary text-[11px]">{city.name}</p>
-                    <p className="mt-0.5">{city.info}</p>
-                  </div>
-                  <div className="w-2 h-2 bg-foreground rotate-45 mx-auto -mt-1" />
-                </div>
-                {city.major ? (
-                  <div className="relative transition-transform duration-200 group-hover:scale-125">
-                    <MapPin className="h-8 w-8 text-primary drop-shadow-lg" fill="hsl(var(--primary))" />
-                    <span className="absolute inset-0 flex items-center justify-center text-[7px] font-black text-primary-foreground pb-1">WD</span>
-                  </div>
-                ) : (
-                  <div className="bg-primary rounded-full p-1 shadow-md shadow-primary/30 border border-primary-foreground/50 transition-transform duration-200 group-hover:scale-125">
-                    <Car className="h-3 w-3 text-primary-foreground" />
-                  </div>
-                )}
-                <span className="mt-0.5 bg-foreground/80 text-background text-[8px] font-semibold px-1.5 py-px rounded-full whitespace-nowrap shadow">
-                  {city.name}
-                </span>
-              </motion.div>
-            ))}
-          </div>
+          <VehicleCoverageMap vehicles={showcaseVehicles} />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[

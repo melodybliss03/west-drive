@@ -108,6 +108,130 @@ docker compose up --build -d
 docker compose -f docker-compose.prod.yml up --build -d
 ```
 
+## Contact API (public)
+
+Endpoint public pour le formulaire de contact frontend:
+
+- `POST /contact/messages`
+
+Payload:
+```json
+{
+  "name": "Jean Dupont",
+  "email": "jean.dupont@email.com",
+  "phone": "+33601020304",
+  "subject": "Demande de disponibilite",
+  "message": "Bonjour, je souhaite connaitre vos disponibilites."
+}
+```
+
+## Deployment VPS Hostinger (API + PostgreSQL)
+
+### 1. Preparation locale
+
+1. Copier `.env.production.example` vers `.env.production`.
+2. Remplir toutes les valeurs `CHANGE_ME_*`.
+3. Verifier la build locale:
+
+```bash
+npm run build
+docker compose -f docker-compose.prod.yml --env-file .env.production config
+```
+
+### 2. Preparation serveur
+
+Sur le VPS (Ubuntu):
+
+```bash
+sudo apt update && sudo apt upgrade -y
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+newgrp docker
+docker --version
+docker compose version
+```
+
+### 3. Deploiement
+
+```bash
+# depuis ta machine locale
+scp -r ./backend user@VPS_IP:/opt/westdrive-backend
+
+# sur le VPS
+cd /opt/westdrive-backend
+cp .env.production.example .env.production
+nano .env.production
+docker compose -f docker-compose.prod.yml --env-file .env.production up --build -d
+docker compose -f docker-compose.prod.yml ps
+```
+
+### 4. Verification post-deploiement
+
+```bash
+docker compose -f docker-compose.prod.yml logs -f api
+curl http://127.0.0.1:3000/health
+```
+
+### 5. Reverse proxy (Nginx) + SSL
+
+Configurer Nginx pour proxy `https://api.your-domain.com` vers `http://127.0.0.1:3000`, puis installer TLS:
+
+```bash
+sudo apt install -y nginx certbot python3-certbot-nginx
+sudo certbot --nginx -d api.your-domain.com
+```
+
+### 6. Mises a jour
+
+```bash
+cd /opt/westdrive-backend
+git pull
+docker compose -f docker-compose.prod.yml --env-file .env.production up --build -d
+```
+
+## CI/CD GitHub Actions (push main => deploy automatique)
+
+Workflow livre: `.github/workflows/deploy-backend-vps.yml`
+
+Ce workflow fait:
+1. Build backend
+2. Build + tests frontend
+3. Copie du dossier `backend/` sur le VPS
+4. `docker compose up --build -d` automatique
+5. Health-check local sur le VPS
+
+Secrets GitHub requis (Settings > Secrets and variables > Actions):
+- `VPS_HOST`: IP ou domaine du VPS
+- `VPS_USER`: utilisateur SSH (ex: `ubuntu`)
+- `VPS_PASSWORD`: mot de passe SSH de `VPS_USER`
+- `VPS_SSH_PORT`: port SSH (souvent `22`)
+- `VPS_APP_PATH`: chemin cible sur VPS (ex: `/opt/west-drive`)
+- `VPS_API_DOMAIN`: sous-domaine API (ex: `api.votre-domaine.com`)
+- `LETSENCRYPT_EMAIL`: email utilise pour le certificat SSL Let's Encrypt
+
+Prerequis VPS:
+1. Le sous-domaine `VPS_API_DOMAIN` pointe deja vers l'IP du VPS (A record)
+2. L'utilisateur SSH a les droits sudo (installation nginx/certbot/ufw)
+3. Fichier `${VPS_APP_PATH}/backend/.env.production` present
+
+Le workflow execute automatiquement:
+1. Provision VPS idempotent (`backend/scripts/provision-vps.sh`)
+2. Installation/verification Docker, Nginx, UFW, Certbot
+3. Reverse proxy Nginx sur `https://VPS_API_DOMAIN` vers `127.0.0.1:3000`
+4. Certificat Let's Encrypt + redirection HTTPS
+5. Deploiement Docker Compose + health-check HTTP local et HTTPS public
+
+Premier bootstrap rapide sur VPS:
+
+```bash
+sudo mkdir -p /opt/west-drive/backend
+sudo chown -R $USER:$USER /opt/west-drive
+cp /opt/west-drive/backend/.env.production.example /opt/west-drive/backend/.env.production
+nano /opt/west-drive/backend/.env.production
+```
+
+Ensuite, chaque push sur `main` declenche le deploiement automatiquement.
+
 ## Database lifecycle
 
 ```bash

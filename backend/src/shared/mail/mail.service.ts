@@ -107,6 +107,7 @@ export class MailService {
     ].join('\n');
 
     let info: unknown;
+    const brandedHtml = this.wrapWithBranding(subject, html);
 
     try {
       info = await this.transporter.sendMail({
@@ -114,7 +115,7 @@ export class MailService {
         to: options.to,
         subject,
         text,
-        html,
+        html: brandedHtml,
       });
     } catch (error) {
       const reason =
@@ -509,6 +510,62 @@ export class MailService {
     await this.sendEmail({ to: options.to, subject, html, text });
   }
 
+  async sendContactAdminNotification(options: {
+    to: string;
+    requesterName: string;
+    requesterEmail: string;
+    requesterPhone?: string;
+    subject: string;
+    message: string;
+  }): Promise<void> {
+    const subject = `WestDrive - Nouveau message contact: ${options.subject}`;
+    const html = `
+      <h2 style="margin: 0 0 10px; font-size: 20px; color: #111827;">Nouveau message contact</h2>
+      <div style="border: 1px solid #f3f4f6; border-radius: 12px; padding: 14px; background: #ffffff;">
+        <p style="margin: 0 0 6px;"><strong>Nom:</strong> ${options.requesterName}</p>
+        <p style="margin: 0 0 6px;"><strong>Email:</strong> ${options.requesterEmail}</p>
+        ${options.requesterPhone ? `<p style="margin: 0 0 6px;"><strong>Telephone:</strong> ${options.requesterPhone}</p>` : ''}
+        <p style="margin: 0 0 10px;"><strong>Sujet:</strong> ${options.subject}</p>
+        <div style="background: #fafafa; border-radius: 10px; padding: 12px; white-space: pre-line; color: #111827;">${options.message}</div>
+      </div>
+    `;
+    const text = [
+      'WestDrive - Contact public',
+      `Nom: ${options.requesterName}`,
+      `Email: ${options.requesterEmail}`,
+      options.requesterPhone ? `Telephone: ${options.requesterPhone}` : '',
+      `Sujet: ${options.subject}`,
+      '',
+      options.message,
+    ].join('\n');
+
+    await this.sendEmail({ to: options.to, subject, html, text });
+  }
+
+  async sendContactRequestAcknowledgement(options: {
+    to: string;
+    requesterName: string;
+    subject: string;
+  }): Promise<void> {
+    const subject = 'WestDrive - Message bien recu';
+    const html = `
+      <h2 style="margin: 0 0 10px; font-size: 20px; color: #111827;">Message bien recu</h2>
+      <p style="margin: 0 0 8px;">Bonjour ${options.requesterName},</p>
+      <p style="margin: 0 0 8px;">
+        Nous avons bien recu votre message concernant: <strong>${options.subject}</strong>.
+      </p>
+      <p style="margin: 0;">Notre equipe WestDrive vous repondra dans les plus brefs delais.</p>
+    `;
+    const text = [
+      'WestDrive',
+      `Bonjour ${options.requesterName},`,
+      `Nous avons bien recu votre message concernant: ${options.subject}.`,
+      'Notre equipe vous repondra dans les plus brefs delais.',
+    ].join('\n');
+
+    await this.sendEmail({ to: options.to, subject, html, text });
+  }
+
   private async sendEmail(options: {
     to: string;
     subject: string;
@@ -522,13 +579,15 @@ export class MailService {
 
     let info: unknown;
 
+    const brandedHtml = this.wrapWithBranding(options.subject, options.html);
+
     try {
       info = await this.transporter.sendMail({
         from: `${this.fromName} <${this.fromEmail}>`,
         to: options.to,
         subject: options.subject,
         text: options.text,
-        html: options.html,
+        html: brandedHtml,
       });
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'Unknown SMTP error';
@@ -551,5 +610,27 @@ export class MailService {
     }
 
     return 'unknown';
+  }
+
+  private wrapWithBranding(subject: string, bodyHtml: string): string {
+    return `
+      <div style="margin: 0; padding: 28px 14px; background: #f5f5f5; font-family: Arial, sans-serif; color: #111827;">
+        <div style="max-width: 640px; margin: 0 auto; border-radius: 14px; overflow: hidden; border: 1px solid #e5e7eb; background: #ffffff;">
+          <div style="background: #111111; padding: 16px 20px;">
+            <span style="font-size: 18px; font-weight: 700; letter-spacing: 0.2px; color: #ffffff;">
+              WEST <span style="color: #ff4d00;">DRIVE</span>
+            </span>
+          </div>
+          <div style="padding: 18px 20px;">
+            ${bodyHtml}
+          </div>
+          <div style="border-top: 1px solid #f3f4f6; background: #fafafa; padding: 12px 20px;">
+            <p style="margin: 0; font-size: 12px; color: #6b7280;">
+              ${subject} · WestDrive · contact@pariswestdrive.fr
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
   }
 }

@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ContactModule } from './contact/contact.module';
 import { envValidationSchema } from './config/env.validation';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -86,6 +87,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
     ...(process.env.NODE_ENV === 'test' || process.env.SKIP_DB === 'true'
       ? []
       : [
+          ContactModule,
           UsersModule,
           IamModule,
           AuthModule,

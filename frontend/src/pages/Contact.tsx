@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { contactService } from "@/lib/api/services";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import TopBar from "@/components/TopBar";
@@ -13,14 +14,35 @@ export default function Contact() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const form = e.currentTarget;
+    const formData = new FormData(form);
     setLoading(true);
-    setTimeout(() => {
-      toast({ title: "Message envoyé", description: "Nous vous répondrons dans les plus brefs délais." });
+
+    try {
+      await contactService.createMessage({
+        name: String(formData.get("nom") || "").trim(),
+        email: String(formData.get("email") || "").trim().toLowerCase(),
+        phone: String(formData.get("telephone") || "").trim() || undefined,
+        subject: String(formData.get("sujet") || "").trim(),
+        message: String(formData.get("message") || "").trim(),
+      });
+
+      toast({
+        title: "Message envoye",
+        description: "Nous vous repondrons dans les plus brefs delais.",
+      });
+      form.reset();
+    } catch {
+      toast({
+        title: "Envoi impossible",
+        description: "Le message n'a pas pu etre envoye. Merci de reessayer.",
+        variant: "destructive",
+      });
+    } finally {
       setLoading(false);
-      (e.target as HTMLFormElement).reset();
-    }, 1000);
+    }
   };
 
   return (
@@ -38,20 +60,24 @@ export default function Contact() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label htmlFor="nom" className="text-sm font-medium">Nom</label>
-                    <Input id="nom" required placeholder="Votre nom" />
+                    <Input id="nom" name="nom" required placeholder="Votre nom" />
                   </div>
                   <div className="space-y-1.5">
                     <label htmlFor="email" className="text-sm font-medium">Email</label>
-                    <Input id="email" type="email" required placeholder="votre@email.com" />
+                    <Input id="email" name="email" type="email" required placeholder="votre@email.com" />
                   </div>
                 </div>
                 <div className="space-y-1.5">
+                  <label htmlFor="telephone" className="text-sm font-medium">Telephone (optionnel)</label>
+                  <Input id="telephone" name="telephone" type="tel" placeholder="06 00 00 00 00" />
+                </div>
+                <div className="space-y-1.5">
                   <label htmlFor="sujet" className="text-sm font-medium">Sujet</label>
-                  <Input id="sujet" required placeholder="Sujet de votre message" />
+                  <Input id="sujet" name="sujet" required placeholder="Sujet de votre message" />
                 </div>
                 <div className="space-y-1.5">
                   <label htmlFor="message" className="text-sm font-medium">Message</label>
-                  <Textarea id="message" required rows={6} placeholder="Votre message..." />
+                  <Textarea id="message" name="message" required rows={6} placeholder="Votre message..." />
                 </div>
                 <Button type="submit" disabled={loading} className="gap-2">
                   <Send className="h-4 w-4" />

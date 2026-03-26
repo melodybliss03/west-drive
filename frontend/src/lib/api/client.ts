@@ -8,7 +8,11 @@ type AuthHandlers = {
   onAuthFailure: () => void;
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+const DEFAULT_DEV_API_BASE_URL = "http://localhost:3000";
+
+const API_BASE_URL = import.meta.env.DEV
+  ? import.meta.env.VITE_API_BASE_URL_DEV || import.meta.env.VITE_API_BASE_URL || DEFAULT_DEV_API_BASE_URL
+  : import.meta.env.VITE_API_BASE_URL_PROD || import.meta.env.VITE_API_BASE_URL || DEFAULT_DEV_API_BASE_URL;
 
 let authHandlers: AuthHandlers | null = null;
 let refreshPromise: Promise<string | null> | null = null;

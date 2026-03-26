@@ -227,6 +227,14 @@ export type NotificationDto = {
   createdAt: string;
 };
 
+export type ContactMessagePayload = {
+  name: string;
+  email: string;
+  phone?: string;
+  subject: string;
+  message: string;
+};
+
 export const systemService = {
   health: () => apiRequest<{ status: string; uptime?: number }>("/health"),
 };
@@ -489,6 +497,14 @@ export const quotesService = {
     apiRequest<QuoteDto>(`/quotes/${id}/payment-confirmation`, {
       method: "POST",
       body: { sessionId },
+    }),
+};
+
+export const contactService = {
+  createMessage: (payload: ContactMessagePayload) =>
+    apiRequest<{ message: string }>("/contact/messages", {
+      method: "POST",
+      body: payload,
     }),
 };
 

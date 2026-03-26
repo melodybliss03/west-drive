@@ -1,0 +1,116 @@
+name: Deploy Backend VPS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/deploy-backend-vps.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Backend install
+        working-directory: backend
+        run: npm ci
+
+      - name: Backend build
+        working-directory: backend
+        run: npm run build
+
+      - name: Frontend install
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Frontend tests
+        working-directory: frontend
+        run: npm run test -- --run
+
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    needs: quality
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Copy backend project to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ secrets.VPS_SSH_PORT || '22' }}
+          source: "backend"
+          target: "${{ secrets.VPS_APP_PATH || '/opt/west-drive' }}"
+          rm: false
+
+      - name: Apply deployment on VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ secrets.VPS_SSH_PORT || '22' }}
+          script_stop: true
+          script: |
+            set -eu
+            APP_PATH="${{ secrets.VPS_APP_PATH || '/opt/west-drive' }}"
+
+            export DOMAIN="${{ secrets.VPS_API_DOMAIN }}"
+            export LETSENCRYPT_EMAIL="${{ secrets.LETSENCRYPT_EMAIL }}"
+            export APP_PATH="$APP_PATH"
+
+            if [ -z "$DOMAIN" ]; then
+              echo "Missing VPS_API_DOMAIN secret"
+              exit 1
+            fi
+
+            if [ -z "$LETSENCRYPT_EMAIL" ]; then
+              echo "Missing LETSENCRYPT_EMAIL secret"
+              exit 1
+            fi
+
+            chmod +x "$APP_PATH/backend/scripts/provision-vps.sh"
+            "$APP_PATH/backend/scripts/provision-vps.sh"
+
+            cd "$APP_PATH/backend"
+
+            if [ ! -f .env.production ]; then
+              echo "Missing .env.production in $APP_PATH/backend"
+              exit 1
+            fi
+
+            docker compose -f docker-compose.prod.yml --env-file .env.production up --build -d
+            docker compose -f docker-compose.prod.yml --env-file .env.production ps
+            docker compose -f docker-compose.prod.yml --env-file .env.production logs --tail=100 api
+
+            if command -v curl >/dev/null 2>&1; then
+              curl -fsS http://127.0.0.1:3000/health >/dev/null
+              curl -fsS "https://$DOMAIN/health" >/dev/null
+              echo "Health check passed"
+            fi

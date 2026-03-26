@@ -131,3 +131,38 @@
 .animate-marquee {
   animation: marquee 30s linear infinite;
 }
+
+.leaflet-container {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.leaflet-popup-content-wrapper {
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+}
+
+.leaflet-popup-tip {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+}
+
+.westdrive-map-tooltip.leaflet-tooltip {
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+  border: 1px solid hsl(var(--primary));
+  border-radius: 999px;
+  padding: 4px 8px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.westdrive-map-tooltip.leaflet-tooltip::before {
+  border-top-color: hsl(var(--foreground));
+}
+
+.westdrive-location-marker {
+  filter: hue-rotate(240deg) saturate(1.15) brightness(1.02)
+    drop-shadow(0 6px 14px rgba(0, 0, 0, 0.25));
+}
