@@ -20,6 +20,7 @@ import { IamModule } from './iam/iam.module';
 import { Notification } from './notifications/entities/notification.entity';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsWebhookModule } from './payments-webhook/payments-webhook.module';
+import { QuoteEvent } from './quotes/entities/quote-event.entity';
 import { Quote } from './quotes/entities/quote.entity';
 import { QuotesModule } from './quotes/quotes.module';
 import { ReservationEvent } from './reservations/entities/reservation-event.entity';
@@ -69,6 +70,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
                 VehicleScheduleSlot,
                 Notification,
                 Quote,
+                QuoteEvent,
                 Reservation,
                 ReservationEvent,
                 CompanyProfile,

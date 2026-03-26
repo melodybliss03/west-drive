@@ -2,14 +2,20 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { QuoteEvent } from './quote-event.entity';
 
 export enum QuoteStatus {
   NOUVELLE_DEMANDE = 'NOUVELLE_DEMANDE',
+  EN_ANALYSE = 'EN_ANALYSE',
+  PROPOSITION_ENVOYEE = 'PROPOSITION_ENVOYEE',
+  EN_NEGOCIATION = 'EN_NEGOCIATION',
   EN_ATTENTE_PAIEMENT = 'EN_ATTENTE_PAIEMENT',
   PAYEE = 'PAYEE',
+  CONVERTI_RESERVATION = 'CONVERTI_RESERVATION',
   REFUSEE = 'REFUSEE',
   ANNULEE = 'ANNULEE',
 }
@@ -100,4 +106,9 @@ export class Quote {
 
   @Column({ type: 'timestamptz', name: 'archived_at', nullable: true })
   archivedAt!: Date | null;
+
+  @OneToMany(() => QuoteEvent, (event) => event.quote, {
+    cascade: true,
+  })
+  events!: QuoteEvent[];
 }

@@ -18,7 +18,6 @@ import VehiculeCard from "@/components/VehiculeCard";
 import {
   temoignages,
   faqData,
-  villes,
 } from "@/data/mock";
 import type { Categorie } from "@/data/mock";
 import heroBg from "@/assets/hero-bg.jpg";
@@ -68,7 +67,7 @@ const pourquoiCards = [
 ];
 
 export default function Index() {
-  const { vehicles: showcaseVehicles } = useVehiclesCatalogPage(1, 12);
+  const { vehicles: showcaseVehicles, cities } = useVehiclesCatalogPage(1, 12);
   const [activeCategory, setActiveCategory] = useState<Categorie>("MICRO");
 
   const getVehiculesByCategorie = (cat: Categorie) =>
@@ -140,7 +139,7 @@ export default function Index() {
             transition={{ duration: 0.7, delay: 0.3 }}
             className="mt-12 bg-card/95 backdrop-blur-sm rounded-2xl p-6 border border-border shadow-xl w-full max-w-4xl"
           >
-            <SearchForm />
+            <SearchForm cities={cities} />
           </motion.div>
 
           {/* Social proof */}

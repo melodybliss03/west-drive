@@ -23,8 +23,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RequirePermissions } from '../iam/decorators/require-permissions.decorator';
 import { PermissionsGuard } from '../iam/guards/permissions.guard';
 import { ConfirmQuotePaymentDto } from './dto/confirm-quote-payment.dto';
+import { ConvertQuoteToReservationDto } from './dto/convert-quote-to-reservation.dto';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { SendQuoteProposalDto } from './dto/send-quote-proposal.dto';
+import { StartQuoteAnalysisDto } from './dto/start-quote-analysis.dto';
+import { StartQuoteNegotiationDto } from './dto/start-quote-negotiation.dto';
 import { UpdateQuoteStatusDto } from './dto/update-quote-status.dto';
 import { QuotesService } from './quotes.service';
 
@@ -76,6 +79,32 @@ export class QuotesController {
     return this.quotesService.sendProposal(id, dto);
   }
 
+  @Post(':id/analysis')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('quotes.manage')
+  @ApiOperation({ summary: 'Passer un devis en analyse' })
+  @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
+  @ApiForbiddenResponse({ description: 'Permission quotes.manage requise.' })
+  startAnalysis(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: StartQuoteAnalysisDto,
+  ) {
+    return this.quotesService.startAnalysis(id, dto);
+  }
+
+  @Post(':id/negotiation')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('quotes.manage')
+  @ApiOperation({ summary: 'Passer un devis en negociation' })
+  @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
+  @ApiForbiddenResponse({ description: 'Permission quotes.manage requise.' })
+  startNegotiation(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: StartQuoteNegotiationDto,
+  ) {
+    return this.quotesService.startNegotiation(id, dto);
+  }
+
   @Post(':id/payment-session')
   @ApiOperation({ summary: 'Regenerer un lien de paiement Stripe pour un devis' })
   createPaymentSession(@Param('id', new ParseUUIDPipe()) id: string) {
@@ -95,6 +124,33 @@ export class QuotesController {
     @Body() dto: ConfirmQuotePaymentDto,
   ) {
     return this.quotesService.confirmPayment(id, dto);
+  }
+
+  @Post(':id/convert-to-reservation')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('quotes.manage')
+  @ApiOperation({ summary: 'Convertir un devis paye en reservation' })
+  @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
+  @ApiForbiddenResponse({ description: 'Permission quotes.manage requise.' })
+  convertToReservation(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: ConvertQuoteToReservationDto,
+  ) {
+    return this.quotesService.convertToReservation(id, dto);
+  }
+
+  @Get(':id/events')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('quotes.read')
+  @ApiOperation({ summary: 'Lister la timeline d un devis' })
+  @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
+  @ApiForbiddenResponse({ description: 'Permission quotes.read requise.' })
+  findEvents(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit = 20,
+  ) {
+    return this.quotesService.findEvents(id, page, limit);
   }
 
   @Patch(':id/status')

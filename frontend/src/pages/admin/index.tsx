@@ -5,9 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { type Vehicule } from "@/data/mock";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import type { TabKey, TeamMember, Notification as NotifType, Reservation } from "./data";
+import type { DevisRow } from "./data";
 import type { AdminUser } from "./types";
-import { mockDevis } from "./data";
-import type { MockDevis } from "./data";
 import AdminAuth from "./AdminAuth";
 import AdminSidebar from "./AdminSidebar";
 import DashboardTab from "./DashboardTab";
@@ -16,14 +15,16 @@ import ReservationsTab from "./ReservationsTab";
 import FlotteTab from "./FlotteTab";
 import UtilisateursTab from "./UtilisateursTab";
 import ProfilTab from "./ProfilTab";
-import DevisTab from "./DevisTab";
+import DevisTab from "./DevisTab.tsx";
 import {
   reservationsService,
   notificationsService,
+  quotesService,
   usersService,
   vehiclesService,
 } from "@/lib/api/services";
 import {
+  mapQuoteDtoToDevisRow,
   mapReservationDtoToAdminReservation,
   mapVehicleDtoToVehicule,
 } from "@/lib/mappers";
@@ -85,13 +86,17 @@ export default function Boss() {
   const [reservationsLimit] = useState(10);
   const [reservationsMeta, setReservationsMeta] = useState<PaginationMeta | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [devis, setDevis] = useState<MockDevis[]>(mockDevis);
+  const [devis, setDevis] = useState<DevisRow[]>([]);
+  const [devisPage, setDevisPage] = useState(1);
+  const [devisLimit] = useState(10);
+  const [devisMeta, setDevisMeta] = useState<PaginationMeta | null>(null);
   const [notifications, setNotifications] = useState<NotifType[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(false);
   const [isLoadingReservations, setIsLoadingReservations] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
 
   const unreadCount = notifications.filter(n => !n.lu).length;
 
@@ -280,13 +285,38 @@ export default function Boss() {
     loadNotifications();
   }, [isBootstrapping, user]);
 
-  if (isBootstrapping) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
-        Chargement de la session...
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (isBootstrapping || !user || tab !== "devis") return;
+
+    const loadQuotes = async () => {
+      setIsLoadingQuotes(true);
+      try {
+        const collection = await quotesService.list({ page: devisPage, limit: devisLimit });
+        if (Array.isArray(collection)) {
+          const mapped = collection.map(mapQuoteDtoToDevisRow);
+          setDevis(mapped);
+          setDevisMeta({
+            page: devisPage,
+            limit: devisLimit,
+            totalItems: mapped.length,
+            totalPages: 1,
+            hasNextPage: false,
+            hasPreviousPage: devisPage > 1,
+          });
+        } else {
+          setDevis(collection.items.map(mapQuoteDtoToDevisRow));
+          setDevisMeta(collection.meta);
+        }
+      } catch {
+        setDevis([]);
+        setDevisMeta(null);
+      } finally {
+        setIsLoadingQuotes(false);
+      }
+    };
+
+    loadQuotes();
+  }, [isBootstrapping, user, tab, devisPage, devisLimit]);
 
   if (!user) return <AdminAuth />;
 
@@ -297,6 +327,8 @@ export default function Boss() {
         ? isLoadingReservations
         : tab === "utilisateurs"
           ? isLoadingUsers
+          : tab === "devis"
+            ? isLoadingQuotes
           : false;
 
   const handleLogout = () => { logout(); navigate("/"); };
@@ -412,7 +444,15 @@ export default function Boss() {
                   meta={reservationsMeta}
                 />
               )}
-              {tab === "devis" && <DevisTab devis={devis} setDevis={setDevis} />}
+              {tab === "devis" && (
+                <DevisTab
+                  devis={devis}
+                  setDevis={setDevis}
+                  page={devisPage}
+                  setPage={setDevisPage}
+                  meta={devisMeta}
+                />
+              )}
               {tab === "flotte" && <FlotteTab />}
               {tab === "utilisateurs" && (
                 <UtilisateursTab

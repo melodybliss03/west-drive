@@ -1,4 +1,3 @@
-import { vehicleImages } from "@/data/vehicleImages";
 import { vehicules as mockVehicules, type Vehicule } from "@/data/mock";
 
 // ── Types ──
@@ -25,11 +24,26 @@ export type Evenement = {
 };
 export interface Reservation {
   id: string;
+  publicReference?: string;
+  backendStatus?: string;
+  vehicleImageUrl?: string;
   client: string;
   email: string;
   telephone: string;
   vehicule: string;
   vehiculeId: string;
+  requestedVehicleType?: string;
+  vehicleDetails?: {
+    marque?: string;
+    modele?: string;
+    annee?: number;
+    categorie?: string;
+    transmission?: string;
+    energie?: string;
+    places?: number;
+    immatriculation?: string;
+    ville?: string;
+  };
   debut: string;
   fin: string;
   statut: string;
@@ -90,8 +104,10 @@ export interface Notification {
   lu: boolean;
 }
 
-export interface MockDevis {
+export interface DevisRow {
   id: string;
+  publicReference?: string;
+  backendStatus?: string;
   client: string;
   email: string;
   telephone: string;
@@ -103,7 +119,16 @@ export interface MockDevis {
   dateFin: string;
   typeVehicule: string;
   nombreVehicules: number;
-  statut: "en attente" | "validé" | "refusé" | "traité";
+  statut:
+    | "en attente"
+    | "en analyse"
+    | "proposition envoyee"
+    | "en negociation"
+    | "en attente paiement"
+    | "paye"
+    | "converti"
+    | "refuse"
+    | "annule";
   creeLe: string;
   commentaireRefus?: string;
 }
@@ -121,31 +146,12 @@ export const mockReservations: Reservation[] = [
   { id: "R009", client: "Hugo Roux", email: "hugo@mail.com", telephone: "06 89 01 23 45", vehicule: "Renault Clio V", vehiculeId: "3", debut: "2025-03-09", fin: "2025-03-11", statut: "terminée", montant: 110, caution: 600, ville: "Nanterre" },
 ];
 
-export const vehicleNameToId: Record<string, string> = {
-  "Peugeot 108": "1", "Fiat 500": "2", "Renault Clio V": "3", "Peugeot 308": "4",
-  "BMW Série 3": "5", "Mercedes Classe C": "6", "Peugeot 3008": "7", "Audi Q5": "8",
-  "Citroën C1": "9", "Volkswagen Golf 8": "10", "Audi A4": "11", "Renault Captur": "12",
-};
-
-export const getVehicleImage = (name: string, id?: string): string | undefined => {
-  if (id && vehicleImages[id]) return vehicleImages[id];
-  const mappedId = vehicleNameToId[name];
-  return mappedId ? vehicleImages[mappedId] : undefined;
-};
-
 export const mockUsers: MockUser[] = [
   { id: "U001", nom: "Martin", prenom: "Sophie", email: "sophie@mail.com", type: "particulier", creeLe: "2025-01-15", reservations: 3, statut: "actif", role: "client", telephone: "06 12 34 56 78", ville: "Puteaux", adresse: "12 Rue de la Paix" },
   { id: "U002", nom: "Dubois", prenom: "Thomas", email: "thomas@mail.com", type: "particulier", creeLe: "2025-02-01", reservations: 1, statut: "actif", role: "client", telephone: "06 23 45 67 89", ville: "La Défense", adresse: "5 Avenue Charles de Gaulle" },
   { id: "U003", nom: "Laurent", prenom: "Marie", email: "marie@mail.com", type: "particulier", creeLe: "2024-12-10", reservations: 5, statut: "actif", role: "client", telephone: "06 34 56 78 90", ville: "Nanterre", adresse: "8 Boulevard des Nations" },
   { id: "U004", nom: "Entreprise ABC", prenom: "—", email: "contact@abc.com", type: "entreprise", creeLe: "2025-01-20", reservations: 8, statut: "actif", role: "client", telephone: "01 23 45 67 89", ville: "Rueil-Malmaison", adresse: "15 Rue du Commerce" },
   { id: "U005", nom: "Leroy", prenom: "Paul", email: "paul@mail.com", type: "particulier", creeLe: "2025-03-01", reservations: 0, statut: "suspendu", role: "client", telephone: "06 45 67 89 01", ville: "La Défense", adresse: "3 Place de la Défense" },
-];
-
-export const mockDevis: MockDevis[] = [
-  { id: "D001", client: "Marie Laurent", email: "marie@mail.com", telephone: "06 34 56 78 90", type: "particulier", ville: "Nanterre", dateDebut: "2025-04-01", dateFin: "2025-04-05", typeVehicule: "Berline", nombreVehicules: 1, statut: "en attente", creeLe: "2025-03-06" },
-  { id: "D002", client: "Entreprise ABC", email: "contact@abc.com", telephone: "01 23 45 67 89", type: "entreprise", nomEntreprise: "Entreprise ABC", siret: "123 456 789 00001", ville: "Rueil-Malmaison", dateDebut: "2025-04-10", dateFin: "2025-04-20", typeVehicule: "SUV", nombreVehicules: 3, statut: "en attente", creeLe: "2025-03-10" },
-  { id: "D003", client: "Thomas Dubois", email: "thomas@mail.com", telephone: "06 23 45 67 89", type: "particulier", ville: "La Défense", dateDebut: "2025-03-20", dateFin: "2025-03-22", typeVehicule: "Compacte", nombreVehicules: 1, statut: "traité", creeLe: "2025-03-01" },
-  { id: "D004", client: "Sophie Martin", email: "sophie@mail.com", telephone: "06 12 34 56 78", type: "particulier", ville: "Puteaux", dateDebut: "2025-03-25", dateFin: "2025-03-28", typeVehicule: "Micro", nombreVehicules: 1, statut: "refusé", creeLe: "2025-02-28" },
 ];
 
 export const mockFlotte: FlotteItem[] = [
@@ -322,8 +328,14 @@ export const statColors: Record<string, string> = {
 
 export const devisStatColors: Record<string, string> = {
   "en attente": "bg-amber-500/10 text-amber-600 border-amber-200",
-  "traité": "bg-emerald-500/10 text-emerald-600 border-emerald-200",
-  "refusé": "bg-destructive/10 text-destructive border-destructive/20",
+  "en analyse": "bg-blue-500/10 text-blue-600 border-blue-200",
+  "proposition envoyee": "bg-indigo-500/10 text-indigo-600 border-indigo-200",
+  "en negociation": "bg-cyan-500/10 text-cyan-600 border-cyan-200",
+  "en attente paiement": "bg-orange-500/10 text-orange-600 border-orange-200",
+  "paye": "bg-emerald-500/10 text-emerald-600 border-emerald-200",
+  "converti": "bg-teal-500/10 text-teal-600 border-teal-200",
+  "refuse": "bg-destructive/10 text-destructive border-destructive/20",
+  "annule": "bg-destructive/10 text-destructive border-destructive/20",
 };
 
 export const etatColors: Record<string, string> = {

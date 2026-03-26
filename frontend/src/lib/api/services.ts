@@ -92,6 +92,7 @@ function toPaginationQuery(params?: PaginationParams): string {
 
 export type ReservationDto = {
   id: string;
+  publicReference?: string;
   userId?: string | null;
   vehicleId?: string | null;
   requesterType: "PARTICULIER" | "ENTREPRISE";
@@ -108,6 +109,20 @@ export type ReservationDto = {
   depositAmount: number;
   status: ReservationStatus;
   vehicleName?: string;
+  vehicle?: {
+    id: string;
+    name?: string;
+    brand?: string;
+    model?: string;
+    year?: number;
+    category?: string;
+    transmission?: string;
+    energy?: string;
+    seats?: number;
+    plateNumber?: string;
+    city?: string;
+    images?: VehicleImageDto[];
+  };
 };
 
 export type ReservationsListResponse =
@@ -119,6 +134,49 @@ export type FleetOverviewDto = {
   entretienRequis: number;
   enPanne: number;
   totalIncidentsOuverts: number;
+};
+
+export type QuoteStatus =
+  | "NOUVELLE_DEMANDE"
+  | "EN_ANALYSE"
+  | "PROPOSITION_ENVOYEE"
+  | "EN_NEGOCIATION"
+  | "EN_ATTENTE_PAIEMENT"
+  | "PAYEE"
+  | "CONVERTI_RESERVATION"
+  | "REFUSEE"
+  | "ANNULEE";
+
+export type QuoteDto = {
+  id: string;
+  publicReference: string;
+  requesterType: "PARTICULIER" | "ENTREPRISE";
+  requesterName: string;
+  requesterEmail: string;
+  requesterPhone: string;
+  companyName?: string | null;
+  companySiret?: string | null;
+  pickupCity: string;
+  requestedVehicleType: string;
+  requestedQuantity: number;
+  startAt: string;
+  endAt: string;
+  comment?: string | null;
+  status: QuoteStatus;
+  amountTtc: number;
+  currency: string;
+  proposalDetails?: Record<string, unknown> | null;
+  proposalMessage?: string | null;
+  createdAt: string;
+};
+
+export type QuoteEventDto = {
+  id: string;
+  quoteId: string;
+  type: string;
+  occurredAt: string;
+  payload?: Record<string, unknown>;
+  createdAt: string;
 };
 
 export type FleetIncidentType = "DOMMAGE" | "PANNE" | "HISTORIQUE";
@@ -280,17 +338,35 @@ export const reservationsService = {
     apiRequest<ReservationDto>("/reservations", { method: "POST", body: payload }),
   patch: (id: string, payload: Record<string, unknown>) =>
     apiRequest<ReservationDto>(`/reservations/${id}`, { method: "PATCH", body: payload, auth: true }),
-  patchStatus: (id: string, status: ReservationStatus) =>
+  patchStatus: (id: string, status: ReservationStatus, comment?: string) =>
     apiRequest<ReservationDto>(`/reservations/${id}/status`, {
       method: "PATCH",
-      body: { status },
+      body: { status, comment },
       auth: true,
     }),
   preauth: (id: string, amount: number) =>
     apiRequest<{ message?: string }>(`/reservations/${id}/stripe-preauth`, {
       method: "POST",
       body: { amount },
-      auth: true,
+    }),
+  createPaymentSession: (id: string) =>
+    apiRequest<{ checkoutUrl: string; sessionId: string }>(
+      `/reservations/${id}/payment-session`,
+      {
+        method: "POST",
+      },
+    ),
+  createPaymentLink: (id: string) =>
+    apiRequest<{ paymentLinkUrl: string }>(
+      `/reservations/${id}/payment-link`,
+      {
+        method: "POST",
+      },
+    ),
+  confirmPayment: (id: string, sessionId: string) =>
+    apiRequest<ReservationDto>(`/reservations/${id}/payment-confirmation`, {
+      method: "POST",
+      body: { sessionId },
     }),
   remove: (id: string) =>
     apiRequest<{ message: string }>(`/reservations/${id}`, {
@@ -308,6 +384,112 @@ export const reservationsService = {
       `/reservations/${id}/events${toPaginationQuery(params)}`,
       { auth: true }
     ),
+};
+
+export const quotesService = {
+  list: (params?: PaginationParams) =>
+    apiRequest<PaginatedCollection<QuoteDto> | QuoteDto[]>(
+      `/quotes${toPaginationQuery(params)}`,
+      { auth: true },
+    ),
+  create: (payload: {
+    requesterType: "PARTICULIER" | "ENTREPRISE";
+    requesterName: string;
+    requesterEmail: string;
+    requesterPhone: string;
+    companyName?: string;
+    companySiret?: string;
+    pickupCity: string;
+    requestedVehicleType: string;
+    requestedQuantity: number;
+    startAt: string;
+    endAt: string;
+    comment?: string;
+  }) =>
+    apiRequest<QuoteDto>("/quotes", {
+      method: "POST",
+      body: payload,
+    }),
+  sendProposal: (
+    id: string,
+    payload: {
+      amountTtc: number;
+      currency?: string;
+      proposalDetails?: Record<string, unknown>;
+      message?: string;
+    },
+  ) =>
+    apiRequest<{ quote: QuoteDto; checkoutUrl: string; sessionId: string }>(
+      `/quotes/${id}/proposal`,
+      {
+        method: "POST",
+        body: payload,
+        auth: true,
+      },
+    ),
+  startAnalysis: (id: string, comment?: string) =>
+    apiRequest<QuoteDto>(`/quotes/${id}/analysis`, {
+      method: "POST",
+      body: { comment },
+      auth: true,
+    }),
+  startNegotiation: (id: string, message?: string) =>
+    apiRequest<QuoteDto>(`/quotes/${id}/negotiation`, {
+      method: "POST",
+      body: { message },
+      auth: true,
+    }),
+  updateStatus: (id: string, status: QuoteStatus, comment?: string) =>
+    apiRequest<QuoteDto>(`/quotes/${id}/status`, {
+      method: "PATCH",
+      body: { status, comment },
+      auth: true,
+    }),
+  convertToReservation: (
+    id: string,
+    payload?: {
+      vehicleId?: string;
+      amountTtc?: number;
+      depositAmount?: number;
+    },
+  ) =>
+    apiRequest<{ quote: QuoteDto; reservationId: string; reservationPublicReference: string }>(
+      `/quotes/${id}/convert-to-reservation`,
+      {
+        method: "POST",
+        body: payload ?? {},
+        auth: true,
+      },
+    ),
+  findEvents: (id: string, params?: PaginationParams) =>
+    apiRequest<PaginatedCollection<QuoteEventDto> | QuoteEventDto[]>(
+      `/quotes/${id}/events${toPaginationQuery(params)}`,
+      { auth: true },
+    ),
+  remove: (id: string) =>
+    apiRequest<{ message: string }>(`/quotes/${id}`, {
+      method: "DELETE",
+      auth: true,
+    }),
+  createPaymentSession: (id: string) =>
+    apiRequest<{ checkoutUrl: string; sessionId: string }>(
+      `/quotes/${id}/payment-session`,
+      {
+        method: "POST",
+      },
+    ),
+  createPaymentLink: (id: string) =>
+    apiRequest<{ paymentLinkUrl: string }>(
+      `/quotes/${id}/payment-link`,
+      {
+        method: "POST",
+      },
+    ),
+  confirmPayment: (id: string, sessionId: string) =>
+    apiRequest<QuoteDto>(`/quotes/${id}/payment-confirmation`, {
+      method: "POST",
+      body: { sessionId },
+    }),
 };
 
 export const fleetService = {

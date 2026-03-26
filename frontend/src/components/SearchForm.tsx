@@ -4,8 +4,6 @@ import { Search, MapPin, Calendar, Car, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { villes } from "@/data/mock";
-import type { Categorie } from "@/data/mock";
 
 interface SearchFormProps {
   cities?: Array<{ id: string; nom: string }>;
@@ -41,7 +39,7 @@ export default function SearchForm({ cities, defaultValues, compact }: SearchFor
     navigate(`/resultats?${params.toString()}`);
   };
 
-  const cityOptions = cities && cities.length > 0 ? cities : villes;
+  const cityOptions = cities && cities.length > 0 ? cities : [];
 
   return (
     <form onSubmit={handleSubmit} className={`${compact ? "space-y-3" : "space-y-4"}`}>

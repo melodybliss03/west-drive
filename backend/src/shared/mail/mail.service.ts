@@ -408,6 +408,7 @@ export class MailService {
     to: string;
     requesterName: string;
     publicReference: string;
+    message?: string;
   }): Promise<void> {
     const subject = `WestDrive - Mise a jour devis ${options.publicReference}`;
     const html = `
@@ -415,6 +416,7 @@ export class MailService {
         <h2 style="margin-bottom: 8px;">WestDrive</h2>
         <p>Bonjour ${options.requesterName},</p>
         <p>Apres etude, nous ne pouvons pas donner suite au devis <strong>${options.publicReference}</strong> pour le moment.</p>
+        ${options.message ? `<p>Commentaire: ${options.message}</p>` : ''}
         <p>Notre equipe reste disponible pour ajuster votre besoin et vous proposer une autre solution.</p>
       </div>
     `;
@@ -422,7 +424,58 @@ export class MailService {
       'WestDrive',
       `Bonjour ${options.requesterName},`,
       `Le devis ${options.publicReference} a ete refuse.`,
+      options.message ? `Commentaire: ${options.message}` : '',
       'Notre equipe peut vous proposer une alternative si besoin.',
+    ].join('\n');
+
+    await this.sendEmail({ to: options.to, subject, html, text });
+  }
+
+  async sendQuoteAnalysisStartedEmail(options: {
+    to: string;
+    requesterName: string;
+    publicReference: string;
+    comment?: string;
+  }): Promise<void> {
+    const subject = `WestDrive - Devis ${options.publicReference} en analyse`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
+        <h2 style="margin-bottom: 8px;">WestDrive</h2>
+        <p>Bonjour ${options.requesterName},</p>
+        <p>Votre devis <strong>${options.publicReference}</strong> est en cours d analyse par notre equipe.</p>
+        ${options.comment ? `<p>Commentaire: ${options.comment}</p>` : ''}
+      </div>
+    `;
+    const text = [
+      'WestDrive',
+      `Bonjour ${options.requesterName},`,
+      `Votre devis ${options.publicReference} est en cours d analyse.`,
+      options.comment ? `Commentaire: ${options.comment}` : '',
+    ].join('\n');
+
+    await this.sendEmail({ to: options.to, subject, html, text });
+  }
+
+  async sendQuoteNegotiationUpdatedEmail(options: {
+    to: string;
+    requesterName: string;
+    publicReference: string;
+    message?: string;
+  }): Promise<void> {
+    const subject = `WestDrive - Mise a jour de votre devis ${options.publicReference}`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
+        <h2 style="margin-bottom: 8px;">WestDrive</h2>
+        <p>Bonjour ${options.requesterName},</p>
+        <p>Votre devis <strong>${options.publicReference}</strong> est en negociation.</p>
+        ${options.message ? `<p>${options.message}</p>` : ''}
+      </div>
+    `;
+    const text = [
+      'WestDrive',
+      `Bonjour ${options.requesterName},`,
+      `Votre devis ${options.publicReference} est en negociation.`,
+      options.message ?? '',
     ].join('\n');
 
     await this.sendEmail({ to: options.to, subject, html, text });

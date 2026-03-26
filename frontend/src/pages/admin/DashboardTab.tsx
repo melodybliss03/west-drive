@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { TabKey, Reservation, TeamMember } from "./data";
-import { statColors, roleColors, getVehicleImage } from "./data";
+import { statColors, roleColors } from "./data";
 import type { Vehicule } from "@/data/mock";
 
 interface DashboardTabProps {
@@ -75,7 +75,7 @@ export default function DashboardTab({ reservations, vehicles, usersCount, teamM
           <CardContent>
             <div className="space-y-3">
               {reservations.slice(0, 5).map(r => {
-                const img = getVehicleImage(r.vehicule, r.vehiculeId);
+                const img = r.vehicleImageUrl;
                 return (
                   <div key={r.id} className="flex items-center gap-4 p-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors">
                     {img ? (

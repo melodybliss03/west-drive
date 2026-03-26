@@ -22,9 +22,32 @@ import {
 } from "@/components/ui/pagination";
 import { useToast } from "@/hooks/use-toast";
 import type { Reservation, Evenement } from "./data";
-import { statColors, getVehicleImage } from "./data";
+import { statColors } from "./data";
 import { reservationsService } from "@/lib/api/services";
-import { ApiHttpError, PaginationMeta } from "@/lib/api/types";
+import { ApiHttpError, PaginationMeta, ReservationStatus } from "@/lib/api/types";
+import { mapReservationStatusToLegacy } from "@/lib/mappers";
+
+const SYSTEM_EVENT_TITLES: Record<string, string> = {
+  reservation_created: "Reservation creee",
+  reservation_updated: "Reservation mise a jour",
+  reservation_status_changed: "Statut de reservation mis a jour",
+  reservation_commercial_reviewed: "Dossier analyse par l'equipe commerciale",
+  reservation_counter_offer_sent: "Proposition commerciale envoyee",
+  reservation_payment_session_created: "Lien de paiement genere",
+  reservation_payment_link_created: "Lien de paiement Link genere",
+  reservation_payment_confirmed: "Paiement confirme",
+  reservation_stripe_preauth_created: "Preautorisation Stripe creee",
+  reservation_vehicle_handover: "Vehicule remis au client",
+  reservation_closed: "Reservation cloturee",
+  reservation_archived: "Reservation archivee",
+};
+
+function toFriendlyEventTitle(evt: any): string {
+  if (evt?.payload?.title) return String(evt.payload.title);
+  if (evt?.type && SYSTEM_EVENT_TITLES[evt.type]) return SYSTEM_EVENT_TITLES[evt.type];
+  if (evt?.type) return String(evt.type).replace(/_/g, " ");
+  return "Evenement";
+}
 
 // ─── Types locaux ─────────────────────────────────────────────────────────────
 
@@ -91,6 +114,8 @@ export default function ReservationsTab({
   const [editPickupCity, setEditPickupCity] = useState("");
   const [editAmount, setEditAmount] = useState("");
   const [editDeposit, setEditDeposit] = useState("");
+  const [editStatus, setEditStatus] = useState<ReservationStatus | "">("");
+  const [editStatusComment, setEditStatusComment] = useState("");
   const [editError, setEditError] = useState("");
   
   // Timeline loading state
@@ -130,6 +155,7 @@ export default function ReservationsTab({
     setEditPickupCity(r.ville || "");
     setEditAmount(String(r.montant ?? ""));
     setEditDeposit(String(r.caution ?? ""));
+    setEditStatus((r.backendStatus as ReservationStatus) || "");
   };
 
   const closeModal = () => {
@@ -156,6 +182,7 @@ export default function ReservationsTab({
     setEvtVisibleClient(true);
     setEvtEnvoiEmail(false);
     setEvtTitreError("");
+    setEditStatusComment("");
     setEditError("");
   };
 
@@ -421,6 +448,7 @@ export default function ReservationsTab({
     }
 
     try {
+      // Patch the basic fields
       await reservationsService.patch(selectedReservation.id, {
         startAt: new Date(editStartAt).toISOString(),
         endAt: new Date(editEndAt).toISOString(),
@@ -428,6 +456,15 @@ export default function ReservationsTab({
         amountTtc: amount,
         depositAmount: deposit,
       });
+
+      // If status changed, also patch the status with optional comment for customer email.
+      if (editStatus && editStatus !== (selectedReservation.backendStatus as ReservationStatus)) {
+        await reservationsService.patchStatus(
+          selectedReservation.id,
+          editStatus,
+          editStatusComment.trim() || undefined,
+        );
+      }
 
       setReservations((prev) =>
         prev.map((r) =>
@@ -439,6 +476,8 @@ export default function ReservationsTab({
                 ville: editPickupCity.trim(),
                 montant: amount,
                 caution: deposit,
+                backendStatus: editStatus || r.backendStatus,
+                statut: editStatus ? mapReservationStatusToLegacy(editStatus) : r.statut,
               }
             : r,
         ),
@@ -476,7 +515,7 @@ export default function ReservationsTab({
     if (action === "modifier") return "Modifier la réservation";
     if (action === "supprimer") return "Supprimer la réservation";
     if (action === "timeline")  return "Historique des événements";
-    return `Réservation ${selectedReservation?.id}`;
+    return `Reservation ${selectedReservation?.publicReference || selectedReservation?.id}`;
   };
 
   // ── Rendu ──────────────────────────────────────────────────────────────────
@@ -592,7 +631,7 @@ export default function ReservationsTab({
                     </TableRow>
                   ) : (
                     filteredRes.map(r => {
-                      const img = getVehicleImage(r.vehicule, r.vehiculeId);
+                      const img = r.vehicleImageUrl;
                       return (
                         <TableRow key={r.id}>
                           <TableCell className="font-mono text-xs">{r.id}</TableCell>
@@ -654,7 +693,7 @@ export default function ReservationsTab({
 
           {/* ── Vue détail ──────────────────────────────────────── */}
           {!action && selectedReservation && (() => {
-            const img = getVehicleImage(selectedReservation.vehicule, selectedReservation.vehiculeId);
+            const img = selectedReservation.vehicleImageUrl;
             return (
               <div className="space-y-5">
                 {/* Véhicule + statut */}
@@ -671,6 +710,43 @@ export default function ReservationsTab({
                     <Badge variant="outline" className={statColors[selectedReservation.statut] || ""}>
                       {selectedReservation.statut}
                     </Badge>
+                  </div>
+                </div>
+
+                {/* Details vehicule importants */}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Vehicule loue</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="p-3 rounded-xl bg-muted/40">
+                      <p className="text-xs text-muted-foreground">Type demande</p>
+                      <p className="text-sm font-medium">{selectedReservation.requestedVehicleType || "-"}</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-muted/40">
+                      <p className="text-xs text-muted-foreground">Immatriculation</p>
+                      <p className="text-sm font-medium">{selectedReservation.vehicleDetails?.immatriculation || "-"}</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-muted/40">
+                      <p className="text-xs text-muted-foreground">Modele</p>
+                      <p className="text-sm font-medium">
+                        {selectedReservation.vehicleDetails?.marque || ""} {selectedReservation.vehicleDetails?.modele || ""}
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-muted/40">
+                      <p className="text-xs text-muted-foreground">Categorie</p>
+                      <p className="text-sm font-medium">{selectedReservation.vehicleDetails?.categorie || "-"}</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-muted/40">
+                      <p className="text-xs text-muted-foreground">Transmission / Energie</p>
+                      <p className="text-sm font-medium">
+                        {(selectedReservation.vehicleDetails?.transmission || "-")} / {(selectedReservation.vehicleDetails?.energie || "-")}
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-muted/40">
+                      <p className="text-xs text-muted-foreground">Annee / Places</p>
+                      <p className="text-sm font-medium">
+                        {(selectedReservation.vehicleDetails?.annee || "-")} / {(selectedReservation.vehicleDetails?.places || "-")}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -869,6 +945,37 @@ export default function ReservationsTab({
                   <Label className="text-xs font-medium">Caution (€)</Label>
                   <Input type="number" min="0" step="0.01" value={editDeposit} onChange={(e) => { setEditDeposit(e.target.value); setEditError(""); }} />
                 </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Statut</Label>
+                <select
+                  value={editStatus}
+                  onChange={(e) => { setEditStatus((e.target.value as ReservationStatus) || ""); setEditError(""); }}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">-- Sélectionner un statut --</option>
+                  <option value="NOUVELLE_DEMANDE">Nouvelle demande</option>
+                  <option value="EN_ANALYSE">En analyse</option>
+                  <option value="PROPOSITION_ENVOYEE">Proposition envoyée</option>
+                  <option value="EN_ATTENTE_PAIEMENT">En attente paiement</option>
+                  <option value="CONFIRMEE">Confirmée</option>
+                  <option value="EN_COURS">En cours</option>
+                  <option value="CLOTUREE">Clôturée</option>
+                  <option value="ANNULEE">Annulée</option>
+                  <option value="REFUSEE">Refusée</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Commentaire client (optionnel)</Label>
+                <textarea
+                  value={editStatusComment}
+                  onChange={(e) => { setEditStatusComment(e.target.value); setEditError(""); }}
+                  rows={3}
+                  placeholder="Message ajoute au mail de changement de statut..."
+                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
               </div>
 
               {editError && <p className="text-xs text-destructive">{editError}</p>}
@@ -1147,7 +1254,7 @@ export default function ReservationsTab({
                     <div className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${evt.type === "systeme" ? "bg-primary" : "bg-muted-foreground"}`} />
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium">{evt.payload?.title || evt.type}</p>
+                        <p className="text-sm font-medium">{toFriendlyEventTitle(evt)}</p>
                         {evt.payload?.visibleClient && (
                           <Badge variant="outline" className="text-[10px] py-0 px-1.5">Client</Badge>
                         )}

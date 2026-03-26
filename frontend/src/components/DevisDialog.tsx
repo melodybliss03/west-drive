@@ -3,6 +3,8 @@ import { User, Building2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { quotesService } from "@/lib/api/services";
+import { ApiHttpError } from "@/lib/api/types";
 import {
   Dialog,
   DialogContent,
@@ -71,6 +73,7 @@ export default function DevisDialog({
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState(false);
+  const [createdReference, setCreatedReference] = useState<string>("");
 
   const [form, setForm] = useState({
     nom: "",
@@ -160,22 +163,47 @@ export default function DevisDialog({
   };
   // ────────────────────────────────────────────────────────────────────────────
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
     setLoading(true);
-    setTimeout(() => {
+
+    try {
+      const createdQuote = await quotesService.create({
+        requesterType: type === "entreprise" ? "ENTREPRISE" : "PARTICULIER",
+        requesterName: form.nom,
+        requesterEmail: form.email,
+        requesterPhone: form.telephone,
+        companyName: type === "entreprise" ? form.nomEntreprise : undefined,
+        companySiret: type === "entreprise" ? form.siret : undefined,
+        pickupCity: form.ville,
+        requestedVehicleType: form.typeVehicule,
+        requestedQuantity: Number(form.nombreVehicules),
+        startAt: new Date(`${form.dateDebut}T${form.heureDebut}:00`).toISOString(),
+        endAt: new Date(`${form.dateFin}T${form.heureFin}:00`).toISOString(),
+        comment: form.commentaire || undefined,
+      });
+
       setLoading(false);
       setSuccess(true);
+      setCreatedReference(createdQuote.publicReference);
       toast({
         title: "Demande envoyée !",
-        description: "Nous reviendrons vers vous sous 24h.",
+        description: `Reference: ${createdQuote.publicReference}`,
       });
-    }, 1500);
+    } catch (error) {
+      setLoading(false);
+      const message =
+        error instanceof ApiHttpError
+          ? error.message
+          : "Impossible d'envoyer votre demande de devis.";
+      toast({ title: "Erreur", description: message, variant: "destructive" });
+    }
   };
 
   const reset = () => {
     setSuccess(false);
+    setCreatedReference("");
     setForm({
       nom: "",
       email: "",
@@ -222,8 +250,11 @@ export default function DevisDialog({
               Demande envoyée !
             </DialogTitle>
             <p className="text-muted-foreground mb-6">
-              Notre équipe vous contactera sous 24h.
+              Votre demande a bien ete enregistree.
             </p>
+            {createdReference && (
+              <p className="text-sm font-medium mb-6">Reference devis: {createdReference}</p>
+            )}
             <Button onClick={reset}>Nouvelle demande</Button>
           </div>
         ) : (

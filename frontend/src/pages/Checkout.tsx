@@ -1,29 +1,62 @@
-import { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, CreditCard, Lock, Check } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowLeft, Check, CreditCard, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { reservationsService } from "@/lib/api/services";
+import { quotesService, reservationsService } from "@/lib/api/services";
 import { ApiHttpError } from "@/lib/api/types";
 
 type Devise = "FCFA" | "EUR";
+type PaymentFlow = "reservation" | "quote";
 
 const TAUX_CONVERSION = 655.957;
 const FRAIS_CONVERSION = 0.0375;
 
 const paysFCFA = [
-  "Togo", "Bénin", "Côte d'Ivoire", "Sénégal", "Cameroun",
-  "Gabon", "Mali", "Burkina Faso", "Niger", "Guinée", "Congo",
-  "Tchad", "Centrafrique", "Guinée-Bissau", "Guinée équatoriale",
+  "Togo",
+  "Bénin",
+  "Côte d'Ivoire",
+  "Sénégal",
+  "Cameroun",
+  "Gabon",
+  "Mali",
+  "Burkina Faso",
+  "Niger",
+  "Guinée",
+  "Congo",
+  "Tchad",
+  "Centrafrique",
+  "Guinée-Bissau",
+  "Guinée équatoriale",
 ];
 
 const tousLesPays = [
-  "Togo", "Bénin", "Côte d'Ivoire", "Sénégal", "Cameroun",
-  "Gabon", "Mali", "Burkina Faso", "Niger", "Guinée", "Congo",
-  "Tchad", "Centrafrique", "Guinée-Bissau", "Guinée équatoriale",
-  "France", "Belgique", "Suisse", "Canada", "Allemagne", "Espagne",
-  "Italie", "Portugal", "Pays-Bas", "Luxembourg",
+  "Togo",
+  "Bénin",
+  "Côte d'Ivoire",
+  "Sénégal",
+  "Cameroun",
+  "Gabon",
+  "Mali",
+  "Burkina Faso",
+  "Niger",
+  "Guinée",
+  "Congo",
+  "Tchad",
+  "Centrafrique",
+  "Guinée-Bissau",
+  "Guinée équatoriale",
+  "France",
+  "Belgique",
+  "Suisse",
+  "Canada",
+  "Allemagne",
+  "Espagne",
+  "Italie",
+  "Portugal",
+  "Pays-Bas",
+  "Luxembourg",
 ];
 
 function getDeviseFromPays(pays: string): Devise {
@@ -48,14 +81,23 @@ type ReservationState = {
 export default function Checkout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
   const reservation = location.state as ReservationState | null;
+
+  const flow = (searchParams.get("flow") as PaymentFlow | null) ?? "reservation";
+  const reservationIdFromQuery = searchParams.get("reservationId");
+  const quoteIdFromQuery = searchParams.get("quoteId");
+  const sessionId = searchParams.get("session_id");
+  const paymentCancelled = searchParams.get("payment") === "cancelled";
+  const paymentSuccess = searchParams.get("payment") === "success";
 
   const [codePromo, setCodePromo] = useState("");
   const [showPromo, setShowPromo] = useState(false);
   const [saveInfo, setSaveInfo] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [success, setSuccess] = useState(false);
 
   const [cardForm, setCardForm] = useState({
@@ -71,6 +113,201 @@ export default function Checkout() {
     setDevise(getDeviseFromPays(cardForm.pays));
   }, [cardForm.pays]);
 
+  useEffect(() => {
+    if (!sessionId) return;
+
+    let ignore = false;
+
+    const confirmStripePayment = async () => {
+      setConfirming(true);
+      try {
+        if (flow === "quote" && quoteIdFromQuery) {
+          await quotesService.confirmPayment(quoteIdFromQuery, sessionId);
+          if (!ignore) {
+            setSuccess(true);
+            toast({ title: "Paiement confirmé", description: "Votre devis a bien été réglé." });
+          }
+          return;
+        }
+
+        const reservationId = reservation?.reservationBackendId ?? reservationIdFromQuery;
+        if (!reservationId) {
+          throw new Error("reservation_missing");
+        }
+
+        await reservationsService.confirmPayment(reservationId, sessionId);
+        if (!ignore) {
+          setSuccess(true);
+          toast({ title: "Paiement confirmé", description: "Votre réservation est confirmée." });
+        }
+      } catch (error) {
+        if (ignore) return;
+        const message =
+          error instanceof ApiHttpError
+            ? error.message
+            : "Impossible de confirmer le paiement automatiquement.";
+        toast({ title: "Erreur", description: message, variant: "destructive" });
+      } finally {
+        if (!ignore) {
+          setConfirming(false);
+        }
+      }
+    };
+
+    confirmStripePayment();
+
+    return () => {
+      ignore = true;
+    };
+  }, [flow, quoteIdFromQuery, reservation, reservationIdFromQuery, sessionId, toast]);
+
+  useEffect(() => {
+    if (sessionId || !paymentSuccess) return;
+
+    setSuccess(true);
+    toast({
+      title: "Paiement termine",
+      description:
+        flow === "quote"
+          ? "Votre paiement devis a ete recu. La conversion en reservation suivra cote admin."
+          : "Votre paiement reservation a ete recu.",
+    });
+  }, [flow, paymentSuccess, sessionId, toast]);
+
+  const effectiveReservationId = reservation?.reservationBackendId ?? reservationIdFromQuery;
+
+  const totalEUR = reservation?.total ?? 0;
+  const prixJourEUR = reservation?.prixJour ?? 0;
+  const totalFCFA = Math.round(totalEUR * TAUX_CONVERSION * (1 + FRAIS_CONVERSION));
+  const prixJourFCFA = Math.round(prixJourEUR * TAUX_CONVERSION * (1 + FRAIS_CONVERSION));
+
+  const montantAffiche =
+    devise === "FCFA"
+      ? `${totalFCFA.toLocaleString("fr-FR")} FCFA`
+      : `${totalEUR.toFixed(2)} €`;
+  const prixJourAffiche =
+    devise === "FCFA"
+      ? `${prixJourFCFA.toLocaleString("fr-FR")} FCFA`
+      : `${prixJourEUR.toFixed(2)} €`;
+
+  const isQuoteFlowWithoutReservation = flow === "quote" && !reservation;
+
+  const canStartPayment = useMemo(() => {
+    if (flow === "quote") {
+      return !!quoteIdFromQuery;
+    }
+
+    return !!effectiveReservationId;
+  }, [effectiveReservationId, flow, quoteIdFromQuery]);
+
+  const handlePay = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!canStartPayment) {
+      toast({
+        title: "Paiement indisponible",
+        description: "Aucun identifiant de réservation/devis n'a été trouvé.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response =
+        flow === "quote"
+          ? await quotesService.createPaymentSession(String(quoteIdFromQuery))
+          : await reservationsService.createPaymentSession(String(effectiveReservationId));
+
+      window.location.assign(response.checkoutUrl);
+    } catch (error) {
+      setLoading(false);
+      const message =
+        error instanceof ApiHttpError ? error.message : "Erreur de paiement. Veuillez réessayer.";
+      toast({ title: "Erreur", description: message, variant: "destructive" });
+    }
+  };
+
+  const handlePayWithLink = async () => {
+    if (!canStartPayment) {
+      toast({
+        title: "Paiement indisponible",
+        description: "Aucun identifiant de réservation/devis n'a été trouvé.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response =
+        flow === "quote"
+          ? await quotesService.createPaymentLink(String(quoteIdFromQuery))
+          : await reservationsService.createPaymentLink(String(effectiveReservationId));
+
+      window.location.assign(response.paymentLinkUrl);
+    } catch (error) {
+      setLoading(false);
+      const message =
+        error instanceof ApiHttpError ? error.message : "Erreur de paiement. Veuillez réessayer.";
+      toast({ title: "Erreur", description: message, variant: "destructive" });
+    }
+  };
+
+  if (confirming) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-4 max-w-md">
+          <h1 className="text-2xl font-bold text-foreground">Confirmation du paiement...</h1>
+          <p className="text-muted-foreground">Nous validons votre transaction Stripe en cours.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (success) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-4 max-w-md">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+            <Check className="h-8 w-8 text-green-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-foreground">Paiement confirmé !</h1>
+          <p className="text-muted-foreground">
+            {flow === "quote"
+              ? "Votre devis est maintenant payé."
+              : `Votre réservation ${reservation?.reservationId ? `(${reservation.reservationId})` : ""} est confirmée.`}
+          </p>
+          <Button onClick={() => navigate("/")} className="mt-4">Retour à l'accueil</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isQuoteFlowWithoutReservation) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="max-w-lg w-full rounded-2xl border border-border bg-card p-6 space-y-4">
+          <h1 className="text-2xl font-bold text-foreground">Paiement du devis</h1>
+          <p className="text-sm text-muted-foreground">
+            Finalisez votre paiement sécurisé Stripe pour valider votre devis.
+          </p>
+          {paymentCancelled && (
+            <p className="text-sm text-amber-700 bg-amber-100 rounded-md px-3 py-2">
+              Paiement annulé. Vous pouvez réessayer quand vous voulez.
+            </p>
+          )}
+          <Button onClick={(e) => void handlePay(e as unknown as React.FormEvent)} disabled={loading || !canStartPayment} className="w-full">
+            {loading ? "Redirection vers Stripe..." : "Payer le devis"}
+          </Button>
+          <Button variant="outline" onClick={() => navigate("/")} className="w-full">
+            Retour à l'accueil
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!reservation) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -82,14 +319,6 @@ export default function Checkout() {
     );
   }
 
-  const totalEUR = reservation.total;
-  const prixJourEUR = reservation.prixJour;
-  const totalFCFA = Math.round(totalEUR * TAUX_CONVERSION * (1 + FRAIS_CONVERSION));
-  const prixJourFCFA = Math.round(prixJourEUR * TAUX_CONVERSION * (1 + FRAIS_CONVERSION));
-
-  const montantAffiche = devise === "FCFA" ? totalFCFA.toLocaleString("fr-FR") + " FCFA" : totalEUR.toFixed(2) + " €";
-  const prixJourAffiche = devise === "FCFA" ? prixJourFCFA.toLocaleString("fr-FR") + " FCFA" : prixJourEUR.toFixed(2) + " €";
-
   const formatCardNumber = (value: string) => {
     const v = value.replace(/\D/g, "").slice(0, 16);
     return v.replace(/(\d{4})(?=\d)/g, "$1 ");
@@ -97,66 +326,13 @@ export default function Checkout() {
 
   const formatExpiry = (value: string) => {
     const v = value.replace(/\D/g, "").slice(0, 4);
-    if (v.length >= 3) return v.slice(0, 2) + " / " + v.slice(2);
+    if (v.length >= 3) return `${v.slice(0, 2)} / ${v.slice(2)}`;
     return v;
   };
-
-  const handlePay = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Basic client-side validation
-    if (!cardForm.numero || cardForm.numero.replace(/\s/g, "").length !== 16) {
-      toast({ title: "Erreur", description: "Numéro de carte invalide.", variant: "destructive" });
-      return;
-    }
-    if (!cardForm.expiration || cardForm.expiration.length < 5) {
-      toast({ title: "Erreur", description: "Date d'expiration invalide.", variant: "destructive" });
-      return;
-    }
-    if (!cardForm.cvc || cardForm.cvc.length < 3) {
-      toast({ title: "Erreur", description: "CVC invalide.", variant: "destructive" });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Call backend preauth endpoint
-      const depositAmount = reservation.caution || 0;
-      await reservationsService.preauth(reservation.reservationBackendId, depositAmount);
-      
-      // Success: show confirmation
-      setLoading(false);
-      setSuccess(true);
-      toast({ title: "Paiement effectué !", description: "Votre réservation est confirmée." });
-    } catch (error) {
-      setLoading(false);
-      const message = error instanceof ApiHttpError ? error.message : "Erreur de paiement. Veuillez réessayer.";
-      toast({ title: "Erreur", description: message, variant: "destructive" });
-    }
-  };
-
-  if (success) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-4 max-w-md">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-            <Check className="h-8 w-8 text-green-600" />
-          </div>
-          <h1 className="text-2xl font-bold text-foreground">Paiement confirmé !</h1>
-          <p className="text-muted-foreground">
-            Votre réservation <span className="font-semibold">{reservation.reservationId}</span> a été confirmée.
-            Un email de confirmation a été envoyé à <span className="font-semibold">{reservation.email}</span>.
-          </p>
-          <Button onClick={() => navigate("/")} className="mt-4">Retour à l'accueil</Button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 min-h-screen">
-        {/* LEFT — Order Summary */}
         <div className="bg-secondary/50 p-8 lg:p-12 flex flex-col">
           <button
             onClick={() => navigate(-1)}
@@ -176,9 +352,7 @@ export default function Checkout() {
           <div className="mb-6">
             <div className="flex items-center gap-2">
               <span className="px-4 py-2 rounded-full text-sm font-medium border bg-primary text-primary-foreground border-primary">
-                {devise === "FCFA"
-                  ? totalFCFA.toLocaleString("fr-FR") + " FCFA"
-                  : totalEUR.toFixed(2) + " €"}
+                {montantAffiche}
               </span>
               <span className="text-xs text-muted-foreground">
                 Devise basée sur : <span className="font-medium text-foreground">{cardForm.pays}</span>
@@ -219,8 +393,8 @@ export default function Checkout() {
                 <span className="text-muted-foreground">Caution (remboursable)</span>
                 <span className="text-foreground">
                   {devise === "FCFA"
-                    ? Math.round(reservation.caution * TAUX_CONVERSION * (1 + FRAIS_CONVERSION)).toLocaleString("fr-FR") + " FCFA"
-                    : reservation.caution.toFixed(2) + " €"}
+                    ? `${Math.round(reservation.caution * TAUX_CONVERSION * (1 + FRAIS_CONVERSION)).toLocaleString("fr-FR")} FCFA`
+                    : `${reservation.caution.toFixed(2)} €`}
                 </span>
               </div>
             )}
@@ -256,10 +430,20 @@ export default function Checkout() {
           </div>
         </div>
 
-        {/* RIGHT — Payment Form */}
         <div className="p-8 lg:p-12 flex flex-col">
-          <button className="w-full bg-[#00D66F] hover:bg-[#00C060] text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors mb-4">
-            Payer avec <span className="font-bold tracking-tight">⚡ link</span>
+          {paymentCancelled && (
+            <p className="text-sm text-amber-700 bg-amber-100 rounded-md px-3 py-2 mb-4">
+              Paiement annulé. Vous pouvez relancer la transaction.
+            </p>
+          )}
+
+          <button 
+            type="button"
+            onClick={handlePayWithLink}
+            disabled={loading || !canStartPayment}
+            className="w-full bg-[#00D66F] hover:bg-[#00C060] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors mb-4"
+          >
+            {loading ? "Redirection..." : <>Payer avec <span className="font-bold tracking-tight">Link</span></>}
           </button>
 
           <div className="flex items-center gap-4 mb-6">
@@ -299,7 +483,6 @@ export default function Checkout() {
                       placeholder="1234 1234 1234 1234"
                       className="font-mono"
                       maxLength={19}
-                      required
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -309,7 +492,6 @@ export default function Checkout() {
                       placeholder="MM / AA"
                       className="font-mono"
                       maxLength={7}
-                      required
                     />
                     <Input
                       value={cardForm.cvc}
@@ -317,7 +499,6 @@ export default function Checkout() {
                       placeholder="CVC"
                       className="font-mono"
                       maxLength={4}
-                      required
                     />
                   </div>
                   <div>
@@ -349,27 +530,13 @@ export default function Checkout() {
               </div>
             </label>
 
-            <Button type="submit" className="w-full py-6 text-base font-semibold" disabled={loading}>
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Traitement...
-                </span>
-              ) : (
-                `Payer ${montantAffiche}`
-              )}
+            <Button type="submit" className="w-full py-6 text-base font-semibold" disabled={loading || !canStartPayment}>
+              {loading ? "Redirection vers Stripe..." : `Payer ${montantAffiche}`}
             </Button>
 
             <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground pt-2">
               <Lock className="h-3 w-3" />
               <span>Propulsé par <span className="font-semibold">stripe</span></span>
-              <span className="mx-2">|</span>
-              <a href="#" className="hover:underline">Conditions d'utilisation</a>
-              <span className="mx-1">·</span>
-              <a href="#" className="hover:underline">Confidentialité</a>
             </div>
           </form>
         </div>

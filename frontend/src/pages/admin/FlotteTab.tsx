@@ -16,7 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { FlotteItem, etatColors, getVehicleImage } from "./data";
+import { FlotteItem, etatColors } from "./data";
 import { FleetIncidentDto, fleetService, VehicleDto } from "@/lib/api/services";
 import { useToast } from "@/hooks/use-toast";
 import { ApiHttpError, PaginationMeta } from "@/lib/api/types";
@@ -32,6 +32,7 @@ import {
 type FleetRow = FlotteItem & {
   operationalStatus?: VehicleDto["operationalStatus"];
   activeIncidentId?: string;
+  imageUrl?: string;
 };
 
 function toArray<T>(payload: T[] | { items: T[] }): T[] {
@@ -80,6 +81,7 @@ function mapVehicleToFleetRow(
     historiquePannes: history,
     operationalStatus: vehicle.operationalStatus,
     activeIncidentId: activeIncident?.id,
+    imageUrl: vehicle.images?.[0]?.url,
   };
 }
 
@@ -368,7 +370,7 @@ export default function FlotteTab() {
                   </TableRow>
                 )}
                 {!isLoading && !loadError && fleetItems.map(f => {
-                  const img = getVehicleImage(f.vehicule);
+                  const img = f.imageUrl;
                   const hasMaintenanceAlert = checkMaintenanceAlert(f);
                   return (
                     <TableRow key={f.id}>
