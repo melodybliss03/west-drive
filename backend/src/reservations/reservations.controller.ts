@@ -26,6 +26,7 @@ import { PermissionsGuard } from '../iam/guards/permissions.guard';
 import { CreateReservationEventDto } from './dto/create-reservation-event.dto';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { CreateStripePreauthDto } from './dto/create-stripe-preauth.dto';
+import { ConfirmReservationPaymentDto } from './dto/confirm-reservation-payment.dto';
 import { UpdateReservationDto } from './dto/update-reservation.dto';
 import { UpdateReservationStatusDto } from './dto/update-reservation-status.dto';
 import { ReservationsService } from './reservations.service';
@@ -111,6 +112,30 @@ export class ReservationsController {
     @Body() dto: CreateStripePreauthDto,
   ) {
     return this.reservationsService.createStripePreauth(id, dto);
+  }
+
+  @Post(':id/payment-session')
+  @ApiOperation({ summary: 'Creer une session Stripe Checkout pour reservation' })
+  @ApiParam({ name: 'id', description: 'UUID de la reservation' })
+  createPaymentSession(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.reservationsService.createPaymentSession(id);
+  }
+
+  @Post(':id/payment-link')
+  @ApiOperation({ summary: 'Creer un lien de paiement Stripe pour reservation' })
+  @ApiParam({ name: 'id', description: 'UUID de la reservation' })
+  createPaymentLink(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.reservationsService.createPaymentLink(id);
+  }
+
+  @Post(':id/payment-confirmation')
+  @ApiOperation({ summary: 'Confirmer le paiement Stripe d une reservation' })
+  @ApiParam({ name: 'id', description: 'UUID de la reservation' })
+  confirmPayment(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: ConfirmReservationPaymentDto,
+  ) {
+    return this.reservationsService.confirmPayment(id, dto);
   }
 
   @Post(':id/events')

@@ -43,6 +43,8 @@ export const envValidationSchema = Joi.object({
   MAIL_PASSWORD: Joi.string().allow('').default(''),
   MAIL_FROM_EMAIL: Joi.string().email().default('noreply@westdrive.fr'),
   MAIL_FROM_NAME: Joi.string().default('WestDrive'),
+  STRIPE_SECRET_KEY: Joi.string().allow('').default(''),
+  STRIPE_WEBHOOK_SECRET: Joi.string().allow('').default(''),
   CLOUDINARY_ENABLED: Joi.string().valid('true', 'false').default('false'),
   CLOUDINARY_CLOUD_NAME: Joi.string().when('CLOUDINARY_ENABLED', {
     is: 'true',

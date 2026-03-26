@@ -9,6 +9,7 @@ import { ReservationsService } from './reservations.service';
 import { UsersService } from '../users/users.service';
 import { AuthService } from '../auth/auth.service';
 import { MailService } from '../shared/mail/mail.service';
+import { PaymentsService } from '../shared/payments/payments.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
 describe('ReservationsService', () => {
@@ -64,6 +65,11 @@ describe('ReservationsService', () => {
     createForUser: jest.fn(),
   };
 
+  const paymentsService = {
+    createCheckoutSession: jest.fn(),
+    retrieveCheckoutSession: jest.fn(),
+  };
+
   const configService = {
     get: jest.fn((key: string) => {
       if (key === 'ADMIN_EMAIL') return 'admin@westdrive.fr';
@@ -105,6 +111,7 @@ describe('ReservationsService', () => {
         { provide: UsersService, useValue: usersService },
         { provide: AuthService, useValue: authService },
         { provide: MailService, useValue: mailService },
+        { provide: PaymentsService, useValue: paymentsService },
         { provide: NotificationsService, useValue: notificationsService },
         { provide: ConfigService, useValue: configService },
       ],

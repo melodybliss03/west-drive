@@ -11,6 +11,8 @@ export const SYSTEM_PERMISSIONS = [
   'vehicles.delete',
   'reservations.read',
   'reservations.manage',
+  'quotes.read',
+  'quotes.manage',
   'fleet.read',
   'fleet.manage',
   'admin.kpi.read',

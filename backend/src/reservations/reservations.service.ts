@@ -12,11 +12,13 @@ import { AuthService } from '../auth/auth.service';
 import { VehicleScheduleSlot } from '../fleet/entities/vehicle-schedule-slot.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MailService } from '../shared/mail/mail.service';
+import { PaymentsService } from '../shared/payments/payments.service';
 import {
   buildPaginatedResponse,
   resolvePagination,
   type PaginatedResponse,
 } from '../shared/pagination/pagination.util';
+import { ConfirmReservationPaymentDto } from './dto/confirm-reservation-payment.dto';
 import { UsersService } from '../users/users.service';
 import {
   Vehicle,
@@ -96,6 +98,7 @@ export class ReservationsService {
     private readonly usersService: UsersService,
     private readonly authService: AuthService,
     private readonly mailService: MailService,
+    private readonly paymentsService: PaymentsService,
     private readonly configService: ConfigService,
     private readonly notificationsService: NotificationsService,
   ) {}
@@ -359,12 +362,13 @@ export class ReservationsService {
 
     await this.appendSystemEvent(reservation.id, 'reservation_status_changed', {
       status: dto.status,
+      comment: dto.comment ?? null,
     });
 
     await this.appendSystemEvent(
       reservation.id,
       STATUS_EVENT_MAP[dto.status] ?? 'reservation_status_changed',
-      { status: dto.status },
+      { status: dto.status, comment: dto.comment ?? null },
     );
 
     try {
@@ -387,6 +391,7 @@ export class ReservationsService {
         requesterName: reservation.requesterName,
         publicReference: reservation.publicReference,
         newStatus: dto.status,
+        comment: dto.comment,
       });
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'unknown reason';
@@ -455,6 +460,181 @@ export class ReservationsService {
       const reason = error instanceof Error ? error.message : 'unknown reason';
       this.logger.warn(
         `Preauth confirmation email failed for reservation ${reservation.id}: ${reason}`,
+      );
+    }
+
+    return this.findOne(reservation.id);
+  }
+
+  async createPaymentSession(
+    reservationId: string,
+  ): Promise<{ checkoutUrl: string; sessionId: string }> {
+    const reservation = await this.findOne(reservationId);
+
+    if (reservation.status !== ReservationStatus.EN_ATTENTE_PAIEMENT) {
+      throw new BadRequestException(
+        'Stripe checkout is only allowed from EN_ATTENTE_PAIEMENT status',
+      );
+    }
+
+    const amount = Math.max(
+      Number(reservation.depositAmount),
+      Number(reservation.amountTtc),
+    );
+
+    const frontendBaseUrl = this.configService.get<string>(
+      'FRONTEND_BASE_URL',
+      'http://localhost:8080',
+    );
+
+    const session = await this.paymentsService.createCheckoutSession({
+      title: `WestDrive - Reservation ${reservation.publicReference}`,
+      description: `Paiement reservation ${reservation.publicReference}`,
+      amount,
+      currency: 'EUR',
+      customerEmail: reservation.requesterEmail,
+      successUrl: `${frontendBaseUrl.replace(/\/$/, '')}/checkout?flow=reservation&reservationId=${encodeURIComponent(reservation.id)}&session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${frontendBaseUrl.replace(/\/$/, '')}/checkout?flow=reservation&reservationId=${encodeURIComponent(reservation.id)}&payment=cancelled`,
+      metadata: {
+        targetType: 'reservation',
+        reservationId: reservation.id,
+        publicReference: reservation.publicReference,
+      },
+    });
+
+    await this.appendSystemEvent(reservation.id, 'reservation_payment_session_created', {
+      provider: 'STRIPE',
+      sessionId: session.id,
+      amount,
+      currency: 'EUR',
+    });
+
+    if (!session.url) {
+      throw new BadRequestException('Unable to create Stripe checkout URL');
+    }
+
+    return {
+      checkoutUrl: session.url,
+      sessionId: session.id,
+    };
+  }
+
+  async createPaymentLink(
+    reservationId: string,
+  ): Promise<{ paymentLinkUrl: string }> {
+    const reservation = await this.findOne(reservationId);
+
+    if (reservation.status !== ReservationStatus.EN_ATTENTE_PAIEMENT) {
+      throw new BadRequestException(
+        'Stripe payment link is only allowed from EN_ATTENTE_PAIEMENT status',
+      );
+    }
+
+    const amount = Math.max(
+      Number(reservation.depositAmount),
+      Number(reservation.amountTtc),
+    );
+
+    const frontendBaseUrl = this.configService.get<string>(
+      'FRONTEND_BASE_URL',
+      'http://localhost:8080',
+    );
+
+    const paymentLinkUrl = await this.paymentsService.createPaymentLink({
+      title: `WestDrive - Reservation ${reservation.publicReference}`,
+      description: `Paiement reservation ${reservation.publicReference}`,
+      amount,
+      currency: 'EUR',
+      customerEmail: reservation.requesterEmail,
+      successUrl: `${frontendBaseUrl.replace(/\/$/, '')}/checkout?flow=reservation&reservationId=${encodeURIComponent(reservation.id)}&payment=success`,
+      cancelUrl: `${frontendBaseUrl.replace(/\/$/, '')}/checkout?flow=reservation&reservationId=${encodeURIComponent(reservation.id)}&payment=cancelled`,
+      metadata: {
+        targetType: 'reservation',
+        reservationId: reservation.id,
+        publicReference: reservation.publicReference,
+      },
+    });
+
+    await this.appendSystemEvent(reservation.id, 'reservation_payment_link_created', {
+      provider: 'STRIPE',
+      amount,
+      currency: 'EUR',
+    });
+
+    return {
+      paymentLinkUrl,
+    };
+  }
+
+  async confirmPayment(
+    reservationId: string,
+    dto: ConfirmReservationPaymentDto,
+  ): Promise<Reservation> {
+    const reservation = await this.findOne(reservationId);
+
+    if (reservation.status === ReservationStatus.CONFIRMEE) {
+      return reservation;
+    }
+
+    const session = await this.paymentsService.retrieveCheckoutSession(dto.sessionId);
+    const metadata = session.metadata ?? {};
+
+    if (
+      metadata.targetType !== 'reservation' ||
+      metadata.reservationId !== reservation.id
+    ) {
+      throw new BadRequestException(
+        'Stripe session does not match reservation',
+      );
+    }
+
+    if (session.payment_status !== 'paid') {
+      throw new BadRequestException('Stripe session is not marked as paid');
+    }
+
+    await this.appendSystemEvent(reservation.id, 'reservation_payment_confirmed', {
+      provider: 'STRIPE',
+      sessionId: session.id,
+      paymentIntentId:
+        typeof session.payment_intent === 'string'
+          ? session.payment_intent
+          : session.payment_intent?.id,
+      paymentStatus: session.payment_status,
+    });
+
+    await this.reservationRepository.update(
+      { id: reservation.id },
+      { status: ReservationStatus.CONFIRMEE },
+    );
+
+    await this.appendSystemEvent(reservation.id, 'reservation_status_changed', {
+      status: ReservationStatus.CONFIRMEE,
+    });
+
+    try {
+      if (reservation.userId) {
+        await this.notificationsService.createForUser({
+          type: 'reservation',
+          title: 'Paiement confirme',
+          message: `Votre reservation ${reservation.publicReference} est confirmee.`,
+          recipientUserId: reservation.userId,
+          metadata: {
+            reservationId: reservation.id,
+            publicReference: reservation.publicReference,
+            status: ReservationStatus.CONFIRMEE,
+          },
+        });
+      }
+
+      await this.mailService.sendReservationPaymentConfirmedEmail({
+        to: reservation.requesterEmail,
+        requesterName: reservation.requesterName,
+        publicReference: reservation.publicReference,
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'unknown reason';
+      this.logger.warn(
+        `Payment confirmation email failed for reservation ${reservation.id}: ${reason}`,
       );
     }
 

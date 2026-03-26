@@ -19,6 +19,9 @@ import { UserRole } from './iam/entities/user-role.entity';
 import { IamModule } from './iam/iam.module';
 import { Notification } from './notifications/entities/notification.entity';
 import { NotificationsModule } from './notifications/notifications.module';
+import { PaymentsWebhookModule } from './payments-webhook/payments-webhook.module';
+import { Quote } from './quotes/entities/quote.entity';
+import { QuotesModule } from './quotes/quotes.module';
 import { ReservationEvent } from './reservations/entities/reservation-event.entity';
 import { Reservation } from './reservations/entities/reservation.entity';
 import { ReservationsModule } from './reservations/reservations.module';
@@ -65,6 +68,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
                 FleetIncident,
                 VehicleScheduleSlot,
                 Notification,
+                Quote,
                 Reservation,
                 ReservationEvent,
                 CompanyProfile,
@@ -86,6 +90,8 @@ import { VehiclesModule } from './vehicles/vehicles.module';
           VehiclesModule,
           FleetModule,
           NotificationsModule,
+          PaymentsWebhookModule,
+          QuotesModule,
           ReservationsModule,
         ]),
   ],

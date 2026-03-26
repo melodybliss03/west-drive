@@ -10,6 +10,7 @@ import { RolePermission } from '../iam/entities/role-permission.entity';
 import { Role } from '../iam/entities/role.entity';
 import { UserRole } from '../iam/entities/user-role.entity';
 import { Notification } from '../notifications/entities/notification.entity';
+import { Quote } from '../quotes/entities/quote.entity';
 import { ReservationEvent } from '../reservations/entities/reservation-event.entity';
 import { Reservation } from '../reservations/entities/reservation.entity';
 import { CompanyProfile } from '../users/entities/company-profile.entity';
@@ -39,6 +40,7 @@ export default new DataSource({
     FleetIncident,
     VehicleScheduleSlot,
     Notification,
+    Quote,
     Reservation,
     ReservationEvent,
     CompanyProfile,

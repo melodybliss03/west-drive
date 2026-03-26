@@ -221,12 +221,12 @@ export class IamService implements OnApplicationBootstrap {
         'FRONTEND_BASE_URL',
         'http://localhost:8080',
       );
-      const setupUrl = `${frontendBaseUrl.replace(/\/$/, '')}/mot-de-passe-oublie?email=${encodeURIComponent(email)}`;
-      await this.mailService.sendGuestAccountSetupEmail({
+      const activationUrl = `${frontendBaseUrl.replace(/\/$/, '')}/mot-de-passe-oublie?email=${encodeURIComponent(email)}`;
+      await this.mailService.sendTeamInvitationEmail({
         to: email,
-        requesterName: `${user.firstName} ${user.lastName}`,
-        publicReference: 'INVITE-EQUIPE',
-        setupUrl,
+        inviteeName: `${user.firstName} ${user.lastName}`,
+        roleName: role.name,
+        activationUrl,
       });
     }
 

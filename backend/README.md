@@ -60,6 +60,31 @@ Cloudinary (upload images vehicules):
 - `CLOUDINARY_API_SECRET=...`
 - `CLOUDINARY_FOLDER=westdrive`
 
+Stripe sandbox (paiements reservations + devis):
+- `STRIPE_SECRET_KEY=sk_test_...`
+- `FRONTEND_BASE_URL=http://localhost:8080` (ou URL frontend reelle)
+- `STRIPE_WEBHOOK_SECRET=whsec_...` (recommande, optionnel en local)
+
+Webhook Stripe expose par l API:
+- `POST /payments/stripe/webhook`
+
+Test rapide local (sans friction):
+1. Ajouter `STRIPE_SECRET_KEY` dans `.env.local`.
+2. Lancer backend + frontend.
+3. Ouvrir Stripe CLI dans un terminal:
+```bash
+stripe listen --forward-to localhost:3000/payments/stripe/webhook
+```
+4. Copier le secret `whsec_...` fourni par Stripe CLI vers `STRIPE_WEBHOOK_SECRET`.
+5. Relancer le backend.
+6. Faire un paiement de reservation depuis `/checkout`.
+7. Utiliser la carte test Stripe: `4242 4242 4242 4242`, date future, CVC `123`.
+
+Resultat attendu:
+- redirection Stripe puis retour frontend,
+- reservation confirmee,
+- email de confirmation de paiement envoye.
+
 Endpoints upload vehicules:
 - `POST /vehicles/:id/images/upload` (multipart/form-data, champ `file`)
 - `DELETE /vehicles/:id/images/:imageId`
