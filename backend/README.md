@@ -208,6 +208,7 @@ Secrets GitHub requis (Settings > Secrets and variables > Actions):
 - `VPS_APP_PATH`: chemin cible sur VPS (ex: `/opt/west-drive`)
 - `VPS_API_DOMAIN`: sous-domaine API (ex: `api.votre-domaine.com`)
 - `LETSENCRYPT_EMAIL`: email utilise pour le certificat SSL Let's Encrypt
+- `BACKEND_ENV_PRODUCTION` (optionnel): contenu complet du fichier `.env.production`
 
 Prerequis VPS:
 1. Le sous-domaine `VPS_API_DOMAIN` pointe deja vers l'IP du VPS (A record)
@@ -220,6 +221,8 @@ Le workflow execute automatiquement:
 3. Reverse proxy Nginx sur `https://VPS_API_DOMAIN` vers `127.0.0.1:3000`
 4. Certificat Let's Encrypt + redirection HTTPS
 5. Deploiement Docker Compose + health-check HTTP local et HTTPS public
+
+Si `BACKEND_ENV_PRODUCTION` est defini, le workflow ecrit automatiquement `.env.production` sur le VPS a chaque deploy.
 
 Premier bootstrap rapide sur VPS:
 
