@@ -54,32 +54,191 @@ jobs:
     runs-on: ubuntu-latest
     needs: quality
     if: github.ref == 'refs/heads/main'
+    env:
+      HAS_SSH_KEY: ${{ secrets.VPS_SSH_KEY != '' }}
+      HAS_PASSWORD: ${{ secrets.VPS_PASSWORD != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Copy backend project to VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          port: ${{ secrets.VPS_SSH_PORT || '22' }}
-          source: "backend"
-          target: "${{ secrets.VPS_APP_PATH || '/opt/west-drive' }}"
-          rm: false
+      - name: Validate SSH auth config
+        if: ${{ env.HAS_SSH_KEY == 'false' && env.HAS_PASSWORD == 'false' }}
+        run: |
+          echo "Missing SSH authentication secret. Set VPS_SSH_KEY (recommended) or VPS_PASSWORD."
+          exit 1
 
-      - name: Apply deployment on VPS
+      - name: Normalize SSH connection values
+        run: |
+          set -eu
+
+          CLEAN_USER="$(printf '%s' '${{ secrets.VPS_USER }}' | tr -d '\r\n')"
+          CLEAN_PORT="$(printf '%s' '${{ secrets.VPS_SSH_PORT || '22' }}' | tr -d '\r\n')"
+
+          if [ -z "$CLEAN_USER" ]; then
+            echo "VPS_USER is empty"
+            exit 1
+          fi
+
+          if [ -z "$CLEAN_PORT" ]; then
+            CLEAN_PORT="22"
+          fi
+
+          if ! printf '%s' "$CLEAN_PORT" | grep -Eq '^[0-9]+$'; then
+            echo "VPS_SSH_PORT must be numeric"
+            exit 1
+          fi
+
+          echo "VPS_USER_CLEAN=$CLEAN_USER" >> "$GITHUB_ENV"
+          echo "VPS_PORT_CLEAN=$CLEAN_PORT" >> "$GITHUB_ENV"
+
+      - name: Prepare SSH private key file
+        if: ${{ env.HAS_SSH_KEY == 'true' }}
+        run: |
+          set -eu
+
+          KEY_PATH="$RUNNER_TEMP/vps_ssh_key"
+          printf '%s' '${{ secrets.VPS_SSH_KEY }}' | tr -d '\r' > "$KEY_PATH"
+
+          if ! grep -Eq 'BEGIN .*PRIVATE KEY' "$KEY_PATH"; then
+            echo "VPS_SSH_KEY format looks invalid (missing BEGIN ... PRIVATE KEY header)"
+            exit 1
+          fi
+
+          chmod 600 "$KEY_PATH"
+          echo "VPS_SSH_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
+      - name: Sync repository on VPS (SSH key)
+        id: sync_key
+        if: ${{ env.HAS_SSH_KEY == 'true' }}
+        continue-on-error: true
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          port: ${{ secrets.VPS_SSH_PORT || '22' }}
-          script_stop: true
+          username: ${{ env.VPS_USER_CLEAN }}
+          key_path: ${{ env.VPS_SSH_KEY_PATH }}
+          passphrase: ${{ secrets.VPS_SSH_KEY_PASSPHRASE }}
+          port: ${{ env.VPS_PORT_CLEAN }}
+          script_stop: false
           script: |
             set -eu
-            APP_PATH="${{ secrets.VPS_APP_PATH || '/opt/west-drive' }}"
+            APP_PATH="$(printf '%s' '${{ secrets.VPS_APP_PATH }}' | tr -d '\r\n')"
+            if [ -z "$APP_PATH" ]; then
+              APP_PATH="$HOME/west-drive"
+            fi
+            REPO="${{ github.repository }}"
+            BRANCH="${{ github.ref_name }}"
+            SHA="${{ github.sha }}"
+            REPO_TOKEN="$(printf '%s' '${{ secrets.GH_REPO_TOKEN }}' | tr -d '\r\n')"
+            REPO_URL="${REPO_TOKEN:+https://x-access-token:${REPO_TOKEN}@github.com/${REPO}.git}"
+            REPO_URL="${REPO_URL:-https://github.com/${REPO}.git}"
+
+            mkdir -p "$APP_PATH"
+
+            if ! command -v git >/dev/null 2>&1; then
+              echo "git is required on VPS. Install once: sudo apt-get update -y && sudo apt-get install -y git"
+              exit 1
+            fi
+
+            if [ ! -d "$APP_PATH/.git" ]; then
+              rm -rf "$APP_PATH"
+              if ! git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$APP_PATH"; then
+                echo "git clone failed for $REPO_URL"
+                if [ -z "${{ secrets.GH_REPO_TOKEN }}" ]; then
+                  echo "If this repository is private, set GH_REPO_TOKEN secret."
+                fi
+                exit 1
+              fi
+            fi
+
+            cd "$APP_PATH"
+            git remote set-url origin "$REPO_URL"
+            if ! git fetch --depth 1 origin "$BRANCH"; then
+              echo "git fetch failed for branch $BRANCH"
+              if [ -z "${{ secrets.GH_REPO_TOKEN }}" ]; then
+                echo "If this repository is private, set GH_REPO_TOKEN secret."
+              fi
+              exit 1
+            fi
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+            git reset --hard "$SHA"
+
+      - name: Fail when key auth failed and no password fallback
+        if: ${{ env.HAS_SSH_KEY == 'true' && steps.sync_key.outcome == 'failure' && env.HAS_PASSWORD != 'true' }}
+        run: |
+          echo "SSH key authentication failed and VPS_PASSWORD is not configured."
+          echo "Fix VPS_SSH_KEY/VPS_USER, or set VPS_PASSWORD as fallback."
+          exit 1
+
+      - name: Sync repository on VPS (password fallback)
+        if: ${{ (env.HAS_SSH_KEY != 'true' || steps.sync_key.outcome == 'failure') && env.HAS_PASSWORD == 'true' }}
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ env.VPS_USER_CLEAN }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ env.VPS_PORT_CLEAN }}
+          script_stop: false
+          script: |
+            set -eu
+            APP_PATH="$(printf '%s' '${{ secrets.VPS_APP_PATH }}' | tr -d '\r\n')"
+            if [ -z "$APP_PATH" ]; then
+              APP_PATH="$HOME/west-drive"
+            fi
+            REPO="${{ github.repository }}"
+            BRANCH="${{ github.ref_name }}"
+            SHA="${{ github.sha }}"
+            REPO_TOKEN="$(printf '%s' '${{ secrets.GH_REPO_TOKEN }}' | tr -d '\r\n')"
+            REPO_URL="${REPO_TOKEN:+https://x-access-token:${REPO_TOKEN}@github.com/${REPO}.git}"
+            REPO_URL="${REPO_URL:-https://github.com/${REPO}.git}"
+
+            mkdir -p "$APP_PATH"
+
+            if ! command -v git >/dev/null 2>&1; then
+              echo "git is required on VPS. Install once: sudo apt-get update -y && sudo apt-get install -y git"
+              exit 1
+            fi
+
+            if [ ! -d "$APP_PATH/.git" ]; then
+              rm -rf "$APP_PATH"
+              if ! git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$APP_PATH"; then
+                echo "git clone failed for $REPO_URL"
+                if [ -z "${{ secrets.GH_REPO_TOKEN }}" ]; then
+                  echo "If this repository is private, set GH_REPO_TOKEN secret."
+                fi
+                exit 1
+              fi
+            fi
+
+            cd "$APP_PATH"
+            git remote set-url origin "$REPO_URL"
+            if ! git fetch --depth 1 origin "$BRANCH"; then
+              echo "git fetch failed for branch $BRANCH"
+              if [ -z "${{ secrets.GH_REPO_TOKEN }}" ]; then
+                echo "If this repository is private, set GH_REPO_TOKEN secret."
+              fi
+              exit 1
+            fi
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+            git reset --hard "$SHA"
+
+      - name: Apply deployment on VPS (SSH key)
+        if: ${{ env.HAS_SSH_KEY == 'true' && steps.sync_key.outcome == 'success' }}
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ env.VPS_USER_CLEAN }}
+          key_path: ${{ env.VPS_SSH_KEY_PATH }}
+          passphrase: ${{ secrets.VPS_SSH_KEY_PASSPHRASE }}
+          port: ${{ env.VPS_PORT_CLEAN }}
+          script_stop: false
+          script: |
+            set -eu
+            APP_PATH="$(printf '%s' '${{ secrets.VPS_APP_PATH }}' | tr -d '\r\n')"
+            if [ -z "$APP_PATH" ]; then
+              APP_PATH="$HOME/west-drive"
+            fi
+
+            mkdir -p "$APP_PATH"
 
             export DOMAIN="${{ secrets.VPS_API_DOMAIN }}"
             export LETSENCRYPT_EMAIL="${{ secrets.LETSENCRYPT_EMAIL }}"
@@ -96,18 +255,156 @@ jobs:
             fi
 
             chmod +x "$APP_PATH/backend/scripts/provision-vps.sh"
-            "$APP_PATH/backend/scripts/provision-vps.sh"
+            SUDO_MODE="none"
+            if sudo -n true >/dev/null 2>&1; then
+              SUDO_MODE="nopass"
+            elif [ -n '${{ secrets.VPS_PASSWORD }}' ] && printf '%s\n' '${{ secrets.VPS_PASSWORD }}' | sudo -S -p '' -v >/dev/null 2>&1; then
+              SUDO_MODE="password"
+            fi
+
+            if [ "$SUDO_MODE" = "nopass" ]; then
+              sudo -n env DOMAIN="$DOMAIN" LETSENCRYPT_EMAIL="$LETSENCRYPT_EMAIL" APP_PATH="$APP_PATH" bash "$APP_PATH/backend/scripts/provision-vps.sh"
+            elif [ "$SUDO_MODE" = "password" ]; then
+              printf '%s\n' '${{ secrets.VPS_PASSWORD }}' | sudo -S -p '' env DOMAIN="$DOMAIN" LETSENCRYPT_EMAIL="$LETSENCRYPT_EMAIL" APP_PATH="$APP_PATH" bash "$APP_PATH/backend/scripts/provision-vps.sh"
+            else
+              echo "No sudo privileges for user $USER. Skipping VPS provisioning."
+              echo "Run backend/scripts/provision-vps.sh once as root, then keep this CI deploy."
+            fi
 
             cd "$APP_PATH/backend"
+
+            if [ -n '${{ secrets.BACKEND_ENV_PRODUCTION }}' ]; then
+              printf '%s\n' '${{ secrets.BACKEND_ENV_PRODUCTION }}' > .env.production
+              sed -i 's/\r$//' .env.production
+              echo ".env.production written from BACKEND_ENV_PRODUCTION secret"
+            fi
 
             if [ ! -f .env.production ]; then
               echo "Missing .env.production in $APP_PATH/backend"
               exit 1
             fi
 
-            docker compose -f docker-compose.prod.yml --env-file .env.production up --build -d
-            docker compose -f docker-compose.prod.yml --env-file .env.production ps
-            docker compose -f docker-compose.prod.yml --env-file .env.production logs --tail=100 api
+            if grep -nEv '^\s*($|#|[A-Za-z_][A-Za-z0-9_]*=)' .env.production >/tmp/wd_invalid_env_lines; then
+              echo "Invalid format in .env.production. Expected KEY=VALUE, comment, or empty line."
+              echo "Invalid line numbers:"
+              awk -F: '{print " - " $1}' /tmp/wd_invalid_env_lines
+              exit 1
+            fi
+
+            run_docker() {
+              if [ "$SUDO_MODE" = "nopass" ]; then
+                sudo -n docker "$@"
+              elif [ "$SUDO_MODE" = "password" ]; then
+                printf '%s\n' '${{ secrets.VPS_PASSWORD }}' | sudo -S -p '' docker "$@"
+              else
+                docker "$@"
+              fi
+            }
+
+            if ! run_docker info >/dev/null 2>&1; then
+              echo "Docker daemon is not accessible by user $USER."
+              echo "Add user to docker group or grant sudo privileges on VPS."
+              exit 1
+            fi
+
+            run_docker compose -f docker-compose.prod.yml --env-file .env.production up --build -d
+            run_docker compose -f docker-compose.prod.yml --env-file .env.production ps
+            run_docker compose -f docker-compose.prod.yml --env-file .env.production logs --tail=100 api
+
+            if command -v curl >/dev/null 2>&1; then
+              curl -fsS http://127.0.0.1:3000/health >/dev/null
+              curl -fsS "https://$DOMAIN/health" >/dev/null
+              echo "Health check passed"
+            fi
+
+      - name: Apply deployment on VPS (password fallback)
+        if: ${{ (env.HAS_SSH_KEY != 'true' || steps.sync_key.outcome == 'failure') && env.HAS_PASSWORD == 'true' }}
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ env.VPS_USER_CLEAN }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ env.VPS_PORT_CLEAN }}
+          script_stop: false
+          script: |
+            set -eu
+            APP_PATH="$(printf '%s' '${{ secrets.VPS_APP_PATH }}' | tr -d '\r\n')"
+            if [ -z "$APP_PATH" ]; then
+              APP_PATH="$HOME/west-drive"
+            fi
+
+            mkdir -p "$APP_PATH"
+
+            export DOMAIN="${{ secrets.VPS_API_DOMAIN }}"
+            export LETSENCRYPT_EMAIL="${{ secrets.LETSENCRYPT_EMAIL }}"
+            export APP_PATH="$APP_PATH"
+
+            if [ -z "$DOMAIN" ]; then
+              echo "Missing VPS_API_DOMAIN secret"
+              exit 1
+            fi
+
+            if [ -z "$LETSENCRYPT_EMAIL" ]; then
+              echo "Missing LETSENCRYPT_EMAIL secret"
+              exit 1
+            fi
+
+            chmod +x "$APP_PATH/backend/scripts/provision-vps.sh"
+            SUDO_MODE="none"
+            if sudo -n true >/dev/null 2>&1; then
+              SUDO_MODE="nopass"
+            elif [ -n '${{ secrets.VPS_PASSWORD }}' ] && printf '%s\n' '${{ secrets.VPS_PASSWORD }}' | sudo -S -p '' -v >/dev/null 2>&1; then
+              SUDO_MODE="password"
+            fi
+
+            if [ "$SUDO_MODE" = "nopass" ]; then
+              sudo -n env DOMAIN="$DOMAIN" LETSENCRYPT_EMAIL="$LETSENCRYPT_EMAIL" APP_PATH="$APP_PATH" bash "$APP_PATH/backend/scripts/provision-vps.sh"
+            elif [ "$SUDO_MODE" = "password" ]; then
+              printf '%s\n' '${{ secrets.VPS_PASSWORD }}' | sudo -S -p '' env DOMAIN="$DOMAIN" LETSENCRYPT_EMAIL="$LETSENCRYPT_EMAIL" APP_PATH="$APP_PATH" bash "$APP_PATH/backend/scripts/provision-vps.sh"
+            else
+              echo "No sudo privileges for user $USER. Skipping VPS provisioning."
+              echo "Run backend/scripts/provision-vps.sh once as root, then keep this CI deploy."
+            fi
+
+            cd "$APP_PATH/backend"
+
+            if [ -n '${{ secrets.BACKEND_ENV_PRODUCTION }}' ]; then
+              printf '%s\n' '${{ secrets.BACKEND_ENV_PRODUCTION }}' > .env.production
+              sed -i 's/\r$//' .env.production
+              echo ".env.production written from BACKEND_ENV_PRODUCTION secret"
+            fi
+
+            if [ ! -f .env.production ]; then
+              echo "Missing .env.production in $APP_PATH/backend"
+              exit 1
+            fi
+
+            if grep -nEv '^\s*($|#|[A-Za-z_][A-Za-z0-9_]*=)' .env.production >/tmp/wd_invalid_env_lines; then
+              echo "Invalid format in .env.production. Expected KEY=VALUE, comment, or empty line."
+              echo "Invalid line numbers:"
+              awk -F: '{print " - " $1}' /tmp/wd_invalid_env_lines
+              exit 1
+            fi
+
+            run_docker() {
+              if [ "$SUDO_MODE" = "nopass" ]; then
+                sudo -n docker "$@"
+              elif [ "$SUDO_MODE" = "password" ]; then
+                printf '%s\n' '${{ secrets.VPS_PASSWORD }}' | sudo -S -p '' docker "$@"
+              else
+                docker "$@"
+              fi
+            }
+
+            if ! run_docker info >/dev/null 2>&1; then
+              echo "Docker daemon is not accessible by user $USER."
+              echo "Add user to docker group or grant sudo privileges on VPS."
+              exit 1
+            fi
+
+            run_docker compose -f docker-compose.prod.yml --env-file .env.production up --build -d
+            run_docker compose -f docker-compose.prod.yml --env-file .env.production ps
+            run_docker compose -f docker-compose.prod.yml --env-file .env.production logs --tail=100 api
 
             if command -v curl >/dev/null 2>&1; then
               curl -fsS http://127.0.0.1:3000/health >/dev/null

@@ -203,11 +203,15 @@ Ce workflow fait:
 Secrets GitHub requis (Settings > Secrets and variables > Actions):
 - `VPS_HOST`: IP ou domaine du VPS
 - `VPS_USER`: utilisateur SSH (ex: `ubuntu`)
-- `VPS_PASSWORD`: mot de passe SSH de `VPS_USER`
+- `VPS_SSH_KEY` (recommande): cle privee SSH pour `VPS_USER`
+- `VPS_SSH_KEY_PASSPHRASE` (optionnel): passphrase de la cle privee
+- `VPS_PASSWORD` (fallback): mot de passe SSH de `VPS_USER` (sans guillemets)
 - `VPS_SSH_PORT`: port SSH (souvent `22`)
 - `VPS_APP_PATH`: chemin cible sur VPS (ex: `/opt/west-drive`)
 - `VPS_API_DOMAIN`: sous-domaine API (ex: `api.votre-domaine.com`)
 - `LETSENCRYPT_EMAIL`: email utilise pour le certificat SSL Let's Encrypt
+- `BACKEND_ENV_PRODUCTION` (optionnel): contenu complet du fichier `.env.production`
+- `GH_REPO_TOKEN` (optionnel): token GitHub pour `git clone/pull` sur VPS si le repo est prive
 
 Prerequis VPS:
 1. Le sous-domaine `VPS_API_DOMAIN` pointe deja vers l'IP du VPS (A record)
@@ -219,7 +223,10 @@ Le workflow execute automatiquement:
 2. Installation/verification Docker, Nginx, UFW, Certbot
 3. Reverse proxy Nginx sur `https://VPS_API_DOMAIN` vers `127.0.0.1:3000`
 4. Certificat Let's Encrypt + redirection HTTPS
-5. Deploiement Docker Compose + health-check HTTP local et HTTPS public
+5. Synchronisation du repo sur VPS via `git` (plus de copie SCP)
+6. Deploiement Docker Compose + health-check HTTP local et HTTPS public
+
+Si `BACKEND_ENV_PRODUCTION` est defini, le workflow ecrit automatiquement `.env.production` sur le VPS a chaque deploy.
 
 Premier bootstrap rapide sur VPS:
 
