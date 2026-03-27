@@ -118,7 +118,7 @@ jobs:
           key_path: ${{ env.VPS_SSH_KEY_PATH }}
           passphrase: ${{ secrets.VPS_SSH_KEY_PASSPHRASE }}
           port: ${{ env.VPS_PORT_CLEAN }}
-          script_stop: true
+          script_stop: false
           script: |
             set -eux
             APP_PATH="$(printf '%s' '${{ secrets.VPS_APP_PATH }}' | tr -d '\r\n')"
@@ -128,18 +128,15 @@ jobs:
             REPO="${{ github.repository }}"
             BRANCH="${{ github.ref_name }}"
             SHA="${{ github.sha }}"
+            REPO_TOKEN="$(printf '%s' '${{ secrets.GH_REPO_TOKEN }}' | tr -d '\r\n')"
+            REPO_URL="${REPO_TOKEN:+https://x-access-token:${REPO_TOKEN}@github.com/${REPO}.git}"
+            REPO_URL="${REPO_URL:-https://github.com/${REPO}.git}"
 
             mkdir -p "$APP_PATH"
 
             if ! command -v git >/dev/null 2>&1; then
-              sudo apt-get update -y
-              sudo apt-get install -y git
-            fi
-
-            if [ -n "${{ secrets.GH_REPO_TOKEN }}" ]; then
-              REPO_URL="https://x-access-token:${{ secrets.GH_REPO_TOKEN }}@github.com/${REPO}.git"
-            else
-              REPO_URL="https://github.com/${REPO}.git"
+              echo "git is required on VPS. Install once: sudo apt-get update -y && sudo apt-get install -y git"
+              exit 1
             fi
 
             if [ ! -d "$APP_PATH/.git" ]; then
@@ -180,7 +177,7 @@ jobs:
           username: ${{ env.VPS_USER_CLEAN }}
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ env.VPS_PORT_CLEAN }}
-          script_stop: true
+          script_stop: false
           script: |
             set -eux
             APP_PATH="$(printf '%s' '${{ secrets.VPS_APP_PATH }}' | tr -d '\r\n')"
@@ -190,18 +187,15 @@ jobs:
             REPO="${{ github.repository }}"
             BRANCH="${{ github.ref_name }}"
             SHA="${{ github.sha }}"
+            REPO_TOKEN="$(printf '%s' '${{ secrets.GH_REPO_TOKEN }}' | tr -d '\r\n')"
+            REPO_URL="${REPO_TOKEN:+https://x-access-token:${REPO_TOKEN}@github.com/${REPO}.git}"
+            REPO_URL="${REPO_URL:-https://github.com/${REPO}.git}"
 
             mkdir -p "$APP_PATH"
 
             if ! command -v git >/dev/null 2>&1; then
-              sudo apt-get update -y
-              sudo apt-get install -y git
-            fi
-
-            if [ -n "${{ secrets.GH_REPO_TOKEN }}" ]; then
-              REPO_URL="https://x-access-token:${{ secrets.GH_REPO_TOKEN }}@github.com/${REPO}.git"
-            else
-              REPO_URL="https://github.com/${REPO}.git"
+              echo "git is required on VPS. Install once: sudo apt-get update -y && sudo apt-get install -y git"
+              exit 1
             fi
 
             if [ ! -d "$APP_PATH/.git" ]; then
@@ -236,7 +230,7 @@ jobs:
           key_path: ${{ env.VPS_SSH_KEY_PATH }}
           passphrase: ${{ secrets.VPS_SSH_KEY_PASSPHRASE }}
           port: ${{ env.VPS_PORT_CLEAN }}
-          script_stop: true
+          script_stop: false
           script: |
             set -eux
             APP_PATH="$(printf '%s' '${{ secrets.VPS_APP_PATH }}' | tr -d '\r\n')"
@@ -300,7 +294,7 @@ jobs:
           username: ${{ env.VPS_USER_CLEAN }}
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ env.VPS_PORT_CLEAN }}
-          script_stop: true
+          script_stop: false
           script: |
             set -eux
             APP_PATH="$(printf '%s' '${{ secrets.VPS_APP_PATH }}' | tr -d '\r\n')"
