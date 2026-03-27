@@ -85,7 +85,7 @@ export default function Index() {
     if (getCategorieCount(activeCategory) === 0 && nextCategory !== activeCategory) {
       setActiveCategory(nextCategory);
     }
-  }, [activeCategory, showcaseVehicles]);
+  }, [activeCategory, getCategorieCount, showcaseVehicles]);
 
   return (
     <div className="min-h-screen">
