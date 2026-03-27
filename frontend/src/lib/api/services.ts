@@ -227,6 +227,50 @@ export type NotificationDto = {
   createdAt: string;
 };
 
+export type BlogArticleDto = {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt?: string;
+  content: string;
+  category?: string;
+  mainImageUrl?: string;
+  status: 'DRAFT' | 'PUBLISHED';
+  publishedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ReviewDto = {
+  id: string;
+  authorName: string;
+  title?: string;
+  rating: number;
+  content: string;
+  imageUrl?: string;
+  status: 'DRAFT' | 'PUBLISHED';
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BlogListResponse = PaginatedCollection<BlogArticleDto>;
+export type ReviewsListResponse = PaginatedCollection<ReviewDto>;
+
+export const blogService = {
+  list: (params: { page?: number; limit?: number; category?: string; search?: string }) =>
+    apiRequest<BlogListResponse>(
+      `/blog?page=${params.page ?? 1}&limit=${params.limit ?? 20}` +
+        (params.category ? `&category=${encodeURIComponent(params.category)}` : '') +
+        (params.search ? `&search=${encodeURIComponent(params.search)}` : ''),
+    ),
+  getBySlug: (slug: string) => apiRequest<BlogArticleDto>(`/blog/${encodeURIComponent(slug)}`),
+};
+
+export const reviewsService = {
+  list: (params: { page?: number; limit?: number }) =>
+    apiRequest<ReviewsListResponse>(`/reviews?page=${params.page ?? 1}&limit=${params.limit ?? 20}`),
+};
+
 export type ContactMessagePayload = {
   name: string;
   email: string;

@@ -20,6 +20,9 @@ import Entreprise from "./pages/Entreprise";
 import Devis from "./pages/Devis";
 import Checkout from "./pages/Checkout";
 import NotFound from "./pages/NotFound";
+import Blog from "./pages/Blog";
+import BlogDetail from "./pages/BlogDetail";
+import Reviews from "./pages/Reviews";
 import Boss from "./pages/admin";
 import MotDePasseOublie from "./pages/MotDePasseOublie";
 import AdminMotDePasseOublie from "./pages/AdminMotDePasseOublie";
@@ -64,6 +67,9 @@ const App = () => (
             <Route path="/devis" element={<Devis />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/mot-de-passe-oublie" element={<MotDePasseOublie />} />
+            <Route path="/blog" element={<Blog />} />
+            <Route path="/blog/:slug" element={<BlogDetail />} />
+            <Route path="/reviews" element={<Reviews />} />
             <Route path="/boss" element={<Boss />} />
             <Route path="/boss/mot-de-passe-oublie" element={<AdminMotDePasseOublie />} />
             <Route path="*" element={<NotFound />} />
