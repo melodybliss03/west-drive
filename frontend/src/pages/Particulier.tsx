@@ -195,33 +195,6 @@ export default function Particulier() {
         </div>
       </section>
 
-      {/* Zone de couverture */}
-      <section className="py-20 bg-secondary">
-        <div className="max-w-5xl mx-auto px-4">
-          <div className="text-center mb-10">
-            <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">Zone de couverture</h2>
-            <p className="text-muted-foreground">Service disponible dans un rayon de 20 km autour de Puteaux.</p>
-          </div>
-          <div className="rounded-2xl overflow-hidden border border-border shadow-lg">
-            <iframe
-              title="Zone de couverture WEST DRIVE"
-              src="https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d42000!2d2.2384!3d48.8847!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sfr!2sfr!4v1700000000000!5m2!1sfr!2sfr"
-              width="100%"
-              height="400"
-              style={{ border: 0 }}
-              allowFullScreen
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
-          </div>
-          <div className="flex flex-wrap justify-center gap-2 mt-6">
-            {villes.map((v) => (
-              <span key={v.id} className="px-3 py-1.5 bg-card border border-border rounded-lg text-sm text-muted-foreground">{v.nom}</span>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Contact CTA */}
       <section className="py-20 bg-foreground text-background">
         <div className="max-w-3xl mx-auto px-4 text-center">

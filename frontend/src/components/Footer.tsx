@@ -6,7 +6,7 @@ export default function Footer() {
     <footer>
       {/* Contact info bar — like reference image */}
       <div className="bg-foreground">
-        <div className="max-w-5xl mx-auto px-4 py-8">
+        <div className="max-w-6xl mx-auto px-4 py-8">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {/* Support & Email */}
             <div className="flex items-center gap-4">
@@ -46,14 +46,14 @@ export default function Footer() {
 
       {/* Separator */}
       <div className="bg-foreground">
-        <div className="max-w-5xl mx-auto px-4">
+        <div className="max-w-6xl mx-auto px-4">
           <div className="h-px bg-background/10" />
         </div>
       </div>
 
       {/* Main footer */}
       <div className="bg-foreground text-background">
-        <div className="max-w-5xl mx-auto px-4 py-12">
+        <div className="max-w-6xl mx-auto px-4 py-12">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
             {/* Brand */}
             <div>
@@ -117,7 +117,7 @@ export default function Footer() {
 
       {/* Bottom bar */}
       <div className="bg-primary">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="text-sm text-primary-foreground font-medium">
             &copy; {new Date().getFullYear()} WEST DRIVE. Tous droits réservés.
           </p>
