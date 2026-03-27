@@ -255,19 +255,29 @@ jobs:
             fi
 
             chmod +x "$APP_PATH/backend/scripts/provision-vps.sh"
+            SUDO_MODE="none"
             if sudo -n true >/dev/null 2>&1; then
+              SUDO_MODE="nopass"
+            elif [ -n "${{ secrets.VPS_PASSWORD }}" ] && printf '%s\n' "${{ secrets.VPS_PASSWORD }}" | sudo -S -p '' -v >/dev/null 2>&1; then
+              SUDO_MODE="password"
+            fi
+
+            if [ "$SUDO_MODE" = "nopass" ]; then
               sudo -n env DOMAIN="$DOMAIN" LETSENCRYPT_EMAIL="$LETSENCRYPT_EMAIL" APP_PATH="$APP_PATH" bash "$APP_PATH/backend/scripts/provision-vps.sh"
-            elif [ -n "${{ secrets.VPS_PASSWORD }}" ]; then
+            elif [ "$SUDO_MODE" = "password" ]; then
               printf '%s\n' "${{ secrets.VPS_PASSWORD }}" | sudo -S -p '' env DOMAIN="$DOMAIN" LETSENCRYPT_EMAIL="$LETSENCRYPT_EMAIL" APP_PATH="$APP_PATH" bash "$APP_PATH/backend/scripts/provision-vps.sh"
             else
-              echo "Provisioning needs sudo privileges. Configure passwordless sudo or set VPS_PASSWORD secret."
-              exit 1
+              echo "No sudo privileges for user $USER. Skipping VPS provisioning."
+              echo "Run backend/scripts/provision-vps.sh once as root, then keep this CI deploy."
             fi
 
             cd "$APP_PATH/backend"
 
             if [ -n "${{ secrets.BACKEND_ENV_PRODUCTION }}" ]; then
-              printf '%s\n' "${{ secrets.BACKEND_ENV_PRODUCTION }}" > .env.production
+              cat > .env.production <<'BACKEND_ENV_EOF'
+${{ secrets.BACKEND_ENV_PRODUCTION }}
+BACKEND_ENV_EOF
+              sed -i 's/\r$//' .env.production
               echo ".env.production written from BACKEND_ENV_PRODUCTION secret"
             fi
 
@@ -276,9 +286,32 @@ jobs:
               exit 1
             fi
 
-            docker compose -f docker-compose.prod.yml --env-file .env.production up --build -d
-            docker compose -f docker-compose.prod.yml --env-file .env.production ps
-            docker compose -f docker-compose.prod.yml --env-file .env.production logs --tail=100 api
+            if grep -nEv '^\s*($|#|[A-Za-z_][A-Za-z0-9_]*=)' .env.production >/tmp/wd_invalid_env_lines; then
+              echo "Invalid format in .env.production. Expected KEY=VALUE, comment, or empty line."
+              echo "Invalid line numbers:"
+              awk -F: '{print " - " $1}' /tmp/wd_invalid_env_lines
+              exit 1
+            fi
+
+            run_docker() {
+              if [ "$SUDO_MODE" = "nopass" ]; then
+                sudo -n docker "$@"
+              elif [ "$SUDO_MODE" = "password" ]; then
+                printf '%s\n' "${{ secrets.VPS_PASSWORD }}" | sudo -S -p '' docker "$@"
+              else
+                docker "$@"
+              fi
+            }
+
+            if ! run_docker info >/dev/null 2>&1; then
+              echo "Docker daemon is not accessible by user $USER."
+              echo "Add user to docker group or grant sudo privileges on VPS."
+              exit 1
+            fi
+
+            run_docker compose -f docker-compose.prod.yml --env-file .env.production up --build -d
+            run_docker compose -f docker-compose.prod.yml --env-file .env.production ps
+            run_docker compose -f docker-compose.prod.yml --env-file .env.production logs --tail=100 api
 
             if command -v curl >/dev/null 2>&1; then
               curl -fsS http://127.0.0.1:3000/health >/dev/null
@@ -319,12 +352,29 @@ jobs:
             fi
 
             chmod +x "$APP_PATH/backend/scripts/provision-vps.sh"
-            printf '%s\n' "${{ secrets.VPS_PASSWORD }}" | sudo -S -p '' env DOMAIN="$DOMAIN" LETSENCRYPT_EMAIL="$LETSENCRYPT_EMAIL" APP_PATH="$APP_PATH" bash "$APP_PATH/backend/scripts/provision-vps.sh"
+            SUDO_MODE="none"
+            if sudo -n true >/dev/null 2>&1; then
+              SUDO_MODE="nopass"
+            elif [ -n "${{ secrets.VPS_PASSWORD }}" ] && printf '%s\n' "${{ secrets.VPS_PASSWORD }}" | sudo -S -p '' -v >/dev/null 2>&1; then
+              SUDO_MODE="password"
+            fi
+
+            if [ "$SUDO_MODE" = "nopass" ]; then
+              sudo -n env DOMAIN="$DOMAIN" LETSENCRYPT_EMAIL="$LETSENCRYPT_EMAIL" APP_PATH="$APP_PATH" bash "$APP_PATH/backend/scripts/provision-vps.sh"
+            elif [ "$SUDO_MODE" = "password" ]; then
+              printf '%s\n' "${{ secrets.VPS_PASSWORD }}" | sudo -S -p '' env DOMAIN="$DOMAIN" LETSENCRYPT_EMAIL="$LETSENCRYPT_EMAIL" APP_PATH="$APP_PATH" bash "$APP_PATH/backend/scripts/provision-vps.sh"
+            else
+              echo "No sudo privileges for user $USER. Skipping VPS provisioning."
+              echo "Run backend/scripts/provision-vps.sh once as root, then keep this CI deploy."
+            fi
 
             cd "$APP_PATH/backend"
 
             if [ -n "${{ secrets.BACKEND_ENV_PRODUCTION }}" ]; then
-              printf '%s\n' "${{ secrets.BACKEND_ENV_PRODUCTION }}" > .env.production
+              cat > .env.production <<'BACKEND_ENV_EOF'
+${{ secrets.BACKEND_ENV_PRODUCTION }}
+BACKEND_ENV_EOF
+              sed -i 's/\r$//' .env.production
               echo ".env.production written from BACKEND_ENV_PRODUCTION secret"
             fi
 
@@ -333,9 +383,32 @@ jobs:
               exit 1
             fi
 
-            docker compose -f docker-compose.prod.yml --env-file .env.production up --build -d
-            docker compose -f docker-compose.prod.yml --env-file .env.production ps
-            docker compose -f docker-compose.prod.yml --env-file .env.production logs --tail=100 api
+            if grep -nEv '^\s*($|#|[A-Za-z_][A-Za-z0-9_]*=)' .env.production >/tmp/wd_invalid_env_lines; then
+              echo "Invalid format in .env.production. Expected KEY=VALUE, comment, or empty line."
+              echo "Invalid line numbers:"
+              awk -F: '{print " - " $1}' /tmp/wd_invalid_env_lines
+              exit 1
+            fi
+
+            run_docker() {
+              if [ "$SUDO_MODE" = "nopass" ]; then
+                sudo -n docker "$@"
+              elif [ "$SUDO_MODE" = "password" ]; then
+                printf '%s\n' "${{ secrets.VPS_PASSWORD }}" | sudo -S -p '' docker "$@"
+              else
+                docker "$@"
+              fi
+            }
+
+            if ! run_docker info >/dev/null 2>&1; then
+              echo "Docker daemon is not accessible by user $USER."
+              echo "Add user to docker group or grant sudo privileges on VPS."
+              exit 1
+            fi
+
+            run_docker compose -f docker-compose.prod.yml --env-file .env.production up --build -d
+            run_docker compose -f docker-compose.prod.yml --env-file .env.production ps
+            run_docker compose -f docker-compose.prod.yml --env-file .env.production logs --tail=100 api
 
             if command -v curl >/dev/null 2>&1; then
               curl -fsS http://127.0.0.1:3000/health >/dev/null
