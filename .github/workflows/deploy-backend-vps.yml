@@ -121,13 +121,15 @@ jobs:
           script_stop: true
           script: |
             set -eux
-            APP_PATH="${{ secrets.VPS_APP_PATH || format('/home/{0}/west-drive', secrets.VPS_USER) }}"
+            APP_PATH="$(printf '%s' '${{ secrets.VPS_APP_PATH }}' | tr -d '\r\n')"
+            if [ -z "$APP_PATH" ]; then
+              APP_PATH="$HOME/west-drive"
+            fi
             REPO="${{ github.repository }}"
             BRANCH="${{ github.ref_name }}"
             SHA="${{ github.sha }}"
 
-            sudo mkdir -p "$APP_PATH"
-            sudo chown -R "$USER":"$USER" "$APP_PATH"
+            mkdir -p "$APP_PATH"
 
             if ! command -v git >/dev/null 2>&1; then
               sudo apt-get update -y
@@ -181,13 +183,15 @@ jobs:
           script_stop: true
           script: |
             set -eux
-            APP_PATH="${{ secrets.VPS_APP_PATH || format('/home/{0}/west-drive', secrets.VPS_USER) }}"
+            APP_PATH="$(printf '%s' '${{ secrets.VPS_APP_PATH }}' | tr -d '\r\n')"
+            if [ -z "$APP_PATH" ]; then
+              APP_PATH="$HOME/west-drive"
+            fi
             REPO="${{ github.repository }}"
             BRANCH="${{ github.ref_name }}"
             SHA="${{ github.sha }}"
 
-            sudo mkdir -p "$APP_PATH"
-            sudo chown -R "$USER":"$USER" "$APP_PATH"
+            mkdir -p "$APP_PATH"
 
             if ! command -v git >/dev/null 2>&1; then
               sudo apt-get update -y
@@ -235,10 +239,12 @@ jobs:
           script_stop: true
           script: |
             set -eux
-            APP_PATH="${{ secrets.VPS_APP_PATH || format('/home/{0}/west-drive', secrets.VPS_USER) }}"
+            APP_PATH="$(printf '%s' '${{ secrets.VPS_APP_PATH }}' | tr -d '\r\n')"
+            if [ -z "$APP_PATH" ]; then
+              APP_PATH="$HOME/west-drive"
+            fi
 
-            sudo mkdir -p "$APP_PATH"
-            sudo chown -R "$USER":"$USER" "$APP_PATH"
+            mkdir -p "$APP_PATH"
 
             export DOMAIN="${{ secrets.VPS_API_DOMAIN }}"
             export LETSENCRYPT_EMAIL="${{ secrets.LETSENCRYPT_EMAIL }}"
@@ -255,7 +261,14 @@ jobs:
             fi
 
             chmod +x "$APP_PATH/backend/scripts/provision-vps.sh"
-            "$APP_PATH/backend/scripts/provision-vps.sh"
+            if sudo -n true >/dev/null 2>&1; then
+              sudo -n env DOMAIN="$DOMAIN" LETSENCRYPT_EMAIL="$LETSENCRYPT_EMAIL" APP_PATH="$APP_PATH" bash "$APP_PATH/backend/scripts/provision-vps.sh"
+            elif [ -n "${{ secrets.VPS_PASSWORD }}" ]; then
+              printf '%s\n' "${{ secrets.VPS_PASSWORD }}" | sudo -S -p '' env DOMAIN="$DOMAIN" LETSENCRYPT_EMAIL="$LETSENCRYPT_EMAIL" APP_PATH="$APP_PATH" bash "$APP_PATH/backend/scripts/provision-vps.sh"
+            else
+              echo "Provisioning needs sudo privileges. Configure passwordless sudo or set VPS_PASSWORD secret."
+              exit 1
+            fi
 
             cd "$APP_PATH/backend"
 
@@ -290,10 +303,12 @@ jobs:
           script_stop: true
           script: |
             set -eux
-            APP_PATH="${{ secrets.VPS_APP_PATH || format('/home/{0}/west-drive', secrets.VPS_USER) }}"
+            APP_PATH="$(printf '%s' '${{ secrets.VPS_APP_PATH }}' | tr -d '\r\n')"
+            if [ -z "$APP_PATH" ]; then
+              APP_PATH="$HOME/west-drive"
+            fi
 
-            sudo mkdir -p "$APP_PATH"
-            sudo chown -R "$USER":"$USER" "$APP_PATH"
+            mkdir -p "$APP_PATH"
 
             export DOMAIN="${{ secrets.VPS_API_DOMAIN }}"
             export LETSENCRYPT_EMAIL="${{ secrets.LETSENCRYPT_EMAIL }}"
@@ -310,7 +325,7 @@ jobs:
             fi
 
             chmod +x "$APP_PATH/backend/scripts/provision-vps.sh"
-            "$APP_PATH/backend/scripts/provision-vps.sh"
+            printf '%s\n' "${{ secrets.VPS_PASSWORD }}" | sudo -S -p '' env DOMAIN="$DOMAIN" LETSENCRYPT_EMAIL="$LETSENCRYPT_EMAIL" APP_PATH="$APP_PATH" bash "$APP_PATH/backend/scripts/provision-vps.sh"
 
             cd "$APP_PATH/backend"
 
