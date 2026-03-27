@@ -55,27 +55,69 @@ jobs:
     needs: quality
     if: github.ref == 'refs/heads/main'
     env:
-      VPS_SSH_KEY_VALUE: ${{ secrets.VPS_SSH_KEY }}
+      HAS_SSH_KEY: ${{ secrets.VPS_SSH_KEY != '' }}
+      HAS_PASSWORD: ${{ secrets.VPS_PASSWORD != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Validate SSH auth config
+        if: ${{ env.HAS_SSH_KEY == 'false' && env.HAS_PASSWORD == 'false' }}
         run: |
-          if [ -z "${{ secrets.VPS_SSH_KEY }}" ] && [ -z "${{ secrets.VPS_PASSWORD }}" ]; then
-            echo "Missing SSH authentication secret. Set VPS_SSH_KEY (recommended) or VPS_PASSWORD."
+          echo "Missing SSH authentication secret. Set VPS_SSH_KEY (recommended) or VPS_PASSWORD."
+          exit 1
+
+      - name: Normalize SSH connection values
+        run: |
+          set -eu
+
+          CLEAN_USER="$(printf '%s' '${{ secrets.VPS_USER }}' | tr -d '\r\n')"
+          CLEAN_PORT="$(printf '%s' '${{ secrets.VPS_SSH_PORT || '22' }}' | tr -d '\r\n')"
+
+          if [ -z "$CLEAN_USER" ]; then
+            echo "VPS_USER is empty"
             exit 1
           fi
 
+          if [ -z "$CLEAN_PORT" ]; then
+            CLEAN_PORT="22"
+          fi
+
+          if ! printf '%s' "$CLEAN_PORT" | grep -Eq '^[0-9]+$'; then
+            echo "VPS_SSH_PORT must be numeric"
+            exit 1
+          fi
+
+          echo "VPS_USER_CLEAN=$CLEAN_USER" >> "$GITHUB_ENV"
+          echo "VPS_PORT_CLEAN=$CLEAN_PORT" >> "$GITHUB_ENV"
+
+      - name: Prepare SSH private key file
+        if: ${{ env.HAS_SSH_KEY == 'true' }}
+        run: |
+          set -eu
+
+          KEY_PATH="$RUNNER_TEMP/vps_ssh_key"
+          printf '%s' '${{ secrets.VPS_SSH_KEY }}' | tr -d '\r' > "$KEY_PATH"
+
+          if ! grep -Eq 'BEGIN .*PRIVATE KEY' "$KEY_PATH"; then
+            echo "VPS_SSH_KEY format looks invalid (missing BEGIN ... PRIVATE KEY header)"
+            exit 1
+          fi
+
+          chmod 600 "$KEY_PATH"
+          echo "VPS_SSH_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
       - name: Sync repository on VPS (SSH key)
-        if: ${{ env.VPS_SSH_KEY_VALUE != '' }}
+        id: sync_key
+        if: ${{ env.HAS_SSH_KEY == 'true' }}
+        continue-on-error: true
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
+          username: ${{ env.VPS_USER_CLEAN }}
+          key_path: ${{ env.VPS_SSH_KEY_PATH }}
           passphrase: ${{ secrets.VPS_SSH_KEY_PASSPHRASE }}
-          port: ${{ secrets.VPS_SSH_PORT || '22' }}
+          port: ${{ env.VPS_PORT_CLEAN }}
           script_stop: true
           script: |
             set -eu
@@ -106,14 +148,21 @@ jobs:
             git checkout -B "$BRANCH" "origin/$BRANCH"
             git reset --hard "$SHA"
 
+      - name: Fail when key auth failed and no password fallback
+        if: ${{ env.HAS_SSH_KEY == 'true' && steps.sync_key.outcome == 'failure' && env.HAS_PASSWORD != 'true' }}
+        run: |
+          echo "SSH key authentication failed and VPS_PASSWORD is not configured."
+          echo "Fix VPS_SSH_KEY/VPS_USER, or set VPS_PASSWORD as fallback."
+          exit 1
+
       - name: Sync repository on VPS (password fallback)
-        if: ${{ env.VPS_SSH_KEY_VALUE == '' }}
+        if: ${{ (env.HAS_SSH_KEY != 'true' || steps.sync_key.outcome == 'failure') && env.HAS_PASSWORD == 'true' }}
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
+          username: ${{ env.VPS_USER_CLEAN }}
           password: ${{ secrets.VPS_PASSWORD }}
-          port: ${{ secrets.VPS_SSH_PORT || '22' }}
+          port: ${{ env.VPS_PORT_CLEAN }}
           script_stop: true
           script: |
             set -eu
@@ -145,14 +194,14 @@ jobs:
             git reset --hard "$SHA"
 
       - name: Apply deployment on VPS (SSH key)
-        if: ${{ env.VPS_SSH_KEY_VALUE != '' }}
+        if: ${{ env.HAS_SSH_KEY == 'true' && steps.sync_key.outcome == 'success' }}
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
+          username: ${{ env.VPS_USER_CLEAN }}
+          key_path: ${{ env.VPS_SSH_KEY_PATH }}
           passphrase: ${{ secrets.VPS_SSH_KEY_PASSPHRASE }}
-          port: ${{ secrets.VPS_SSH_PORT || '22' }}
+          port: ${{ env.VPS_PORT_CLEAN }}
           script_stop: true
           script: |
             set -eu
@@ -198,13 +247,13 @@ jobs:
             fi
 
       - name: Apply deployment on VPS (password fallback)
-        if: ${{ env.VPS_SSH_KEY_VALUE == '' }}
+        if: ${{ (env.HAS_SSH_KEY != 'true' || steps.sync_key.outcome == 'failure') && env.HAS_PASSWORD == 'true' }}
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
+          username: ${{ env.VPS_USER_CLEAN }}
           password: ${{ secrets.VPS_PASSWORD }}
-          port: ${{ secrets.VPS_SSH_PORT || '22' }}
+          port: ${{ env.VPS_PORT_CLEAN }}
           script_stop: true
           script: |
             set -eu
