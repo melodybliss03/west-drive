@@ -25,13 +25,15 @@ const sidebarItems: { key: TabKey; icon: typeof BarChart3; label: string }[] = [
 interface AdminSidebarProps {
   tab: TabKey;
   setTab: (t: TabKey) => void;
+  allowedTabs: TabKey[];
   user: { nom: string; prenom: string; email: string };
   onLogout: () => void;
 }
 
-export default function AdminSidebar({ tab, setTab, user, onLogout }: AdminSidebarProps) {
+export default function AdminSidebar({ tab, setTab, allowedTabs, user, onLogout }: AdminSidebarProps) {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const visibleItems = sidebarItems.filter((item) => allowedTabs.includes(item.key));
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border bg-foreground">
@@ -55,7 +57,7 @@ export default function AdminSidebar({ tab, setTab, user, onLogout }: AdminSideb
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {sidebarItems.map(item => (
+              {visibleItems.map(item => (
                 <SidebarMenuItem key={item.key}>
                   <SidebarMenuButton
                     onClick={() => setTab(item.key)}

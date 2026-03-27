@@ -75,7 +75,18 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
     setIsNew(false);
   };
 
-  const toVehiclePayload = (vehicle: VehiculeForm) => ({
+  const toVehiclePayload = (vehicle: VehiculeForm) => {
+    const maintenanceMileage = vehicle.entretenueRequis?.kilométrage;
+    const maintenanceDays = vehicle.entretenueRequis?.jours;
+    const maintenanceRequired =
+      maintenanceMileage === undefined && maintenanceDays === undefined
+        ? undefined
+        : {
+            mileage: maintenanceMileage,
+            days: maintenanceDays,
+          };
+
+    return {
     name: vehicle.nom,
     brand: vehicle.marque,
     model: vehicle.modele,
@@ -90,17 +101,13 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
     pricePerDay: vehicle.prixJour,
     pricePerHour: vehicle.prixHeure || 0,
     additionalFeesLabels: vehicle.autreFraisLibelle || [],
-    maintenanceRequired: vehicle.entretenueRequis
-      ? {
-          mileage: vehicle.entretenueRequis.kilométrage ?? undefined,
-          days: vehicle.entretenueRequis.jours ?? undefined,
-        }
-      : undefined,
+    maintenanceRequired,
     plateNumber: vehicle.plaqueImmatriculation,
     streetAddress: locationForm.streetAddress,
     city: locationForm.city,
     availableCities: vehicle.villes,
-  });
+  };
+  };
 
   const reloadPage = async () => {
     const refreshed = await vehiclesService.list({ page, limit }, true);

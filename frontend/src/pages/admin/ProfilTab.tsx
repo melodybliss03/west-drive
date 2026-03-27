@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Edit, Save, Shield, Mail, Phone, UserPlus } from "lucide-react";
+import { Edit, Save, Shield, Mail, Phone, UserPlus, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { iamService } from "@/lib/api/services";
+import { iamService, usersService } from "@/lib/api/services";
 import { Spinner } from "@/components/ui/spinner";
 
 type PermissionOption = {
@@ -24,6 +24,18 @@ type RoleOption = {
   name: string;
   description?: string;
   permissionCodes: string[];
+};
+
+type TeamUserRole = {
+  id: string;
+  name: string;
+};
+
+type TeamUser = {
+  id: string;
+  fullName: string;
+  email: string;
+  roles: TeamUserRole[];
 };
 
 function extractItems<T>(collection: unknown): T[] {
@@ -62,9 +74,21 @@ export default function ProfilTab() {
   const [isLoadingIam, setIsLoadingIam] = useState(true);
   const [isCreatingRole, setIsCreatingRole] = useState(false);
   const [isAssigningRole, setIsAssigningRole] = useState(false);
+  const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
+  const [removingRoleKey, setRemovingRoleKey] = useState<string | null>(null);
 
   const saveProfile = () => {
-    login({ nom: profileForm.nom, prenom: profileForm.prenom, email: profileForm.email }); 
+    login({
+      id: user.id,
+      nom: profileForm.nom,
+      prenom: profileForm.prenom,
+      email: profileForm.email,
+      phone: user.phone,
+      role: user.role,
+      roles: user.roles,
+      permissions: user.permissions,
+      photo: user.photo,
+    });
     setProfileEditing(false);
     toast({ title: "Profil mis à jour", description: "Vos informations ont été enregistrées." });
   };
@@ -73,9 +97,10 @@ export default function ProfilTab() {
     const loadIamData = async () => {
       setIsLoadingIam(true);
       try {
-        const [permissionsResponse, rolesResponse] = await Promise.all([
+        const [permissionsResponse, rolesResponse, usersResponse] = await Promise.all([
           iamService.permissions({ page: 1, limit: 100 }),
           iamService.roles({ page: 1, limit: 100 }),
+          usersService.list({ page: 1, limit: 100 }),
         ]);
 
         const mappedPermissions = extractItems<Record<string, unknown>>(permissionsResponse).map((permission) => {
@@ -110,6 +135,44 @@ export default function ProfilTab() {
 
         setPermissions(mappedPermissions);
         setRoles(mappedRoles);
+
+        const mappedTeamUsers = extractItems<Record<string, unknown>>(usersResponse)
+          .map((item) => {
+            const firstName = String(item.firstName || "").trim();
+            const lastName = String(item.lastName || "").trim();
+            const fullName = `${firstName} ${lastName}`.trim() || "Utilisateur";
+
+            const userRoles = Array.isArray(item.userRoles)
+              ? item.userRoles
+              : [];
+
+            const roles = userRoles
+              .map((userRole) => {
+                if (!userRole || typeof userRole !== "object") return null;
+                const linkId = "id" in userRole ? String((userRole as { id?: unknown }).id || "") : "";
+                const roleObject = "role" in userRole ? (userRole as { role?: Record<string, unknown> }).role : undefined;
+                const roleName = roleObject?.name ? String(roleObject.name) : "";
+                const roleId = roleObject?.id ? String(roleObject.id) : "";
+                if (!roleName || !roleId) return null;
+                return {
+                  id: roleId,
+                  name: roleName,
+                  linkId,
+                };
+              })
+              .filter((role): role is { id: string; name: string; linkId: string } => !!role)
+              .filter((role) => !["customer", "client", "admin"].includes(role.name.toLowerCase()));
+
+            return {
+              id: String(item.id || ""),
+              fullName,
+              email: String(item.email || ""),
+              roles: roles.map((role) => ({ id: role.id, name: role.name })),
+            };
+          })
+          .filter((member) => member.id.length > 0 && member.roles.length > 0);
+
+        setTeamUsers(mappedTeamUsers);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Impossible de charger les données IAM.";
         toast({ title: "Erreur IAM", description: message, variant: "destructive" });
@@ -196,6 +259,39 @@ export default function ProfilTab() {
       toast({ title: "Erreur", description: message, variant: "destructive" });
     } finally {
       setIsAssigningRole(false);
+    }
+  };
+
+  const removeRoleFromMember = async (member: TeamUser, role: TeamUserRole) => {
+    const operationKey = `${member.id}:${role.id}`;
+    if (removingRoleKey) return;
+
+    try {
+      setRemovingRoleKey(operationKey);
+      await iamService.removeRoleFromUser(role.id, member.id);
+
+      setTeamUsers((prev) =>
+        prev
+          .map((entry) =>
+            entry.id === member.id
+              ? {
+                  ...entry,
+                  roles: entry.roles.filter((entryRole) => entryRole.id !== role.id),
+                }
+              : entry,
+          )
+          .filter((entry) => entry.roles.length > 0),
+      );
+
+      toast({
+        title: "Rôle supprimé",
+        description: `Le rôle ${role.name} a été retiré de ${member.fullName}.`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Impossible de supprimer ce rôle.";
+      toast({ title: "Erreur", description: message, variant: "destructive" });
+    } finally {
+      setRemovingRoleKey(null);
     }
   };
 
@@ -408,6 +504,48 @@ export default function ProfilTab() {
                     Rôle sélectionné: {selectedRole.name} ({selectedRole.permissionCodes.length} permissions)
                   </p>
                 ) : null}
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-muted-foreground">Rôles attribués aux membres</p>
+                {teamUsers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Aucun membre avec rôle attribué.</p>
+                ) : (
+                  teamUsers.map((member) => (
+                    <div key={member.id} className="rounded-xl border border-border bg-card p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{member.fullName}</p>
+                          <p className="text-xs text-muted-foreground">{member.email}</p>
+                        </div>
+                        <Badge variant="outline">{member.roles.length} rôle(s)</Badge>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {member.roles.map((role) => {
+                          const operationKey = `${member.id}:${role.id}`;
+                          const isRemoving = removingRoleKey === operationKey;
+
+                          return (
+                            <div key={`${member.id}-${role.id}`} className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-xs">
+                              <span>{role.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => removeRoleFromMember(member, role)}
+                                disabled={isRemoving}
+                                className="inline-flex items-center justify-center rounded-sm text-muted-foreground hover:text-destructive disabled:opacity-50"
+                                aria-label={`Supprimer le rôle ${role.name}`}
+                                title={`Supprimer le rôle ${role.name}`}
+                              >
+                                {isRemoving ? <Spinner className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </>
           )}

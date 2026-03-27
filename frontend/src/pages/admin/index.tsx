@@ -37,6 +37,17 @@ const NOTIF_ICONS: Record<string, typeof Bell> = {
   flotte: AlertTriangle,
 };
 
+const TAB_REQUIRED_PERMISSIONS: Partial<Record<TabKey, string>> = {
+  kpi: "admin.kpi.read",
+  vehicules: "vehicles.read",
+  reservations: "reservations.read",
+  devis: "quotes.read",
+  flotte: "fleet.read",
+  utilisateurs: "users.read",
+};
+
+const CUSTOMER_ROLE_NAMES = new Set(["customer", "client"]);
+
 function extractUsersFromResponse(
   collection: unknown,
 ): Array<Record<string, unknown>> {
@@ -100,6 +111,31 @@ export default function Boss() {
 
   const unreadCount = notifications.filter(n => !n.lu).length;
 
+  const roleNames = Array.from(
+    new Set(
+      [user?.role, ...(user?.roles ?? [])]
+        .filter((role): role is string => typeof role === "string" && role.trim().length > 0)
+        .map((role) => role.trim().toLowerCase()),
+    ),
+  );
+
+  const isAdmin = roleNames.includes("admin");
+  const isBackofficeUser = roleNames.some((role) => !CUSTOMER_ROLE_NAMES.has(role));
+
+  const hasPermission = (permission: string): boolean => {
+    if (!user) return false;
+    if (isAdmin) return true;
+    return user.permissions.includes(permission);
+  };
+
+  const allowedTabs = (Object.keys(TAB_REQUIRED_PERMISSIONS) as TabKey[])
+    .filter((key) => {
+      const permission = TAB_REQUIRED_PERMISSIONS[key];
+      return permission ? hasPermission(permission) : true;
+    })
+    .concat(["profil"])
+    .filter((value, index, array) => array.indexOf(value) === index);
+
   const markAsRead = (id: string) => {
     notificationsService.markAsRead(id).catch(() => {
       // UI stays optimistic in case of transient API failure.
@@ -126,7 +162,22 @@ export default function Boss() {
   }, []);
 
   useEffect(() => {
-    if (isBootstrapping || !user || (tab !== "vehicules" && tab !== "kpi")) return;
+    if (isBootstrapping) return;
+    if (user && !isBackofficeUser) {
+      navigate("/espace", { replace: true });
+    }
+  }, [isBootstrapping, isBackofficeUser, navigate, user]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (allowedTabs.length === 0) return;
+    if (!allowedTabs.includes(tab)) {
+      setTab(allowedTabs[0]);
+    }
+  }, [allowedTabs, tab, user]);
+
+  useEffect(() => {
+    if (isBootstrapping || !user || !hasPermission("vehicles.read") || (tab !== "vehicules" && tab !== "kpi")) return;
 
     const loadVehicles = async () => {
       setIsLoadingVehicles(true);
@@ -146,7 +197,7 @@ export default function Boss() {
   }, [isBootstrapping, user, tab, vehiclesPage, vehiclesLimit]);
 
   useEffect(() => {
-    if (isBootstrapping || !user || (tab !== "reservations" && tab !== "kpi")) return;
+    if (isBootstrapping || !user || !hasPermission("reservations.read") || (tab !== "reservations" && tab !== "kpi")) return;
 
     const loadReservations = async () => {
       setIsLoadingReservations(true);
@@ -179,7 +230,7 @@ export default function Boss() {
   }, [isBootstrapping, tab, user, reservationsPage, reservationsLimit]);
 
   useEffect(() => {
-    if (isBootstrapping || !user) return;
+    if (isBootstrapping || !user || !hasPermission("users.read") || (tab !== "utilisateurs" && tab !== "kpi")) return;
 
     const loadUsers = async () => {
       setIsLoadingUsers(true);
@@ -224,10 +275,16 @@ export default function Boss() {
           };
         });
 
-        setUsers(mappedUsers);
+        const currentUserId = user.id ?? "";
+        const visibleUsers = mappedUsers.filter(
+          (candidate) =>
+            candidate.id !== currentUserId && candidate.role !== "admin",
+        );
+
+        setUsers(visibleUsers);
         setTeamMembers(
           mappedUsers
-            .filter((u) => !["client", "customer"].includes(u.role))
+            .filter((u) => !["client", "customer", "admin"].includes(u.role))
             .map((u) => ({
               id: u.id,
               nom: u.nom,
@@ -243,7 +300,7 @@ export default function Boss() {
           setUsersMeta({
             page: usersPage,
             limit: usersLimit,
-            totalItems: mappedUsers.length,
+            totalItems: visibleUsers.length,
             totalPages: 1,
             hasNextPage: false,
             hasPreviousPage: false,
@@ -286,7 +343,7 @@ export default function Boss() {
   }, [isBootstrapping, user]);
 
   useEffect(() => {
-    if (isBootstrapping || !user || tab !== "devis") return;
+    if (isBootstrapping || !user || !hasPermission("quotes.read") || tab !== "devis") return;
 
     const loadQuotes = async () => {
       setIsLoadingQuotes(true);
@@ -319,6 +376,7 @@ export default function Boss() {
   }, [isBootstrapping, user, tab, devisPage, devisLimit]);
 
   if (!user) return <AdminAuth />;
+  if (!isBackofficeUser) return null;
 
   const isLoadingActiveTab =
     tab === "vehicules"
@@ -336,7 +394,7 @@ export default function Boss() {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
-        <AdminSidebar tab={tab} setTab={setTab} user={user} onLogout={handleLogout} />
+        <AdminSidebar tab={tab} setTab={setTab} allowedTabs={allowedTabs} user={user} onLogout={handleLogout} />
 
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-14 flex items-center gap-4 border-b border-border bg-card px-4 flex-shrink-0">

@@ -299,6 +299,12 @@ export const authService = {
       body: { email, password },
     }),
 
+  adminLogin: (email: string, password: string) =>
+    apiRequest<AuthTokens>("/auth/admin/login", {
+      method: "POST",
+      body: { email, password },
+    }),
+
   refresh: (refreshToken: string) =>
     apiRequest<AuthTokens>("/auth/refresh", {
       method: "POST",
@@ -624,6 +630,11 @@ export const iamService = {
   assignRoleToUser: (roleId: string, userId: string) =>
     apiRequest<{ message?: string }>(`/iam/roles/${roleId}/users/${userId}`, {
       method: "POST",
+      auth: true,
+    }),
+  removeRoleFromUser: (roleId: string, userId: string) =>
+    apiRequest<{ message?: string }>(`/iam/roles/${roleId}/users/${userId}`, {
+      method: "DELETE",
       auth: true,
     }),
   inviteAndAssignRoleByEmail: (roleId: string, email: string) =>
