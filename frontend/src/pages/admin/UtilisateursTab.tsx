@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { usersService } from "@/lib/api/services";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -52,12 +53,19 @@ interface UtilisateursTabProps {
 }
 
 export default function UtilisateursTab({ users, setUsers, page, setPage, meta, setMeta, limit }: UtilisateursTabProps) {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [searchU, setSearchU] = useState("");
   const [loadingUserId, setLoadingUserId] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
 
-  const filteredUsers = users.filter(u => u.nom.toLowerCase().includes(searchU.toLowerCase()) || u.email.toLowerCase().includes(searchU.toLowerCase()));
+  const visibleUsers = users.filter((candidate) => {
+    const isConnectedUser = !!user?.id && candidate.id === user.id;
+    const isAdminUser = candidate.role.toLowerCase() === "admin";
+    return !isConnectedUser && !isAdminUser;
+  });
+
+  const filteredUsers = visibleUsers.filter(u => u.nom.toLowerCase().includes(searchU.toLowerCase()) || u.email.toLowerCase().includes(searchU.toLowerCase()));
 
   const reloadPage = async () => {
     const collection = await usersService.list({ page, limit });
@@ -83,13 +91,20 @@ export default function UtilisateursTab({ users, setUsers, page, setPage, meta, 
   };
 });
 
-    setUsers(mappedUsers);
+    const currentUserId = user?.id ?? "";
+    const visibleMappedUsers = mappedUsers.filter(
+      (candidate) =>
+        candidate.id !== currentUserId &&
+        candidate.role.toLowerCase() !== "admin",
+    );
+
+    setUsers(visibleMappedUsers);
 
     if (!hasPaginatedMeta) {
       setMeta({
         page,
         limit,
-        totalItems: mappedUsers.length,
+        totalItems: visibleMappedUsers.length,
         totalPages: 1,
         hasNextPage: false,
         hasPreviousPage: false,

@@ -15,7 +15,7 @@ function getErrorMessage(error: unknown): string {
 
 export default function AdminAuth() {
   const navigate = useNavigate();
-  const { loginWithCredentials } = useAuth();
+  const { loginAdminWithCredentials } = useAuth();
   const { toast } = useToast();
   const [authForm, setAuthForm] = useState({ email: "", password: "" });
   const [authErrors, setAuthErrors] = useState<Record<string, string>>({});
@@ -38,7 +38,7 @@ export default function AdminAuth() {
     setAuthLoading(true);
 
     try {
-      await loginWithCredentials(authForm.email, authForm.password);
+      await loginAdminWithCredentials(authForm.email, authForm.password);
       toast({ title: "Connexion réussie", description: "Bienvenue dans l'espace administration." });
 
       // Admin registration disabled by product decision.

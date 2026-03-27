@@ -28,6 +28,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (user: User) => void;
   loginWithCredentials: (email: string, password: string) => Promise<void>;
+  loginAdminWithCredentials: (email: string, password: string) => Promise<void>;
   completeAuthWithTokens: (tokens: AuthTokens) => Promise<void>;
   logout: () => void;
 }
@@ -41,6 +42,7 @@ const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   login: noop,
   loginWithCredentials: async () => {},
+  loginAdminWithCredentials: async () => {},
   completeAuthWithTokens: async () => {},
   logout: noop,
 });
@@ -161,6 +163,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [completeAuthWithTokens]
   );
 
+  const loginAdminWithCredentials = useCallback(
+    async (email: string, password: string) => {
+      const tokens = await authService.adminLogin(email, password);
+      await completeAuthWithTokens(tokens);
+    },
+    [completeAuthWithTokens]
+  );
+
   useEffect(() => {
     configureApiAuth({
       getAccessToken: () => accessTokenRef.current,
@@ -218,10 +228,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: !!user && !!accessToken,
       login,
       loginWithCredentials,
+      loginAdminWithCredentials,
       completeAuthWithTokens,
       logout,
     }),
-    [user, accessToken, isBootstrapping, login, loginWithCredentials, completeAuthWithTokens, logout]
+    [
+      user,
+      accessToken,
+      isBootstrapping,
+      login,
+      loginWithCredentials,
+      loginAdminWithCredentials,
+      completeAuthWithTokens,
+      logout,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

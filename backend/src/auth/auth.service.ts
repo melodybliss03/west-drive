@@ -186,12 +186,12 @@ export class AuthService {
       throw new UnauthorizedException('User is suspended');
     }
 
-    const isBackofficeUser = await this.hasBackofficeAccess(user);
-    if (isBackofficeUser) {
-      throw new UnauthorizedException(
-        'Backoffice accounts must sign in from /boss',
-      );
-    }
+    // const isBackofficeUser = await this.hasBackofficeAccess(user);
+    // if (isBackofficeUser) {
+    //   throw new UnauthorizedException(
+    //     'Backoffice accounts must sign in from /boss',
+    //   );
+    // }
 
     return this.issueTokens(user);
   }
