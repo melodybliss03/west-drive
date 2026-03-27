@@ -171,6 +171,43 @@ export class IamService implements OnApplicationBootstrap {
     return this.userRoleRepository.save(userRole);
   }
 
+  async removeRoleFromUser(
+    roleId: string,
+    userId: string,
+  ): Promise<{ message: string }> {
+    const role = await this.roleRepository.findOne({ where: { id: roleId } });
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+
+    if (!role) {
+      throw new NotFoundException('Role not found');
+    }
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const existingLink = await this.userRoleRepository.findOne({
+      where: { roleId, userId },
+    });
+
+    if (!existingLink) {
+      return { message: 'Role assignment already removed' };
+    }
+
+    await this.userRoleRepository.delete({ roleId, userId });
+
+    const remainingAssignments = await this.userRoleRepository.find({
+      where: { userId },
+      relations: { role: true },
+      order: { createdAt: 'ASC' },
+    });
+
+    user.role = remainingAssignments[0]?.role.name ?? 'CUSTOMER';
+    await this.userRepository.save(user);
+
+    return { message: 'Role removed from user' };
+  }
+
   async assignRoleToEmail(
     roleId: string,
     emailInput: string,

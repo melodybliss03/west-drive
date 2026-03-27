@@ -186,6 +186,35 @@ export class AuthService {
       throw new UnauthorizedException('User is suspended');
     }
 
+    const isBackofficeUser = await this.hasBackofficeAccess(user);
+    if (isBackofficeUser) {
+      throw new UnauthorizedException(
+        'Backoffice accounts must sign in from /boss',
+      );
+    }
+
+    return this.issueTokens(user);
+  }
+
+  async adminLogin(dto: LoginDto): Promise<TokenPair> {
+    const email = this.normalizeEmail(dto.email);
+    const user = await this.usersService.findByEmail(email);
+
+    if (!user || !(await argon2.verify(user.passwordHash, dto.password))) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (user.status !== UserStatus.ACTIF) {
+      throw new UnauthorizedException('User is suspended');
+    }
+
+    const isBackofficeUser = await this.hasBackofficeAccess(user);
+    if (!isBackofficeUser) {
+      throw new UnauthorizedException(
+        'This account must sign in from /connexion',
+      );
+    }
+
     return this.issueTokens(user);
   }
 
@@ -517,6 +546,23 @@ export class AuthService {
     }
 
     return randomInt(100000, 1000000).toString();
+  }
+
+  private async hasBackofficeAccess(user: User): Promise<boolean> {
+    const { roles } = await this.iamService.getUserSecurityContext(user.id);
+    const roleNames = new Set(
+      [user.role, ...(roles ?? [])]
+        .map((role) => role.trim().toUpperCase())
+        .filter(Boolean),
+    );
+
+    for (const roleName of roleNames) {
+      if (roleName !== 'CUSTOMER' && roleName !== 'CLIENT') {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private normalizeEmail(email: string): string {

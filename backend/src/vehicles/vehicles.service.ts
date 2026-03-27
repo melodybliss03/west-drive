@@ -26,6 +26,35 @@ export class VehiclesService {
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
+  private normalizeMaintenanceRequired(
+    maintenanceRequired:
+      | {
+          mileage?: number;
+          days?: number;
+          kilométrage?: number;
+          jours?: number;
+        }
+      | null
+      | undefined,
+  ): { mileage?: number; days?: number } | null {
+    if (!maintenanceRequired) {
+      return null;
+    }
+
+    const mileage =
+      maintenanceRequired.mileage ?? maintenanceRequired.kilométrage;
+    const days = maintenanceRequired.days ?? maintenanceRequired.jours;
+
+    if (mileage === undefined && days === undefined) {
+      return null;
+    }
+
+    return {
+      mileage,
+      days,
+    };
+  }
+
   async create(dto: CreateVehicleDto): Promise<Vehicle> {
     const vehicle = this.vehicleRepository.create({
       ...dto,
@@ -44,7 +73,9 @@ export class VehiclesService {
       latitude: (dto.latitude ?? 0).toString(),
       longitude: (dto.longitude ?? 0).toString(),
       additionalFeesLabels: dto.additionalFeesLabels ?? [],
-      maintenanceRequired: dto.maintenanceRequired ?? null,
+      maintenanceRequired: this.normalizeMaintenanceRequired(
+        dto.maintenanceRequired,
+      ),
     });
 
     const savedVehicle = await this.vehicleRepository.save(vehicle);
@@ -139,7 +170,9 @@ export class VehiclesService {
       additionalFeesLabels:
         dto.additionalFeesLabels ?? vehicle.additionalFeesLabels,
       maintenanceRequired:
-        dto.maintenanceRequired ?? vehicle.maintenanceRequired,
+        dto.maintenanceRequired !== undefined
+          ? this.normalizeMaintenanceRequired(dto.maintenanceRequired)
+          : vehicle.maintenanceRequired,
     });
 
     await this.vehicleRepository.save(vehicle);

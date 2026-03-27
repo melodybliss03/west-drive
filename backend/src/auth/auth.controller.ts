@@ -85,6 +85,30 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
+  @Post('admin/login')
+  @ApiOperation({
+    summary: 'Authentifier un compte back-office',
+    description:
+      'Retourne les tokens JWT uniquement pour les comptes ADMIN/STAFF.',
+  })
+  @ApiBody({ type: LoginDto })
+  @ApiOkResponse({
+    description: 'Authentification back-office reussie.',
+    schema: {
+      example: {
+        accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        refreshToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        tokenType: 'Bearer',
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Credentials invalides ou compte non back-office.',
+  })
+  adminLogin(@Body() dto: LoginDto) {
+    return this.authService.adminLogin(dto);
+  }
+
   @Post('refresh')
   @ApiOperation({
     summary: 'Renouveler les tokens JWT',

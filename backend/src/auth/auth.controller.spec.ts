@@ -9,6 +9,7 @@ describe('AuthController', () => {
     requestRegisterOtp: jest.fn(),
     confirmRegisterOtp: jest.fn(),
     login: jest.fn(),
+    adminLogin: jest.fn(),
     refresh: jest.fn(),
     forgotPassword: jest.fn(),
     resetPassword: jest.fn(),
@@ -72,6 +73,22 @@ describe('AuthController', () => {
 
     await expect(controller.login(dto)).resolves.toEqual(expected);
     expect(authServiceMock.login).toHaveBeenCalledWith(dto);
+  });
+
+  it('POST /auth/admin/login calls adminLogin', async () => {
+    const dto = {
+      email: 'admin@westdrive.fr',
+      password: 'StrongPassword123!',
+    };
+    const expected = {
+      accessToken: 'access',
+      refreshToken: 'refresh',
+      tokenType: 'Bearer',
+    };
+    authServiceMock.adminLogin.mockResolvedValue(expected);
+
+    await expect(controller.adminLogin(dto)).resolves.toEqual(expected);
+    expect(authServiceMock.adminLogin).toHaveBeenCalledWith(dto);
   });
 
   it('POST /auth/refresh calls refresh', async () => {

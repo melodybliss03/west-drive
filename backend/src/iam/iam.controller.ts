@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   DefaultValuePipe,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -173,6 +174,33 @@ export class IamController {
     @Param('userId', new ParseUUIDPipe()) userId: string,
   ) {
     return this.iamService.assignRoleToUser(roleId, userId);
+  }
+
+  @Delete('roles/:roleId/users/:userId')
+  @RequirePermissions('roles.assign')
+  @ApiOperation({
+    summary: 'Retirer un role d un utilisateur',
+    description:
+      'Supprime le lien role-utilisateur. Operation idempotente.',
+  })
+  @ApiParam({
+    name: 'roleId',
+    description: 'UUID du role a retirer',
+    example: '4ca247ea-c8fa-4747-a434-81c520ddf3d2',
+  })
+  @ApiParam({
+    name: 'userId',
+    description: 'UUID de l utilisateur cible',
+    example: 'f7c3084e-6a3b-4dcf-a9f2-b6dbfae436c0',
+  })
+  @ApiOkResponse({ description: 'Role retire de l utilisateur.' })
+  @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
+  @ApiForbiddenResponse({ description: 'Permission roles.assign requise.' })
+  removeRoleFromUser(
+    @Param('roleId', new ParseUUIDPipe()) roleId: string,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+  ) {
+    return this.iamService.removeRoleFromUser(roleId, userId);
   }
 
   @Post('roles/:roleId/invite')

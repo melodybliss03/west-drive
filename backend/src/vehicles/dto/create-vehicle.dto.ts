@@ -47,11 +47,29 @@ class MaintenanceRequiredDto {
   @Min(0)
   mileage?: number;
 
+  @ApiPropertyOptional({
+    example: 150000,
+    description: 'Alias legacy frontoffice pour mileage.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  kilométrage?: number;
+
   @ApiPropertyOptional({ example: 30 })
   @IsOptional()
   @IsInt()
   @Min(0)
   days?: number;
+
+  @ApiPropertyOptional({
+    example: 30,
+    description: 'Alias legacy frontoffice pour days.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  jours?: number;
 }
 
 export class CreateVehicleDto {
