@@ -120,11 +120,14 @@ jobs:
           port: ${{ env.VPS_PORT_CLEAN }}
           script_stop: true
           script: |
-            set -eu
-            APP_PATH="${{ secrets.VPS_APP_PATH || '/opt/west-drive' }}"
+            set -eux
+            APP_PATH="${{ secrets.VPS_APP_PATH || format('/home/{0}/west-drive', secrets.VPS_USER) }}"
             REPO="${{ github.repository }}"
             BRANCH="${{ github.ref_name }}"
             SHA="${{ github.sha }}"
+
+            sudo mkdir -p "$APP_PATH"
+            sudo chown -R "$USER":"$USER" "$APP_PATH"
 
             if ! command -v git >/dev/null 2>&1; then
               sudo apt-get update -y
@@ -139,12 +142,24 @@ jobs:
 
             if [ ! -d "$APP_PATH/.git" ]; then
               rm -rf "$APP_PATH"
-              git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$APP_PATH"
+              if ! git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$APP_PATH"; then
+                echo "git clone failed for $REPO_URL"
+                if [ -z "${{ secrets.GH_REPO_TOKEN }}" ]; then
+                  echo "If this repository is private, set GH_REPO_TOKEN secret."
+                fi
+                exit 1
+              fi
             fi
 
             cd "$APP_PATH"
             git remote set-url origin "$REPO_URL"
-            git fetch --depth 1 origin "$BRANCH"
+            if ! git fetch --depth 1 origin "$BRANCH"; then
+              echo "git fetch failed for branch $BRANCH"
+              if [ -z "${{ secrets.GH_REPO_TOKEN }}" ]; then
+                echo "If this repository is private, set GH_REPO_TOKEN secret."
+              fi
+              exit 1
+            fi
             git checkout -B "$BRANCH" "origin/$BRANCH"
             git reset --hard "$SHA"
 
@@ -165,11 +180,14 @@ jobs:
           port: ${{ env.VPS_PORT_CLEAN }}
           script_stop: true
           script: |
-            set -eu
-            APP_PATH="${{ secrets.VPS_APP_PATH || '/opt/west-drive' }}"
+            set -eux
+            APP_PATH="${{ secrets.VPS_APP_PATH || format('/home/{0}/west-drive', secrets.VPS_USER) }}"
             REPO="${{ github.repository }}"
             BRANCH="${{ github.ref_name }}"
             SHA="${{ github.sha }}"
+
+            sudo mkdir -p "$APP_PATH"
+            sudo chown -R "$USER":"$USER" "$APP_PATH"
 
             if ! command -v git >/dev/null 2>&1; then
               sudo apt-get update -y
@@ -184,12 +202,24 @@ jobs:
 
             if [ ! -d "$APP_PATH/.git" ]; then
               rm -rf "$APP_PATH"
-              git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$APP_PATH"
+              if ! git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$APP_PATH"; then
+                echo "git clone failed for $REPO_URL"
+                if [ -z "${{ secrets.GH_REPO_TOKEN }}" ]; then
+                  echo "If this repository is private, set GH_REPO_TOKEN secret."
+                fi
+                exit 1
+              fi
             fi
 
             cd "$APP_PATH"
             git remote set-url origin "$REPO_URL"
-            git fetch --depth 1 origin "$BRANCH"
+            if ! git fetch --depth 1 origin "$BRANCH"; then
+              echo "git fetch failed for branch $BRANCH"
+              if [ -z "${{ secrets.GH_REPO_TOKEN }}" ]; then
+                echo "If this repository is private, set GH_REPO_TOKEN secret."
+              fi
+              exit 1
+            fi
             git checkout -B "$BRANCH" "origin/$BRANCH"
             git reset --hard "$SHA"
 
@@ -204,8 +234,11 @@ jobs:
           port: ${{ env.VPS_PORT_CLEAN }}
           script_stop: true
           script: |
-            set -eu
-            APP_PATH="${{ secrets.VPS_APP_PATH || '/opt/west-drive' }}"
+            set -eux
+            APP_PATH="${{ secrets.VPS_APP_PATH || format('/home/{0}/west-drive', secrets.VPS_USER) }}"
+
+            sudo mkdir -p "$APP_PATH"
+            sudo chown -R "$USER":"$USER" "$APP_PATH"
 
             export DOMAIN="${{ secrets.VPS_API_DOMAIN }}"
             export LETSENCRYPT_EMAIL="${{ secrets.LETSENCRYPT_EMAIL }}"
@@ -256,8 +289,11 @@ jobs:
           port: ${{ env.VPS_PORT_CLEAN }}
           script_stop: true
           script: |
-            set -eu
-            APP_PATH="${{ secrets.VPS_APP_PATH || '/opt/west-drive' }}"
+            set -eux
+            APP_PATH="${{ secrets.VPS_APP_PATH || format('/home/{0}/west-drive', secrets.VPS_USER) }}"
+
+            sudo mkdir -p "$APP_PATH"
+            sudo chown -R "$USER":"$USER" "$APP_PATH"
 
             export DOMAIN="${{ secrets.VPS_API_DOMAIN }}"
             export LETSENCRYPT_EMAIL="${{ secrets.LETSENCRYPT_EMAIL }}"
