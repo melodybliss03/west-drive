@@ -274,9 +274,10 @@ jobs:
             cd "$APP_PATH/backend"
 
             if [ -n '${{ secrets.BACKEND_ENV_PRODUCTION }}' ]; then
-              printf '%s\n' '${{ secrets.BACKEND_ENV_PRODUCTION }}' > .env.production
+              # Remove potentially dangerous keys from the provided secret
+              printf '%s\n' '${{ secrets.BACKEND_ENV_PRODUCTION }}' | sed -e '/^[[:space:]]*DB_RESET=/d' -e '/^[[:space:]]*CONFIRM_DB_RESET=/d' > .env.production
               sed -i 's/\r$//' .env.production
-              echo ".env.production written from BACKEND_ENV_PRODUCTION secret"
+              echo ".env.production written from BACKEND_ENV_PRODUCTION secret (DB_RESET removed)"
             fi
 
             if [ ! -f .env.production ]; then
@@ -312,8 +313,40 @@ jobs:
             run_docker compose -f docker-compose.prod.yml --env-file .env.production logs --tail=100 api
 
             if command -v curl >/dev/null 2>&1; then
-              curl -fsS http://127.0.0.1:3000/health >/dev/null
-              curl -fsS "https://$DOMAIN/health" >/dev/null
+              echo "Waiting for local HTTP health (127.0.0.1:3000)..."
+              ok=1
+              for attempt in $(seq 1 30); do
+                if curl -fsS --max-time 5 http://127.0.0.1:3000/health >/dev/null 2>&1; then
+                  echo "Local HTTP health OK"
+                  ok=0
+                  break
+                fi
+                echo "  - attempt $attempt/30: not ready yet"
+                sleep 2
+              done
+              if [ "$ok" -ne 0 ]; then
+                echo "Local HTTP health check failed after retries"
+              fi
+
+              echo "Checking public HTTPS health (https://$DOMAIN/health)..."
+              ok_public=1
+              for attempt in $(seq 1 30); do
+                if curl -fsS -k --max-time 5 "https://$DOMAIN/health" >/dev/null 2>&1; then
+                  echo "Public HTTPS health OK"
+                  ok_public=0
+                  break
+                fi
+                echo "  - public attempt $attempt/30: not ready yet"
+                sleep 2
+              done
+              if [ "$ok_public" -ne 0 ]; then
+                echo "Public HTTPS health check failed after retries"
+              fi
+
+              if [ "$ok" -ne 0 ] && [ "$ok_public" -ne 0 ]; then
+                echo "Both health checks failed"
+                exit 1
+              fi
               echo "Health check passed"
             fi
 
@@ -369,9 +402,10 @@ jobs:
             cd "$APP_PATH/backend"
 
             if [ -n '${{ secrets.BACKEND_ENV_PRODUCTION }}' ]; then
-              printf '%s\n' '${{ secrets.BACKEND_ENV_PRODUCTION }}' > .env.production
+              # Remove potentially dangerous keys from the provided secret
+              printf '%s\n' '${{ secrets.BACKEND_ENV_PRODUCTION }}' | sed -e '/^[[:space:]]*DB_RESET=/d' -e '/^[[:space:]]*CONFIRM_DB_RESET=/d' > .env.production
               sed -i 's/\r$//' .env.production
-              echo ".env.production written from BACKEND_ENV_PRODUCTION secret"
+              echo ".env.production written from BACKEND_ENV_PRODUCTION secret (DB_RESET removed)"
             fi
 
             if [ ! -f .env.production ]; then

@@ -90,7 +90,12 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
     pricePerDay: vehicle.prixJour,
     pricePerHour: vehicle.prixHeure || 0,
     additionalFeesLabels: vehicle.autreFraisLibelle || [],
-    maintenanceRequired: vehicle.entretenueRequis,
+    maintenanceRequired: vehicle.entretenueRequis
+      ? {
+          mileage: vehicle.entretenueRequis.kilométrage ?? undefined,
+          days: vehicle.entretenueRequis.jours ?? undefined,
+        }
+      : undefined,
     plateNumber: vehicle.plaqueImmatriculation,
     streetAddress: locationForm.streetAddress,
     city: locationForm.city,
@@ -331,118 +336,115 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
           <DialogHeader>
             <DialogTitle>Détails du véhicule</DialogTitle>
           </DialogHeader>
-          {viewVehicle && (() => {
-            const img = viewVehicle.photos[0];
-            return (
-              <div className="space-y-5">
-                <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/40">
-                  {img ? (
-                    <img src={img} alt={viewVehicle.nom} className="h-20 w-20 rounded-xl object-cover flex-shrink-0" />
+          {viewVehicle && (
+            <div className="space-y-5">
+              <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/40">
+                {viewVehicle.photos[0] ? (
+                  <img src={viewVehicle.photos[0]} alt={viewVehicle.nom} className="h-20 w-20 rounded-xl object-cover flex-shrink-0" />
+                ) : (
+                  <div className="h-20 w-20 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
+                    <Car className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                )}
+                <div>
+                  <p className="font-display font-bold text-lg">{viewVehicle.nom}</p>
+                  <p className="text-sm text-muted-foreground">{viewVehicle.marque} · {viewVehicle.annee}</p>
+                  {viewVehicle.disponible && viewVehicle.actif ? (
+                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-200 mt-1">Disponible</Badge>
                   ) : (
-                    <div className="h-20 w-20 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
-                      <Car className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                  )}
-                  <div>
-                    <p className="font-display font-bold text-lg">{viewVehicle.nom}</p>
-                    <p className="text-sm text-muted-foreground">{viewVehicle.marque} · {viewVehicle.annee}</p>
-                    {viewVehicle.disponible && viewVehicle.actif ? (
-                      <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-200 mt-1">Disponible</Badge>
-                    ) : (
-                      <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 mt-1">Indisponible</Badge>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Caractéristiques</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex items-center gap-2 text-sm"><Car className="h-4 w-4 text-muted-foreground" /><span>{viewVehicle.categorie}</span></div>
-                    <div className="flex items-center gap-2 text-sm"><Gauge className="h-4 w-4 text-muted-foreground" /><span>{viewVehicle.transmission}</span></div>
-                    <div className="flex items-center gap-2 text-sm"><Fuel className="h-4 w-4 text-muted-foreground" /><span>{viewVehicle.energie}</span></div>
-                    <div className="flex items-center gap-2 text-sm"><Users className="h-4 w-4 text-muted-foreground" /><span>{viewVehicle.nbPlaces} places</span></div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Tarification</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 rounded-xl bg-muted/40 text-center">
-                      <p className="text-xs text-muted-foreground">Prix/jour</p>
-                      <p className="text-lg font-bold">{viewVehicle.prixJour} €</p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-muted/40 text-center">
-                      <p className="text-xs text-muted-foreground">Prix/heure</p>
-                      <p className="text-lg font-bold">{viewVehicle.prixHeure} €</p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-muted/40 text-center">
-                      <p className="text-xs text-muted-foreground">Km inclus/jour</p>
-                      <p className="text-lg font-bold">{viewVehicle.kmInclus}</p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-muted/40 text-center">
-                      <p className="text-xs text-muted-foreground">Kilométrage actuel</p>
-                      <p className="text-lg font-bold">{viewVehicle.kilométrage} km</p>
-                    </div>
-                  </div>
-                  {viewVehicle.autreFraisLibelle && viewVehicle.autreFraisLibelle.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground">Frais additionnels</p>
-                      {viewVehicle.autreFraisLibelle.map((frais, idx) => (
-                        <div key={idx} className="flex justify-between text-sm">
-                          <span>{frais.label}</span>
-                          <span className="font-semibold">{frais.amount} €</span>
-                        </div>
-                      ))}
-                    </div>
+                    <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 mt-1">Indisponible</Badge>
                   )}
                 </div>
+              </div>
 
-                {viewVehicle.entretenueRequis && (viewVehicle.entretenueRequis.kilométrage || viewVehicle.entretenueRequis.jours) && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground">Entretien requis</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      {viewVehicle.entretenueRequis.kilométrage && (
-                        <div className="p-2 rounded-lg bg-muted/40 text-center text-xs">
-                          <p className="text-muted-foreground">À {viewVehicle.entretenueRequis.kilométrage} km</p>
-                        </div>
-                      )}
-                      {viewVehicle.entretenueRequis.jours && (
-                        <div className="p-2 rounded-lg bg-muted/40 text-center text-xs">
-                          <p className="text-muted-foreground">Tous les {viewVehicle.entretenueRequis.jours} jours</p>
-                        </div>
-                      )}
-                    </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Caractéristiques</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-center gap-2 text-sm"><Car className="h-4 w-4 text-muted-foreground" /><span>{viewVehicle.categorie}</span></div>
+                  <div className="flex items-center gap-2 text-sm"><Gauge className="h-4 w-4 text-muted-foreground" /><span>{viewVehicle.transmission}</span></div>
+                  <div className="flex items-center gap-2 text-sm"><Fuel className="h-4 w-4 text-muted-foreground" /><span>{viewVehicle.energie}</span></div>
+                  <div className="flex items-center gap-2 text-sm"><Users className="h-4 w-4 text-muted-foreground" /><span>{viewVehicle.nbPlaces} places</span></div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Tarification</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-xl bg-muted/40 text-center">
+                    <p className="text-xs text-muted-foreground">Prix/jour</p>
+                    <p className="text-lg font-bold">{viewVehicle.prixJour} €</p>
                   </div>
-                )}
-
-                {viewVehicle.isHybride && (
-                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-200 text-center">
-                    <p className="text-sm font-medium text-amber-700">⚡ Véhicule hybride</p>
+                  <div className="p-3 rounded-xl bg-muted/40 text-center">
+                    <p className="text-xs text-muted-foreground">Prix/heure</p>
+                    <p className="text-lg font-bold">{viewVehicle.prixHeure} €</p>
                   </div>
-                )}
-
-                {viewVehicle.villes.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground">Villes disponibles</p>
-                    <div className="flex flex-wrap gap-2">
-                      {viewVehicle.villes.map(ville => (
-                        <Badge key={ville} variant="outline" className="gap-1">
-                          <MapPin className="h-3 w-3" />{ville}
-                        </Badge>
-                      ))}
-                    </div>
+                  <div className="p-3 rounded-xl bg-muted/40 text-center">
+                    <p className="text-xs text-muted-foreground">Km inclus/jour</p>
+                    <p className="text-lg font-bold">{viewVehicle.kmInclus}</p>
                   </div>
-                )}
-
-                {viewVehicle.description && (
+                  <div className="p-3 rounded-xl bg-muted/40 text-center">
+                    <p className="text-xs text-muted-foreground">Kilométrage actuel</p>
+                    <p className="text-lg font-bold">{viewVehicle.kilométrage} km</p>
+                  </div>
+                </div>
+                {viewVehicle.autreFraisLibelle && viewVehicle.autreFraisLibelle.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground">Description</p>
-                    <p className="text-sm">{viewVehicle.description}</p>
+                    <p className="text-xs font-medium text-muted-foreground">Frais additionnels</p>
+                    {viewVehicle.autreFraisLibelle.map((frais, idx) => (
+                      <div key={idx} className="flex justify-between text-sm">
+                        <span>{frais.label}</span>
+                        <span className="font-semibold">{frais.amount} €</span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-            );
-          })()}
+
+              {viewVehicle.entretenueRequis && (viewVehicle.entretenueRequis.kilométrage || viewVehicle.entretenueRequis.jours) && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Entretien requis</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {viewVehicle.entretenueRequis.kilométrage && (
+                      <div className="p-2 rounded-lg bg-muted/40 text-center text-xs">
+                        <p className="text-muted-foreground">À {viewVehicle.entretenueRequis.kilométrage} km</p>
+                      </div>
+                    )}
+                    {viewVehicle.entretenueRequis.jours && (
+                      <div className="p-2 rounded-lg bg-muted/40 text-center text-xs">
+                        <p className="text-muted-foreground">Tous les {viewVehicle.entretenueRequis.jours} jours</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {viewVehicle.isHybride && (
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-200 text-center">
+                  <p className="text-sm font-medium text-amber-700">⚡ Véhicule hybride</p>
+                </div>
+              )}
+
+              {viewVehicle.villes.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Villes disponibles</p>
+                  <div className="flex flex-wrap gap-2">
+                    {viewVehicle.villes.map(ville => (
+                      <Badge key={ville} variant="outline" className="gap-1">
+                        <MapPin className="h-3 w-3" />{ville}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {viewVehicle.description && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Description</p>
+                  <p className="text-sm">{viewVehicle.description}</p>
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
