@@ -1272,11 +1272,11 @@ export default function Reviews() {
                 <div className="flex items-center justify-between mb-2">
                   {/* Badge source */}
                   {isTuro ? (
-                    <span className="inline-flex items-center gap-2 text-xs font-semibold text-gray-700">
-                      <span className="h-2 w-2 rounded-full bg-gray-800" /> Turo
+                    <span className="inline-flex items-center gap-2 text-xs font-semibold text-blue-700">
+                      <span className="h-2 w-2 rounded-full bg-blue-700" /> Turo
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-2 text-xs font-semibold text-violet-600">
+                    <span className="inline-flex items-center gap-2 text-xs font-semibold text-violet-500">
                       <span className="h-2 w-2 rounded-full bg-violet-500" />{" "}
                       Getaround
                     </span>

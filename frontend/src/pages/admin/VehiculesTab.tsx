@@ -579,7 +579,7 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                   <Input type="number" step="0.01" value={editVehicle.prixHeure || 0} onChange={e => setEditVehicle({ ...editVehicle, prixHeure: +e.target.value })} />
                 </div>
               </div>
-              <div>
+              {/* <div>
                 <Label>Entretien requis - Kilométrage (km)</Label>
                 <Input 
                   type="number" 
@@ -602,7 +602,7 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                     entretenueRequis: { ...editVehicle.entretenueRequis, jours: e.target.value ? +e.target.value : undefined } 
                   })} 
                 />
-              </div>
+              </div> */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Frais additionnels</Label>
