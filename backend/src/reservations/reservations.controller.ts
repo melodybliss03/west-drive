@@ -21,7 +21,12 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import {
+  CustomerIfAuthenticatedGuard,
+  CustomerOnlyGuard,
+} from '../auth/guards/customer-only.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { RequirePermissions } from '../iam/decorators/require-permissions.decorator';
 import { PermissionsGuard } from '../iam/guards/permissions.guard';
@@ -40,6 +45,7 @@ export class ReservationsController {
   constructor(private readonly reservationsService: ReservationsService) {}
 
   @Post()
+  @UseGuards(OptionalJwtAuthGuard, CustomerIfAuthenticatedGuard)
   @ApiOperation({ summary: 'Creer une reservation' })
   create(@Body() dto: CreateReservationDto) {
     return this.reservationsService.create(dto);
@@ -62,7 +68,7 @@ export class ReservationsController {
   }
 
   @Get('me/list')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, CustomerOnlyGuard)
   @ApiOperation({ summary: 'Lister mes reservations (espace client)' })
   @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
   findMine(
@@ -74,7 +80,7 @@ export class ReservationsController {
   }
 
   @Get('me/:id/events')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, CustomerOnlyGuard)
   @ApiOperation({ summary: 'Lister ma timeline reservation' })
   @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
   findMineEvents(

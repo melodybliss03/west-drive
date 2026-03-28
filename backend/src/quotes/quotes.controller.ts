@@ -20,7 +20,12 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import {
+  CustomerIfAuthenticatedGuard,
+  CustomerOnlyGuard,
+} from '../auth/guards/customer-only.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { RequirePermissions } from '../iam/decorators/require-permissions.decorator';
 import { PermissionsGuard } from '../iam/guards/permissions.guard';
@@ -41,6 +46,7 @@ export class QuotesController {
   constructor(private readonly quotesService: QuotesService) {}
 
   @Post()
+  @UseGuards(OptionalJwtAuthGuard, CustomerIfAuthenticatedGuard)
   @ApiOperation({ summary: 'Creer une demande de devis' })
   create(@Body() dto: CreateQuoteDto) {
     return this.quotesService.create(dto);
@@ -60,7 +66,7 @@ export class QuotesController {
   }
 
   @Get('me/list')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, CustomerOnlyGuard)
   @ApiOperation({ summary: 'Lister mes devis (espace client)' })
   @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
   findMine(
@@ -72,7 +78,7 @@ export class QuotesController {
   }
 
   @Get('me/:id/events')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, CustomerOnlyGuard)
   @ApiOperation({ summary: 'Lister la timeline d un devis du client courant' })
   @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
   findMineEvents(
@@ -91,7 +97,7 @@ export class QuotesController {
   }
 
   @Post('me/:id/respond')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, CustomerOnlyGuard)
   @ApiOperation({ summary: 'Repondre a une proposition de devis' })
   @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
   respondToProposal(

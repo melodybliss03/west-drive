@@ -15,6 +15,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CustomerOnlyGuard } from '../auth/guards/customer-only.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { CreateReviewDto } from './dto/create-review.dto';
@@ -38,7 +39,7 @@ export class ReviewsController {
 
   @Get('me/pending')
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, CustomerOnlyGuard)
   @ApiOperation({ summary: 'Lister les reservations cloturees sans avis pour le client courant' })
   @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
   findMyPending(@CurrentUser() user: AuthUser) {
@@ -47,7 +48,7 @@ export class ReviewsController {
 
   @Post()
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, CustomerOnlyGuard)
   @ApiOperation({ summary: 'Creer un avis client sur une reservation terminee' })
   @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateReviewDto) {
