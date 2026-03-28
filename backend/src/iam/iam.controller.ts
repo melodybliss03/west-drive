@@ -4,6 +4,7 @@ import {
   DefaultValuePipe,
   Delete,
   Get,
+  Logger,
   Param,
   ParseIntPipe,
   ParseUUIDPipe,
@@ -34,6 +35,7 @@ import { IamService } from './iam.service';
 @Controller('iam')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class IamController {
+  private readonly logger = new Logger(IamController.name);
   constructor(private readonly iamService: IamService) {}
 
   @Get('permissions')
@@ -192,6 +194,7 @@ export class IamController {
     @Param('roleId', new ParseUUIDPipe()) roleId: string,
     @Param('userId', new ParseUUIDPipe()) userId: string,
   ) {
+    this.logger.log(`HTTP assignRoleToUser roleId=${roleId} userId=${userId}`);
     return this.iamService.assignRoleToUser(roleId, userId);
   }
 
@@ -241,6 +244,7 @@ export class IamController {
     @Param('roleId', new ParseUUIDPipe()) roleId: string,
     @Body() dto: AssignRoleByEmailDto,
   ) {
+    this.logger.log(`HTTP assignRoleToEmail roleId=${roleId} email=${dto.email}`);
     return this.iamService.assignRoleToEmail(roleId, dto.email);
   }
 }

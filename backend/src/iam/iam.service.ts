@@ -195,33 +195,49 @@ export class IamService implements OnApplicationBootstrap {
   }
 
   async assignRoleToUser(roleId: string, userId: string): Promise<UserRole> {
-    const role = await this.roleRepository.findOne({ where: { id: roleId } });
-    const user = await this.userRepository.findOne({ where: { id: userId } });
+    this.logger.log(`assignRoleToUser called roleId=${roleId} userId=${userId}`);
+    try {
+      const role = await this.roleRepository.findOne({ where: { id: roleId } });
+      const user = await this.userRepository.findOne({ where: { id: userId } });
 
-    if (!role) {
-      throw new NotFoundException('Role not found');
+      if (!role) {
+        this.logger.warn(`Role not found: ${roleId}`);
+        throw new NotFoundException('Role not found');
+      }
+
+      if (!user) {
+        this.logger.warn(`User not found: ${userId}`);
+        throw new NotFoundException('User not found');
+      }
+
+      const existingLink = await this.userRoleRepository.findOne({
+        where: { roleId, userId },
+      });
+
+      if (existingLink) {
+        this.logger.log(`Role ${roleId} already assigned to user ${userId}`);
+        return existingLink;
+      }
+
+      const userRole = this.userRoleRepository.create({
+        role,
+        user,
+        roleId,
+        userId,
+      });
+
+      const saved = await this.userRoleRepository.save(userRole);
+      this.logger.log(
+        `Role ${roleId} assigned to user ${userId} (userRoleId=${saved.id})`,
+      );
+      return saved;
+    } catch (err) {
+      this.logger.error(
+        `assignRoleToUser failed roleId=${roleId} userId=${userId} error=${(err as Error).message}`,
+        (err as Error).stack,
+      );
+      throw err;
     }
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    const existingLink = await this.userRoleRepository.findOne({
-      where: { roleId, userId },
-    });
-
-    if (existingLink) {
-      return existingLink;
-    }
-
-    const userRole = this.userRoleRepository.create({
-      role,
-      user,
-      roleId,
-      userId,
-    });
-
-    return this.userRoleRepository.save(userRole);
   }
 
   async removeRoleFromUser(
@@ -265,72 +281,101 @@ export class IamService implements OnApplicationBootstrap {
     roleId: string,
     emailInput: string,
   ): Promise<{ roleId: string; userId: string; invited: boolean }> {
-    const role = await this.roleRepository.findOne({ where: { id: roleId } });
-    if (!role) {
-      throw new NotFoundException('Role not found');
-    }
-
-    const email = this.normalizeEmail(emailInput);
-    let user = await this.userRepository.findOne({ where: { email } });
-    let invited = false;
-
-    if (!user) {
-      invited = true;
-      const temporaryPasswordHash = await argon2.hash(`invite-${randomUUID()}`);
-      user = await this.userRepository.save(
-        this.userRepository.create({
-          email,
-          passwordHash: temporaryPasswordHash,
-          firstName: 'Invite',
-          lastName: 'WestDrive',
-          phone: '+33000000000',
-          role: role.name,
-          status: UserStatus.ACTIF,
-        }),
-      );
-    }
-
-    const existingLink = await this.userRoleRepository.findOne({
-      where: { roleId, userId: user.id },
-    });
-
-    if (!existingLink) {
-      await this.userRoleRepository.save(
-        this.userRoleRepository.create({
-          roleId,
-          userId: user.id,
-        }),
-      );
-    }
-
-    user.role = role.name;
-    await this.userRepository.save(user);
-
-    if (invited) {
-      const activationUrl = await this.authService.createAccountActivationUrl(
-        email,
-        {
-          invitationSource: 'team_invite',
-          redirectPath: '/boss',
-          ttlMinutes: 60 * 24,
-        },
-      );
-
-      if (!activationUrl) {
-        throw new BadRequestException(
-          'Unable to generate account activation URL',
-        );
+    this.logger.log(`assignRoleToEmail called roleId=${roleId} emailInput=${emailInput}`);
+    try {
+      const role = await this.roleRepository.findOne({ where: { id: roleId } });
+      if (!role) {
+        this.logger.warn(`Role not found: ${roleId}`);
+        throw new NotFoundException('Role not found');
       }
 
-      await this.mailService.sendTeamInvitationEmail({
-        to: email,
-        inviteeName: `${user.firstName} ${user.lastName}`,
-        roleName: role.name,
-        activationUrl,
-      });
-    }
+      const email = this.normalizeEmail(emailInput);
+      let user = await this.userRepository.findOne({ where: { email } });
+      let invited = false;
 
-    return { roleId, userId: user.id, invited };
+      if (!user) {
+        invited = true;
+        const temporaryPasswordHash = await argon2.hash(
+          `invite-${randomUUID()}`,
+        );
+        user = await this.userRepository.save(
+          this.userRepository.create({
+            email,
+            passwordHash: temporaryPasswordHash,
+            firstName: 'Invite',
+            lastName: 'WestDrive',
+            phone: '+33000000000',
+            role: role.name,
+            status: UserStatus.ACTIF,
+          }),
+        );
+        this.logger.log(`Created invited user id=${user.id} email=${email}`);
+      } else {
+        this.logger.log(`Found existing user id=${user.id} email=${email}`);
+      }
+
+      const existingLink = await this.userRoleRepository.findOne({
+        where: { roleId, userId: user.id },
+      });
+
+      if (!existingLink) {
+        const savedLink = await this.userRoleRepository.save(
+          this.userRoleRepository.create({
+            roleId,
+            userId: user.id,
+          }),
+        );
+        this.logger.log(
+          `Created user-role link id=${savedLink.id} roleId=${roleId} userId=${user.id}`,
+        );
+      } else {
+        this.logger.log(`User-role link already exists roleId=${roleId} userId=${user.id}`);
+      }
+
+      user.role = role.name;
+      await this.userRepository.save(user);
+      this.logger.log(`Updated user.role for userId=${user.id} => ${role.name}`);
+
+      if (invited) {
+        this.logger.log(`Generating activation URL for invited user ${user.id}`);
+        const activationUrl = await this.authService.createAccountActivationUrl(
+          email,
+          {
+            invitationSource: 'team_invite',
+            redirectPath: '/boss',
+            ttlMinutes: 60 * 24,
+          },
+        );
+
+        if (!activationUrl) {
+          this.logger.error('Unable to generate account activation URL');
+          throw new BadRequestException(
+            'Unable to generate account activation URL',
+          );
+        }
+
+        this.logger.log(`Sending team invitation email to ${email}`);
+        await this.mailService.sendTeamInvitationEmail({
+          to: email,
+          inviteeName: `${user.firstName} ${user.lastName}`,
+          roleName: role.name,
+          activationUrl,
+        });
+        this.logger.log(`Invitation email sent to ${email}`);
+      }
+
+      this.logger.log(
+        `assignRoleToEmail completed roleId=${roleId} userId=${user.id} invited=${invited}`,
+      );
+
+      return { roleId, userId: user.id, invited };
+    } catch (err) {
+      this.logger.error(
+        `assignRoleToEmail failed roleId=${roleId} email=${emailInput} error=${(err as Error).message}`,
+        (err as Error).stack,
+      );
+      throw err;
+    }
   }
 
   async getUserSecurityContext(userId: string): Promise<{
