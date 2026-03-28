@@ -27,6 +27,7 @@ import Boss from "./pages/admin";
 import MotDePasseOublie from "./pages/MotDePasseOublie";
 import AdminMotDePasseOublie from "./pages/AdminMotDePasseOublie";
 import { AutoScrollToTop } from "./components/AutoScrollToTop";
+import CustomerOnlyRoute from "./components/routing/CustomerOnlyRoute";
 import { systemService } from "@/lib/api/services";
 
 const queryClient = new QueryClient();
@@ -61,7 +62,14 @@ const App = () => (
             <Route path="/inscription" element={<Inscription />} />
             <Route path="/inscription/confirmation" element={<InscriptionConfirmation />} />
             <Route path="/connexion" element={<Connexion />} />
-            <Route path="/espace" element={<Espace />} />
+            <Route
+              path="/espace"
+              element={
+                <CustomerOnlyRoute>
+                  <Espace />
+                </CustomerOnlyRoute>
+              }
+            />
             <Route path="/particulier" element={<Particulier />} />
             <Route path="/entreprise" element={<Entreprise />} />
             <Route path="/devis" element={<Devis />} />

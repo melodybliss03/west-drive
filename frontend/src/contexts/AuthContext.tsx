@@ -27,9 +27,9 @@ interface AuthContextType {
   isBootstrapping: boolean;
   isAuthenticated: boolean;
   login: (user: User) => void;
-  loginWithCredentials: (email: string, password: string) => Promise<void>;
-  loginAdminWithCredentials: (email: string, password: string) => Promise<void>;
-  completeAuthWithTokens: (tokens: AuthTokens) => Promise<void>;
+  loginWithCredentials: (email: string, password: string) => Promise<User>;
+  loginAdminWithCredentials: (email: string, password: string) => Promise<User>;
+  completeAuthWithTokens: (tokens: AuthTokens) => Promise<User>;
   logout: () => void;
 }
 
@@ -41,9 +41,27 @@ const AuthContext = createContext<AuthContextType>({
   isBootstrapping: true,
   isAuthenticated: false,
   login: noop,
-  loginWithCredentials: async () => {},
-  loginAdminWithCredentials: async () => {},
-  completeAuthWithTokens: async () => {},
+  loginWithCredentials: async () => ({
+    nom: "",
+    prenom: "",
+    email: "",
+    roles: [],
+    permissions: [],
+  }),
+  loginAdminWithCredentials: async () => ({
+    nom: "",
+    prenom: "",
+    email: "",
+    roles: [],
+    permissions: [],
+  }),
+  completeAuthWithTokens: async () => ({
+    nom: "",
+    prenom: "",
+    email: "",
+    roles: [],
+    permissions: [],
+  }),
   logout: noop,
 });
 
@@ -141,7 +159,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         const me = await usersService.me();
-        setUser(mapMeToUser(me));
+        const mappedUser = mapMeToUser(me);
+        setUser(mappedUser);
+        return mappedUser;
       } catch {
         // Fallback pour garder un login fonctionnel si /users/me est indisponible ou trop restrictif.
         const fallbackUser = mapTokenToUser(tokens.accessToken);
@@ -150,6 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         setUser(fallbackUser);
+        return fallbackUser;
       }
     },
     [applyTokens]

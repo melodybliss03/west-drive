@@ -10,6 +10,7 @@ import Footer from "@/components/Footer";
 import TopBar from "@/components/TopBar";
 import ScrollToTop from "@/components/ScrollToTop";
 import { ApiHttpError } from "@/lib/api/types";
+import { isBackofficeUser } from "@/lib/auth/roles";
 
 export default function Connexion() {
   const { toast } = useToast();
@@ -37,9 +38,14 @@ export default function Connexion() {
     setLoading(true);
 
     try {
-      await loginWithCredentials(email, password);
-      toast({ title: "Connexion réussie", description: "Bienvenue sur votre espace." });
-      navigate("/espace");
+      const authenticatedUser = await loginWithCredentials(email, password);
+      const targetRoute = isBackofficeUser(authenticatedUser) ? "/boss" : "/espace";
+      const welcomeMessage = targetRoute === "/boss"
+        ? "Bienvenue dans l'espace administration."
+        : "Bienvenue sur votre espace.";
+
+      toast({ title: "Connexion réussie", description: welcomeMessage });
+      navigate(targetRoute, { replace: true });
     } catch (error) {
       const message =
         error instanceof ApiHttpError ? error.message : "Impossible de se connecter pour le moment.";

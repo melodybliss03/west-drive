@@ -65,6 +65,49 @@ function isTimeInPast(dateStr: string, timeStr: string): boolean {
   return timeStr < getCurrentTimeString();
 }
 
+function parseDateTime(date: string, time: string): Date | null {
+  if (!date || !time) return null;
+  const parsed = new Date(`${date}T${time}:00`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+function computeReservationPricing(
+  startAt: Date,
+  endAt: Date,
+  pricePerDay: number,
+  vehicleDepositAmount: number | undefined,
+  additionalFees: Array<{ label: string; amount: number }>,
+  selectedAdditionalFeeLabels: string[],
+): { rentalAmount: number; depositAmount: number; totalAmount: number } {
+  const days = Math.max(
+    1,
+    Math.ceil((endAt.getTime() - startAt.getTime()) / (1000 * 60 * 60 * 24)),
+  );
+
+  const safePricePerDay =
+    typeof pricePerDay === "number" && Number.isFinite(pricePerDay) && pricePerDay > 0
+      ? pricePerDay
+      : 50;
+
+  const baseRentalAmount = days * safePricePerDay;
+  const selectedAdditionalFeesAmount = additionalFees
+    .filter((fee) => selectedAdditionalFeeLabels.includes(fee.label))
+    .reduce((sum, fee) => sum + (Number(fee.amount) || 0), 0);
+
+  const rentalAmount = baseRentalAmount + selectedAdditionalFeesAmount;
+  const depositAmount =
+    typeof vehicleDepositAmount === "number" && Number.isFinite(vehicleDepositAmount)
+      ? Math.max(vehicleDepositAmount, 0)
+      : Math.max(rentalAmount * 2, 500);
+
+  return {
+    rentalAmount,
+    depositAmount,
+    totalAmount: rentalAmount + depositAmount,
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function ReservationDialog({
@@ -97,6 +140,21 @@ export default function ReservationDialog({
     commentaire: "",
   });
 
+  const startAt = parseDateTime(form.dateDebut, form.heureDebut);
+  const endAt = parseDateTime(form.dateFin, form.heureFin);
+  const hasValidDateRange = !!startAt && !!endAt && endAt.getTime() > startAt.getTime();
+  const pricing =
+    hasValidDateRange && startAt && endAt
+      ? computeReservationPricing(
+          startAt,
+          endAt,
+          vehiculePrixJour ?? 50,
+          vehiculeCaution,
+          vehiculeAdditionalFees,
+          selectedAdditionalFeeLabels,
+        )
+      : null;
+
   const set = (key: string, val: string) => {
     setForm((p) => ({ ...p, [key]: val }));
     setErrors((p) => ({ ...p, [key]: "" }));
@@ -119,6 +177,8 @@ export default function ReservationDialog({
     } else if (isDateInPast(form.dateDebut)) {
       // Détection de saisie manuelle d'une date passée
       errs.dateDebut = "La date de prise ne peut pas être dans le passé.";
+    } else if (!parseDateTime(form.dateDebut, form.heureDebut || "00:00")) {
+      errs.dateDebut = "La date de prise est invalide.";
     }
 
     // Heure de prise
@@ -136,6 +196,8 @@ export default function ReservationDialog({
       errs.dateFin = "La date de retour ne peut pas être dans le passé.";
     } else if (form.dateDebut && form.dateFin < form.dateDebut) {
       errs.dateFin = "La date de retour doit être après la date de prise.";
+    } else if (!parseDateTime(form.dateFin, form.heureFin || "00:00")) {
+      errs.dateFin = "La date de retour est invalide.";
     }
 
     // Heure de retour
@@ -159,6 +221,12 @@ export default function ReservationDialog({
       if (!form.siret.trim()) errs.siret = "Le SIRET est requis.";
     }
 
+    const previewStartAt = parseDateTime(form.dateDebut, form.heureDebut);
+    const previewEndAt = parseDateTime(form.dateFin, form.heureFin);
+    if (previewStartAt && previewEndAt && previewEndAt.getTime() <= previewStartAt.getTime()) {
+      errs.heureFin = "La période de réservation est invalide.";
+    }
+
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -169,24 +237,15 @@ export default function ReservationDialog({
     if (!validate()) return;
     setLoading(true);
 
-    const dateDebut = new Date(`${form.dateDebut}T${form.heureDebut}:00`);
-    const dateFin = new Date(`${form.dateFin}T${form.heureFin}:00`);
-    const nbJours = Math.max(
-      1,
-      Math.ceil(
-        (dateFin.getTime() - dateDebut.getTime()) / (1000 * 60 * 60 * 24),
-      ),
-    );
-    const prixJour = vehiculePrixJour || 50;
-    const baseRentalAmount = nbJours * prixJour;
-    const selectedAdditionalFeesAmount = vehiculeAdditionalFees
-      .filter((fee) => selectedAdditionalFeeLabels.includes(fee.label))
-      .reduce((sum, fee) => sum + (Number(fee.amount) || 0), 0);
-    const totalRentalAmount = baseRentalAmount + selectedAdditionalFeesAmount;
-    const depositAmount =
-      typeof vehiculeCaution === "number" && Number.isFinite(vehiculeCaution)
-        ? Math.max(vehiculeCaution, 0)
-        : Math.max(totalRentalAmount * 2, 500);
+    if (!startAt || !endAt || endAt.getTime() <= startAt.getTime() || !pricing) {
+      toast({
+        title: "Erreur",
+        description: "La période de réservation est invalide.",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
 
     try {
       const created = await reservationsService.create({
@@ -197,12 +256,12 @@ export default function ReservationDialog({
         requesterPhone: form.telephone,
         companyName: type === "entreprise" ? form.nomEntreprise : null,
         companySiret: type === "entreprise" ? form.siret : null,
-        startAt: dateDebut.toISOString(),
-        endAt: dateFin.toISOString(),
+        startAt: startAt.toISOString(),
+        endAt: endAt.toISOString(),
         pickupCity: form.ville,
         requestedVehicleType: vehiculeCategorie || "COMPACTE",
-        amountTtc: totalRentalAmount,
-        depositAmount,
+        amountTtc: pricing.rentalAmount,
+        depositAmount: pricing.depositAmount,
       });
 
       let payment;
@@ -529,56 +588,6 @@ export default function ReservationDialog({
               })}
             </div>
           )}
-
-          <div className="rounded-md bg-muted/40 p-3 text-sm space-y-1">
-            <p>
-              Montant location: <span className="font-semibold">{(() => {
-                const dateDebut = form.dateDebut && form.heureDebut ? new Date(`${form.dateDebut}T${form.heureDebut}:00`) : null;
-                const dateFin = form.dateFin && form.heureFin ? new Date(`${form.dateFin}T${form.heureFin}:00`) : null;
-                if (!dateDebut || !dateFin || Number.isNaN(dateDebut.getTime()) || Number.isNaN(dateFin.getTime())) {
-                  return "0.00 EUR";
-                }
-
-                const nbJours = Math.max(1, Math.ceil((dateFin.getTime() - dateDebut.getTime()) / (1000 * 60 * 60 * 24)));
-                const prixJour = vehiculePrixJour || 50;
-                const baseAmount = nbJours * prixJour;
-                const selectedFees = vehiculeAdditionalFees
-                  .filter((fee) => selectedAdditionalFeeLabels.includes(fee.label))
-                  .reduce((sum, fee) => sum + (Number(fee.amount) || 0), 0);
-                return `${(baseAmount + selectedFees).toFixed(2)} EUR`;
-              })()}</span>
-            </p>
-            <p>
-              Caution: <span className="font-semibold">{(
-                typeof vehiculeCaution === "number" && Number.isFinite(vehiculeCaution)
-                  ? Math.max(vehiculeCaution, 0)
-                  : 0
-              ).toFixed(2)} EUR</span>
-            </p>
-            <p>
-              Total a payer: <span className="font-semibold">{(() => {
-                const dateDebut = form.dateDebut && form.heureDebut ? new Date(`${form.dateDebut}T${form.heureDebut}:00`) : null;
-                const dateFin = form.dateFin && form.heureFin ? new Date(`${form.dateFin}T${form.heureFin}:00`) : null;
-                if (!dateDebut || !dateFin || Number.isNaN(dateDebut.getTime()) || Number.isNaN(dateFin.getTime())) {
-                  return "0.00 EUR";
-                }
-
-                const nbJours = Math.max(1, Math.ceil((dateFin.getTime() - dateDebut.getTime()) / (1000 * 60 * 60 * 24)));
-                const prixJour = vehiculePrixJour || 50;
-                const baseAmount = nbJours * prixJour;
-                const selectedFees = vehiculeAdditionalFees
-                  .filter((fee) => selectedAdditionalFeeLabels.includes(fee.label))
-                  .reduce((sum, fee) => sum + (Number(fee.amount) || 0), 0);
-                const rental = baseAmount + selectedFees;
-                const caution =
-                  typeof vehiculeCaution === "number" && Number.isFinite(vehiculeCaution)
-                    ? Math.max(vehiculeCaution, 0)
-                    : Math.max(rental * 2, 500);
-
-                return `${(rental + caution).toFixed(2)} EUR`;
-              })()}</span>
-            </p>
-          </div>
 
           <div className="space-y-1">
             <label className="text-xs font-medium">

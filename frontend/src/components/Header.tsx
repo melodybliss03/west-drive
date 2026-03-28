@@ -4,6 +4,7 @@ import { Menu, X, LogOut, LayoutDashboard, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
+import { isBackofficeUser } from "@/lib/auth/roles";
 
 const navLinks = [
   { label: "Accueil", href: "/", anchor: "#hero" },
@@ -48,6 +49,7 @@ export default function Header() {
   const firstName = sanitizeProfileValue(user?.prenom);
   const lastName = sanitizeProfileValue(user?.nom);
   const email = sanitizeProfileValue(user?.email);
+  const accountRoute = isBackofficeUser(user) ? "/boss" : "/espace";
   const fullName = [firstName, lastName].filter(Boolean).join(" ") || (email ? email.split("@")[0] : "Utilisateur");
   const initials = fullName
     .split(/\s+/)
@@ -120,7 +122,7 @@ export default function Header() {
                         <p className="text-xs text-muted-foreground truncate">{email || "-"}</p>
                       </div>
                       <button
-                        onClick={() => { setDropdownOpen(false); navigate("/espace"); }}
+                        onClick={() => { setDropdownOpen(false); navigate(accountRoute); }}
                         className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-secondary transition-colors"
                       >
                         <LayoutDashboard className="h-4 w-4" /> Mon espace
@@ -215,7 +217,7 @@ export default function Header() {
                       <p className="text-sm font-medium">{fullName}</p>
                       <p className="text-xs text-muted-foreground">{email || "-"}</p>
                     </div>
-                    <Link to="/espace" onClick={() => setMobileOpen(false)}>
+                    <Link to={accountRoute} onClick={() => setMobileOpen(false)}>
                       <button className="w-full flex items-center gap-2 px-3 py-2.5 text-sm rounded-lg hover:bg-muted transition-colors">
                         <LayoutDashboard className="h-4 w-4" /> Mon espace
                       </button>
@@ -250,7 +252,7 @@ export default function Header() {
                 <p className="text-xs text-muted-foreground truncate">{email || "-"}</p>
               </div>
               <button
-                onClick={() => { setDropdownOpen(false); navigate("/espace"); }}
+                onClick={() => { setDropdownOpen(false); navigate(accountRoute); }}
                 className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-secondary transition-colors"
               >
                 <LayoutDashboard className="h-4 w-4" /> Mon espace
