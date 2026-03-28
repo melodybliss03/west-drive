@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MailModule } from '../shared/mail/mail.module';
 import { User } from '../users/entities/user.entity';
@@ -12,6 +13,7 @@ import { IamService } from './iam.service';
 
 @Module({
   imports: [
+    forwardRef(() => AuthModule),
     MailModule,
     TypeOrmModule.forFeature([
       User,

@@ -12,6 +12,7 @@ import { User } from '../../users/entities/user.entity';
 export enum AuthOtpPurpose {
   REGISTER = 'REGISTER',
   RESET_PASSWORD = 'RESET_PASSWORD',
+  ACCOUNT_ACTIVATION = 'ACCOUNT_ACTIVATION',
 }
 
 @Entity('auth_otps')

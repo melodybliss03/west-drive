@@ -8,6 +8,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
+import { ActivateAccountDto } from './dto/activate-account.dto';
 import { ConfirmRegisterOtpDto } from './dto/confirm-register-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
@@ -166,5 +167,25 @@ export class AuthController {
   @ApiUnauthorizedResponse({ description: 'OTP invalide ou expire.' })
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
+  }
+
+  @Post('activate-account')
+  @ApiOperation({
+    summary: 'Activer un compte via lien d activation',
+    description:
+      'Valide OTP d activation puis enregistre le mot de passe definitif du compte.',
+  })
+  @ApiBody({ type: ActivateAccountDto })
+  @ApiOkResponse({
+    description: 'Compte active et mot de passe enregistre.',
+    schema: {
+      example: {
+        message: 'Account activated successfully',
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: 'Lien d activation invalide ou expire.' })
+  activateAccount(@Body() dto: ActivateAccountDto) {
+    return this.authService.activateAccount(dto);
   }
 }

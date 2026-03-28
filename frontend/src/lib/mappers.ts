@@ -40,8 +40,8 @@ export function mapVehicleDtoToVehicule(dto: VehicleDto): Vehicule {
     actif: dto.active ?? dto.isActive ?? true,
     villes: dto.availableCities || (dto.city ? [dto.city] : []),
     disponible: dto.available ?? availableFromStatus ?? true,
-    note: dto.rating ?? 4.5,
-    nbAvis: dto.reviewsCount ?? 0,
+    note: Number(dto.rating ?? 4.5),
+    nbAvis: dto.reviewCount ?? dto.reviewsCount ?? 0,
     plaqueImmatriculation: dto.plateNumber,
     autreFraisLibelle: dto.additionalFeesLabels ?? [],
     entretenueRequis: {

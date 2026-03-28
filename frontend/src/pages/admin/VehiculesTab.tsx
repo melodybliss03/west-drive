@@ -30,6 +30,32 @@ import {
 type VehiculeForm = Partial<Vehicule>;
 type VehiculeView = Vehicule;
 
+const MAX_IMAGE_SIZE_MB = 8;
+const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
+
+function resolveVehicleSaveErrorMessage(error: unknown): string {
+  if (error instanceof ApiHttpError) {
+    const normalized = error.message.toLowerCase();
+
+    if (
+      error.code === 413 ||
+      normalized.includes("file too large") ||
+      normalized.includes("image too large") ||
+      normalized.includes("cloudinary upload failed")
+    ) {
+      return "Une image est trop volumineuse. Réduisez la taille (max 8MB par image) puis réessayez.";
+    }
+
+    return error.message;
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  return "Impossible de sauvegarder ce véhicule.";
+}
+
 interface VehiculesTabProps {
   vehicles: Vehicule[];
   setVehicles: React.Dispatch<React.SetStateAction<Vehicule[]>>;
@@ -76,16 +102,6 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
   };
 
   const toVehiclePayload = (vehicle: VehiculeForm) => {
-    const maintenanceMileage = vehicle.entretenueRequis?.kilométrage;
-    const maintenanceDays = vehicle.entretenueRequis?.jours;
-    const maintenanceRequired =
-      maintenanceMileage === undefined && maintenanceDays === undefined
-        ? undefined
-        : {
-            mileage: maintenanceMileage,
-            days: maintenanceDays,
-          };
-
     return {
     name: vehicle.nom,
     brand: vehicle.marque,
@@ -101,7 +117,6 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
     pricePerDay: vehicle.prixJour,
     pricePerHour: vehicle.prixHeure || 0,
     additionalFeesLabels: vehicle.autreFraisLibelle || [],
-    maintenanceRequired,
     plateNumber: vehicle.plaqueImmatriculation,
     streetAddress: locationForm.streetAddress,
     city: locationForm.city,
@@ -135,6 +150,16 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
     );
     if (namedAlready) {
       toast({ title: "Nom déjà utilisé", description: "Un véhicule avec ce nom existe déjà.", variant: "destructive" });
+      return;
+    }
+
+    const oversizedImage = imageFiles.find((file) => file.size > MAX_IMAGE_SIZE_BYTES);
+    if (oversizedImage) {
+      toast({
+        title: "Image trop volumineuse",
+        description: `${oversizedImage.name} dépasse ${MAX_IMAGE_SIZE_MB}MB. Veuillez la compresser avant l'upload.`,
+        variant: "destructive",
+      });
       return;
     }
 
@@ -187,7 +212,7 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
       setImageFiles([]);
       toast({ title: isNew ? "Véhicule ajouté" : "Véhicule mis à jour" });
     } catch (error) {
-      const message = error instanceof ApiHttpError ? error.message : "Impossible de sauvegarder ce véhicule.";
+      const message = resolveVehicleSaveErrorMessage(error);
       toast({ title: "Erreur", description: message, variant: "destructive" });
     } finally {
       setIsSaving(false);
@@ -586,30 +611,6 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                   <Input type="number" step="0.01" value={editVehicle.prixHeure || 0} onChange={e => setEditVehicle({ ...editVehicle, prixHeure: +e.target.value })} />
                 </div>
               </div>
-              {/* <div>
-                <Label>Entretien requis - Kilométrage (km)</Label>
-                <Input 
-                  type="number" 
-                  placeholder="Ex: 150000" 
-                  value={editVehicle.entretenueRequis?.kilométrage || ""} 
-                  onChange={e => setEditVehicle({ 
-                    ...editVehicle, 
-                    entretenueRequis: { ...editVehicle.entretenueRequis, kilométrage: e.target.value ? +e.target.value : undefined } 
-                  })} 
-                />
-              </div>
-              <div>
-                <Label>Entretien requis - Jours</Label>
-                <Input 
-                  type="number" 
-                  placeholder="Ex: 14" 
-                  value={editVehicle.entretenueRequis?.jours || ""} 
-                  onChange={e => setEditVehicle({ 
-                    ...editVehicle, 
-                    entretenueRequis: { ...editVehicle.entretenueRequis, jours: e.target.value ? +e.target.value : undefined } 
-                  })} 
-                />
-              </div> */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Frais additionnels</Label>
@@ -676,7 +677,25 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
               </div>
               <div className="space-y-2">
                 <Label>Images (upload)</Label>
-                <Input type="file" multiple accept="image/*" onChange={(e) => setImageFiles(Array.from(e.target.files || []))} />
+                <Input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => {
+                    const selected = Array.from(e.target.files || []);
+                    const invalid = selected.find((file) => file.size > MAX_IMAGE_SIZE_BYTES);
+
+                    if (invalid) {
+                      toast({
+                        title: "Image refusée",
+                        description: `${invalid.name} dépasse ${MAX_IMAGE_SIZE_MB}MB.`,
+                        variant: "destructive",
+                      });
+                    }
+
+                    setImageFiles(selected.filter((file) => file.size <= MAX_IMAGE_SIZE_BYTES));
+                  }}
+                />
                 {editVehicle.photos && editVehicle.photos.length > 0 && (
                   <p className="text-xs text-muted-foreground">Images existantes: {editVehicle.photos.length}</p>
                 )}

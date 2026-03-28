@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { User, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +32,8 @@ interface ReservationDialogProps {
   vehiculeName?: string;
   vehiculeCategorie?: string;
   vehiculePrixJour?: number;
+  vehiculeCaution?: number;
+  vehiculeAdditionalFees?: Array<{ label: string; amount: number }>;
 }
 
 // ─── Helpers date/heure ───────────────────────────────────────────────────────
@@ -72,13 +73,15 @@ export default function ReservationDialog({
   vehiculeName,
   vehiculeCategorie,
   vehiculePrixJour,
+  vehiculeCaution,
+  vehiculeAdditionalFees = [],
 }: ReservationDialogProps) {
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<ClientType>("particulier");
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [selectedAdditionalFeeLabels, setSelectedAdditionalFeeLabels] = useState<string[]>([]);
 
   const [form, setForm] = useState({
     nom: "",
@@ -175,7 +178,15 @@ export default function ReservationDialog({
       ),
     );
     const prixJour = vehiculePrixJour || 50;
-    const total = nbJours * prixJour;
+    const baseRentalAmount = nbJours * prixJour;
+    const selectedAdditionalFeesAmount = vehiculeAdditionalFees
+      .filter((fee) => selectedAdditionalFeeLabels.includes(fee.label))
+      .reduce((sum, fee) => sum + (Number(fee.amount) || 0), 0);
+    const totalRentalAmount = baseRentalAmount + selectedAdditionalFeesAmount;
+    const depositAmount =
+      typeof vehiculeCaution === "number" && Number.isFinite(vehiculeCaution)
+        ? Math.max(vehiculeCaution, 0)
+        : Math.max(totalRentalAmount * 2, 500);
 
     try {
       const created = await reservationsService.create({
@@ -190,37 +201,36 @@ export default function ReservationDialog({
         endAt: dateFin.toISOString(),
         pickupCity: form.ville,
         requestedVehicleType: vehiculeCategorie || "COMPACTE",
-        amountTtc: total,
-        depositAmount: Math.max(total * 2, 500),
+        amountTtc: totalRentalAmount,
+        depositAmount,
       });
 
-      setLoading(false);
-      setOpen(false);
+      let payment;
+      try {
+        payment = await reservationsService.createPaymentLink(created.id);
+      } catch (error) {
+        const isLegacyPaymentStatusError =
+          error instanceof ApiHttpError &&
+          /EN_ATTENTE_PAIEMENT status/i.test(error.message);
+
+        if (!isLegacyPaymentStatusError) {
+          throw error;
+        }
+
+        await reservationsService.patchStatus(created.id, "EN_ATTENTE_PAIEMENT");
+        payment = await reservationsService.createPaymentLink(created.id);
+      }
+
       toast({
-        title: "Réservation envoyée",
-        description: "Votre demande a bien été enregistrée.",
+        title: "Réservation créée",
+        description: "Redirection vers le paiement sécurisé Stripe.",
       });
-      navigate("/checkout", {
-        state: {
-          reservationBackendId: created.id,
-          vehiculeName: vehiculeName || "Véhicule",
-          categorie: vehiculeCategorie || "COMPACTE",
-          dateDebut: form.dateDebut,
-          dateFin: form.dateFin,
-          prixJour,
-          nbJours,
-          total,
-          reservationId: created.id,
-          email: form.email,
-          nom: form.nom,
-          caution: created.depositAmount,
-        },
-      });
+      window.location.assign(payment.paymentLinkUrl);
     } catch (error) {
       const message =
         error instanceof ApiHttpError
           ? error.message
-          : "Impossible de créer la réservation.";
+          : "Impossible de créer la réservation ou de générer le lien de paiement.";
       toast({ title: "Erreur", description: message, variant: "destructive" });
       setLoading(false);
     }
@@ -241,6 +251,7 @@ export default function ReservationDialog({
       commentaire: "",
     });
     setErrors({});
+    setSelectedAdditionalFeeLabels([]);
   };
 
   const handleOpenChange = (v: boolean) => {
@@ -486,6 +497,89 @@ export default function ReservationDialog({
           </div>
 
           {/* Commentaire optionnel */}
+          {vehiculeAdditionalFees.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-foreground">Frais additionnels</p>
+              {vehiculeAdditionalFees.map((fee) => {
+                const feeAmount = Number(fee.amount) || 0;
+                const checked = selectedAdditionalFeeLabels.includes(fee.label);
+
+                return (
+                  <label
+                    key={fee.label}
+                    className="flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <span>{fee.label}</span>
+                    <span className="flex items-center gap-3">
+                      <span className="text-muted-foreground">+{feeAmount.toFixed(2)} EUR</span>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(event) => {
+                          setSelectedAdditionalFeeLabels((prev) =>
+                            event.target.checked
+                              ? [...prev, fee.label]
+                              : prev.filter((value) => value !== fee.label),
+                          );
+                        }}
+                      />
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="rounded-md bg-muted/40 p-3 text-sm space-y-1">
+            <p>
+              Montant location: <span className="font-semibold">{(() => {
+                const dateDebut = form.dateDebut && form.heureDebut ? new Date(`${form.dateDebut}T${form.heureDebut}:00`) : null;
+                const dateFin = form.dateFin && form.heureFin ? new Date(`${form.dateFin}T${form.heureFin}:00`) : null;
+                if (!dateDebut || !dateFin || Number.isNaN(dateDebut.getTime()) || Number.isNaN(dateFin.getTime())) {
+                  return "0.00 EUR";
+                }
+
+                const nbJours = Math.max(1, Math.ceil((dateFin.getTime() - dateDebut.getTime()) / (1000 * 60 * 60 * 24)));
+                const prixJour = vehiculePrixJour || 50;
+                const baseAmount = nbJours * prixJour;
+                const selectedFees = vehiculeAdditionalFees
+                  .filter((fee) => selectedAdditionalFeeLabels.includes(fee.label))
+                  .reduce((sum, fee) => sum + (Number(fee.amount) || 0), 0);
+                return `${(baseAmount + selectedFees).toFixed(2)} EUR`;
+              })()}</span>
+            </p>
+            <p>
+              Caution: <span className="font-semibold">{(
+                typeof vehiculeCaution === "number" && Number.isFinite(vehiculeCaution)
+                  ? Math.max(vehiculeCaution, 0)
+                  : 0
+              ).toFixed(2)} EUR</span>
+            </p>
+            <p>
+              Total a payer: <span className="font-semibold">{(() => {
+                const dateDebut = form.dateDebut && form.heureDebut ? new Date(`${form.dateDebut}T${form.heureDebut}:00`) : null;
+                const dateFin = form.dateFin && form.heureFin ? new Date(`${form.dateFin}T${form.heureFin}:00`) : null;
+                if (!dateDebut || !dateFin || Number.isNaN(dateDebut.getTime()) || Number.isNaN(dateFin.getTime())) {
+                  return "0.00 EUR";
+                }
+
+                const nbJours = Math.max(1, Math.ceil((dateFin.getTime() - dateDebut.getTime()) / (1000 * 60 * 60 * 24)));
+                const prixJour = vehiculePrixJour || 50;
+                const baseAmount = nbJours * prixJour;
+                const selectedFees = vehiculeAdditionalFees
+                  .filter((fee) => selectedAdditionalFeeLabels.includes(fee.label))
+                  .reduce((sum, fee) => sum + (Number(fee.amount) || 0), 0);
+                const rental = baseAmount + selectedFees;
+                const caution =
+                  typeof vehiculeCaution === "number" && Number.isFinite(vehiculeCaution)
+                    ? Math.max(vehiculeCaution, 0)
+                    : Math.max(rental * 2, 500);
+
+                return `${(rental + caution).toFixed(2)} EUR`;
+              })()}</span>
+            </p>
+          </div>
+
           <div className="space-y-1">
             <label className="text-xs font-medium">
               Commentaire{" "}

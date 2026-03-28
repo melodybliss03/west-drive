@@ -33,6 +33,42 @@ export class NotificationsService {
     return this.notificationRepository.save(notification);
   }
 
+  async createForAdminWithDedupe(
+    payload: {
+      type: string;
+      title: string;
+      message: string;
+      metadata?: Record<string, unknown>;
+    },
+    options: { dedupeKey: string; windowHours?: number },
+  ): Promise<Notification> {
+    const windowHours = options.windowHours ?? 24;
+    const since = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+
+    const existing = await this.notificationRepository
+      .createQueryBuilder('n')
+      .where('n.recipient_role = :recipientRole', { recipientRole: 'ADMIN' })
+      .andWhere('n.type = :type', { type: payload.type })
+      .andWhere("n.metadata ->> 'dedupeKey' = :dedupeKey", {
+        dedupeKey: options.dedupeKey,
+      })
+      .andWhere('n.created_at >= :since', { since })
+      .orderBy('n.created_at', 'DESC')
+      .getOne();
+
+    if (existing) {
+      return existing;
+    }
+
+    return this.createForAdmin({
+      ...payload,
+      metadata: {
+        ...(payload.metadata ?? {}),
+        dedupeKey: options.dedupeKey,
+      },
+    });
+  }
+
   async createForUser(payload: {
     type: string;
     title: string;

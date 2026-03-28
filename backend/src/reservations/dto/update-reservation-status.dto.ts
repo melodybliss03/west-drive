@@ -5,7 +5,7 @@ import { ReservationStatus } from '../entities/reservation.entity';
 export class UpdateReservationStatusDto {
   @ApiProperty({
     enum: ReservationStatus,
-    example: ReservationStatus.EN_ANALYSE,
+    example: ReservationStatus.EN_ATTENTE_PAIEMENT,
   })
   @IsEnum(ReservationStatus)
   status!: ReservationStatus;

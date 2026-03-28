@@ -101,12 +101,13 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
   });
 
+  const rawBody = await response.text();
   let json: unknown = null;
-  try {
-    json = await response.json();
-  } catch {
-    if (!response.ok) {
-      throw new ApiHttpError("Erreur HTTP sans payload", response.status);
+  if (rawBody) {
+    try {
+      json = JSON.parse(rawBody) as unknown;
+    } catch {
+      json = null;
     }
   }
 
@@ -122,7 +123,12 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       return parseEnvelope<T>(json, response.status);
     }
 
-    throw new ApiHttpError("Erreur HTTP", response.status);
+    const fallbackMessage = rawBody.trim() || `Erreur HTTP ${response.status}`;
+    throw new ApiHttpError(fallbackMessage, response.status);
+  }
+
+  if (!json) {
+    throw new ApiHttpError("Réponse API invalide", response.status);
   }
 
   return parseEnvelope<T>(json, response.status);

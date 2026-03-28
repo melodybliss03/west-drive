@@ -20,7 +20,9 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { RequirePermissions } from '../iam/decorators/require-permissions.decorator';
 import { PermissionsGuard } from '../iam/guards/permissions.guard';
 import { CreateReservationEventDto } from './dto/create-reservation-event.dto';
@@ -57,6 +59,37 @@ export class ReservationsController {
     @Query('userId') userId?: string,
   ) {
     return this.reservationsService.findAll(page, limit, userId);
+  }
+
+  @Get('me/list')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Lister mes reservations (espace client)' })
+  @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
+  findMine(
+    @CurrentUser() user: AuthUser,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit = 20,
+  ) {
+    return this.reservationsService.findMine(user.sub, user.email, page, limit);
+  }
+
+  @Get('me/:id/events')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Lister ma timeline reservation' })
+  @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
+  findMineEvents(
+    @CurrentUser() user: AuthUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit = 20,
+  ) {
+    return this.reservationsService.findEventsForCustomer(
+      id,
+      user.sub,
+      user.email,
+      page,
+      limit,
+    );
   }
 
   @Get(':id')

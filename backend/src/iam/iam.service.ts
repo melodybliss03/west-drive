@@ -1,15 +1,18 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
   OnApplicationBootstrap,
+  forwardRef,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
 import { randomUUID } from 'crypto';
 import { In, Repository } from 'typeorm';
+import { AuthService } from '../auth/auth.service';
 import { MailService } from '../shared/mail/mail.service';
 import {
   buildPaginatedResponse,
@@ -40,6 +43,8 @@ export class IamService implements OnApplicationBootstrap {
     private readonly userRoleRepository: Repository<UserRole>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @Inject(forwardRef(() => AuthService))
+    private readonly authService: AuthService,
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
   ) {}
@@ -139,6 +144,54 @@ export class IamService implements OnApplicationBootstrap {
       where: { id: roleId },
       relations: { rolePermissions: { permission: true } },
     });
+  }
+
+  async deleteRole(roleId: string): Promise<{ message: string }> {
+    const role = await this.roleRepository.findOne({ where: { id: roleId } });
+
+    if (!role) {
+      throw new NotFoundException('Role not found');
+    }
+
+    if (role.isSystem) {
+      throw new BadRequestException('System roles cannot be deleted');
+    }
+
+    const assignments = await this.userRoleRepository.find({
+      where: { roleId },
+      select: { userId: true },
+    });
+    const usersWithPrimaryRole = await this.userRepository.find({
+      where: { role: role.name },
+      select: { id: true },
+    });
+    const impactedUserIds = Array.from(
+      new Set([
+        ...assignments.map((assignment) => assignment.userId),
+        ...usersWithPrimaryRole.map((user) => user.id),
+      ]),
+    );
+
+    await this.rolePermissionRepository.delete({ roleId });
+    await this.userRoleRepository.delete({ roleId });
+    await this.roleRepository.delete({ id: roleId });
+
+    await Promise.all(
+      impactedUserIds.map(async (userId) => {
+        const remainingAssignments = await this.userRoleRepository.find({
+          where: { userId },
+          relations: { role: true },
+          order: { createdAt: 'ASC' },
+        });
+
+        await this.userRepository.update(
+          { id: userId },
+          { role: remainingAssignments[0]?.role.name ?? 'CUSTOMER' },
+        );
+      }),
+    );
+
+    return { message: 'Role deleted successfully' };
   }
 
   async assignRoleToUser(roleId: string, userId: string): Promise<UserRole> {
@@ -254,11 +307,21 @@ export class IamService implements OnApplicationBootstrap {
     await this.userRepository.save(user);
 
     if (invited) {
-      const frontendBaseUrl = this.configService.get<string>(
-        'FRONTEND_BASE_URL',
-        'http://localhost:8080',
+      const activationUrl = await this.authService.createAccountActivationUrl(
+        email,
+        {
+          invitationSource: 'team_invite',
+          redirectPath: '/boss',
+          ttlMinutes: 60 * 24,
+        },
       );
-      const activationUrl = `${frontendBaseUrl.replace(/\/$/, '')}/mot-de-passe-oublie?email=${encodeURIComponent(email)}`;
+
+      if (!activationUrl) {
+        throw new BadRequestException(
+          'Unable to generate account activation URL',
+        );
+      }
+
       await this.mailService.sendTeamInvitationEmail({
         to: email,
         inviteeName: `${user.firstName} ${user.lastName}`,

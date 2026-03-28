@@ -35,6 +35,8 @@ import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { VehiclesService } from './vehicles.service';
 
+const MAX_VEHICLE_IMAGE_SIZE_BYTES = 8 * 1024 * 1024;
+
 @ApiTags('Vehicles')
 @ApiBearerAuth()
 @Controller('vehicles')
@@ -104,7 +106,13 @@ export class VehiclesController {
   @Post(':id/images/upload')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions('vehicles.write')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: MAX_VEHICLE_IMAGE_SIZE_BYTES,
+      },
+    }),
+  )
   @ApiOperation({ summary: 'Uploader une image vehicule vers Cloudinary' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -135,6 +143,12 @@ export class VehiclesController {
 
     if (!file.mimetype.startsWith('image/')) {
       throw new BadRequestException('Only image files are allowed');
+    }
+
+    if (file.size > MAX_VEHICLE_IMAGE_SIZE_BYTES) {
+      throw new BadRequestException(
+        'Image too large. Maximum allowed size is 8MB.',
+      );
     }
 
     return this.vehiclesService.uploadImage(id, file, sortOrder ?? 0);

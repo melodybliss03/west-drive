@@ -23,6 +23,7 @@ type RoleOption = {
   id: string;
   name: string;
   description?: string;
+  isSystem?: boolean;
   permissionCodes: string[];
 };
 
@@ -37,6 +38,12 @@ type TeamUser = {
   email: string;
   roles: TeamUserRole[];
 };
+
+const STAFF_HIDDEN_PERMISSION_CODES = new Set([
+  "user.delete",
+  "user.write",
+  "users.status.write",
+]);
 
 function extractItems<T>(collection: unknown): T[] {
   if (Array.isArray(collection)) {
@@ -76,6 +83,31 @@ export default function ProfilTab() {
   const [isAssigningRole, setIsAssigningRole] = useState(false);
   const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
   const [removingRoleKey, setRemovingRoleKey] = useState<string | null>(null);
+  const [deletingRoleId, setDeletingRoleId] = useState<string | null>(null);
+
+  const roleNames = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [user?.role, ...(user?.roles ?? [])]
+            .filter((role): role is string => typeof role === "string" && role.trim().length > 0)
+            .map((role) => role.trim().toLowerCase()),
+        ),
+      ),
+    [user?.role, user?.roles],
+  );
+
+  const isAdmin = roleNames.includes("admin");
+  const hasIamPermission = (permission: string): boolean => {
+    if (!user) return false;
+    if (isAdmin) return true;
+    return user.permissions.includes(permission);
+  };
+
+  const canReadRoles = hasIamPermission("roles.read");
+  const canAssignRoles = hasIamPermission("roles.assign");
+  const canWriteRoles = hasIamPermission("roles.write");
+  const canAccessRoleSection = canReadRoles || canAssignRoles || canWriteRoles;
 
   const saveProfile = () => {
     login({
@@ -94,6 +126,14 @@ export default function ProfilTab() {
   };
 
   useEffect(() => {
+    if (!canAccessRoleSection) {
+      setPermissions([]);
+      setRoles([]);
+      setTeamUsers([]);
+      setIsLoadingIam(false);
+      return;
+    }
+
     const loadIamData = async () => {
       setIsLoadingIam(true);
       try {
@@ -107,7 +147,14 @@ export default function ProfilTab() {
           const code = String(permission.code || "");
           const label = String(permission.label || permission.description || code);
           return { code, label, description: String(permission.description || "") };
-        }).filter((permission) => permission.code.length > 0);
+        }).filter((permission) => {
+          if (!permission.code.length) return false;
+          // Toujours masquer ces permissions dans le back-office profil.
+          if (STAFF_HIDDEN_PERMISSION_CODES.has(permission.code)) {
+            return false;
+          }
+          return true;
+        });
 
         const mappedRoles = extractItems<Record<string, unknown>>(rolesResponse).map((role) => {
           const rolePermissions = Array.isArray(role.rolePermissions) ? role.rolePermissions : [];
@@ -129,6 +176,7 @@ export default function ProfilTab() {
             id: String(role.id || ""),
             name: String(role.name || ""),
             description: String(role.description || ""),
+            isSystem: Boolean(role.isSystem),
             permissionCodes: Array.from(new Set([...explicitPermissionCodes, ...nestedPermissionCodes])),
           };
         }).filter((role) => role.id.length > 0);
@@ -182,7 +230,7 @@ export default function ProfilTab() {
     };
 
     loadIamData();
-  }, [toast]);
+  }, [canAccessRoleSection, isAdmin, toast]);
 
   const togglePermission = (code: string) => {
     setSelectedPermissionCodes((prev) =>
@@ -191,6 +239,15 @@ export default function ProfilTab() {
   };
 
   const createCustomRole = async () => {
+    if (!canWriteRoles) {
+      toast({
+        title: "Permission insuffisante",
+        description: "La permission roles.write est requise.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!newRoleName.trim() || selectedPermissionCodes.length === 0) {
       toast({
         title: "Role incomplet",
@@ -213,6 +270,7 @@ export default function ProfilTab() {
           id: created.id,
           name: created.name,
           description: created.description,
+          isSystem: false,
           permissionCodes: selectedPermissionCodes,
         },
         ...prev,
@@ -232,6 +290,15 @@ export default function ProfilTab() {
   };
 
   const assignRole = async () => {
+    if (!canAssignRoles) {
+      toast({
+        title: "Permission insuffisante",
+        description: "La permission roles.assign est requise.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!inviteEmail.trim() || !selectedRoleId) {
       toast({
         title: "Attribution incomplète",
@@ -263,6 +330,15 @@ export default function ProfilTab() {
   };
 
   const removeRoleFromMember = async (member: TeamUser, role: TeamUserRole) => {
+    if (!canAssignRoles) {
+      toast({
+        title: "Permission insuffisante",
+        description: "La permission roles.assign est requise.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const operationKey = `${member.id}:${role.id}`;
     if (removingRoleKey) return;
 
@@ -292,6 +368,55 @@ export default function ProfilTab() {
       toast({ title: "Erreur", description: message, variant: "destructive" });
     } finally {
       setRemovingRoleKey(null);
+    }
+  };
+
+  const deleteCustomRole = async (role: RoleOption) => {
+    if (!canWriteRoles) {
+      toast({
+        title: "Permission insuffisante",
+        description: "La permission roles.write est requise.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (role.isSystem) {
+      toast({
+        title: "Action interdite",
+        description: "Les rôles système ne peuvent pas être supprimés.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setDeletingRoleId(role.id);
+      await iamService.deleteRole(role.id);
+
+      setRoles((prev) => prev.filter((entry) => entry.id !== role.id));
+      setTeamUsers((prev) =>
+        prev
+          .map((member) => ({
+            ...member,
+            roles: member.roles.filter((memberRole) => memberRole.id !== role.id),
+          }))
+          .filter((member) => member.roles.length > 0),
+      );
+
+      if (selectedRoleId === role.id) {
+        setSelectedRoleId("");
+      }
+
+      toast({
+        title: "Rôle supprimé",
+        description: `Le rôle ${role.name} a été supprimé.`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Impossible de supprimer ce rôle.";
+      toast({ title: "Erreur", description: message, variant: "destructive" });
+    } finally {
+      setDeletingRoleId(null);
     }
   };
 
@@ -384,6 +509,7 @@ export default function ProfilTab() {
       </div>
 
       {/* Attribution des rôles */}
+      {canAccessRoleSection && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -402,6 +528,7 @@ export default function ProfilTab() {
             </div>
           ) : (
             <>
+              {canWriteRoles && (
               <div className="p-4 rounded-xl border border-dashed border-border bg-muted/30 space-y-4">
                 <p className="text-sm font-medium flex items-center gap-2">
                   <Shield className="h-4 w-4 text-primary" />
@@ -440,7 +567,9 @@ export default function ProfilTab() {
                   Créer le rôle
                 </Button>
               </div>
+              )}
 
+              {canAssignRoles && (
               <div className="p-4 rounded-xl border border-dashed border-border bg-muted/30 space-y-4">
                 <p className="text-sm font-medium flex items-center gap-2"><UserPlus className="h-4 w-4 text-primary" /> Assigner un rôle à un utilisateur</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -471,6 +600,7 @@ export default function ProfilTab() {
                   Si l'email n'existe pas encore, un compte invité est créé automatiquement et un email d'invitation est envoyé.
                 </p>
               </div>
+              )}
 
               <div className="space-y-3">
                 <p className="text-sm font-medium text-muted-foreground">Rôles disponibles ({roles.length})</p>
@@ -483,7 +613,25 @@ export default function ProfilTab() {
                           <p className="text-xs text-muted-foreground">{role.description}</p>
                         ) : null}
                       </div>
-                      <Badge variant="outline">{role.permissionCodes.length} permissions</Badge>
+                      <div className="flex items-center gap-2">
+                        {role.isSystem ? (
+                          <Badge variant="outline">Système</Badge>
+                        ) : null}
+                        <Badge variant="outline">{role.permissionCodes.length} permissions</Badge>
+                        {canWriteRoles && !role.isSystem ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive"
+                            onClick={() => void deleteCustomRole(role)}
+                            disabled={deletingRoleId === role.id}
+                            title={`Supprimer le rôle ${role.name}`}
+                          >
+                            {deletingRoleId === role.id ? <Spinner className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {role.permissionCodes.map((code) => (
@@ -529,6 +677,7 @@ export default function ProfilTab() {
                           return (
                             <div key={`${member.id}-${role.id}`} className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-xs">
                               <span>{role.name}</span>
+                              {canAssignRoles && (
                               <button
                                 type="button"
                                 onClick={() => removeRoleFromMember(member, role)}
@@ -539,6 +688,7 @@ export default function ProfilTab() {
                               >
                                 {isRemoving ? <Spinner className="h-3 w-3" /> : <X className="h-3 w-3" />}
                               </button>
+                              )}
                             </div>
                           );
                         })}
@@ -551,6 +701,7 @@ export default function ProfilTab() {
           )}
         </CardContent>
       </Card>
+      )}
     </motion.div>
   );
 }

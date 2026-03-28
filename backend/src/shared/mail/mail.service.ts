@@ -64,7 +64,7 @@ export class MailService {
   async sendOtpEmail(options: {
     to: string;
     otpCode: string;
-    purpose: 'register' | 'reset-password';
+    purpose: 'register' | 'reset-password' | 'activation';
     ttlMinutes: number;
   }): Promise<void> {
     if (!this.enabled || !this.transporter) {
@@ -81,12 +81,16 @@ export class MailService {
     const subject =
       options.purpose === 'register'
         ? 'WestDrive - Confirmation de votre inscription'
-        : 'WestDrive - Reinitialisation de mot de passe';
+        : options.purpose === 'reset-password'
+          ? 'WestDrive - Reinitialisation de mot de passe'
+          : 'WestDrive - Activation de votre compte';
 
     const actionText =
       options.purpose === 'register'
         ? 'confirmer votre inscription'
-        : 'reinitialiser votre mot de passe';
+        : options.purpose === 'reset-password'
+          ? 'reinitialiser votre mot de passe'
+          : 'activer votre compte';
 
     const html = `
       <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
@@ -265,6 +269,63 @@ export class MailService {
     await this.sendEmail({ to: options.to, subject, html, text });
   }
 
+  async sendQuoteGuestActivationEmail(options: {
+    to: string;
+    requesterName: string;
+    publicReference: string;
+    activationUrl: string;
+  }): Promise<void> {
+    const subject = 'WestDrive - Activez votre espace devis';
+    const html = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
+        <h2 style="margin-bottom: 8px;">WestDrive</h2>
+        <p>Bonjour ${options.requesterName},</p>
+        <p>Votre demande de devis <strong>${options.publicReference}</strong> est bien enregistree.</p>
+        <p>Pour suivre son evolution depuis votre espace client, activez votre compte (lien valide 24h):</p>
+        <p><a href="${options.activationUrl}" style="display:inline-block; padding:10px 14px; background:#111827; color:#fff; text-decoration:none; border-radius:6px;">Activer mon compte</a></p>
+        <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur:</p>
+        <p>${options.activationUrl}</p>
+      </div>
+    `;
+    const text = [
+      'WestDrive',
+      `Bonjour ${options.requesterName},`,
+      `Votre demande de devis ${options.publicReference} est bien enregistree.`,
+      'Activez votre compte (lien valide 24h) pour suivre son evolution:',
+      options.activationUrl,
+    ].join('\n');
+
+    await this.sendEmail({ to: options.to, subject, html, text });
+  }
+
+  async sendReservationPaymentLinkEmail(options: {
+    to: string;
+    requesterName: string;
+    publicReference: string;
+    paymentUrl: string;
+  }): Promise<void> {
+    const subject = `WestDrive - Lien de paiement reservation ${options.publicReference}`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
+        <h2 style="margin-bottom: 8px;">WestDrive</h2>
+        <p>Bonjour ${options.requesterName},</p>
+        <p>Voici votre lien de paiement securise pour la reservation <strong>${options.publicReference}</strong>.</p>
+        <p>Vous pourrez reutiliser cet email plus tard si necessaire.</p>
+        <p><a href="${options.paymentUrl}" style="display:inline-block; padding:10px 14px; background:#111827; color:#fff; text-decoration:none; border-radius:6px;">Payer ma reservation</a></p>
+        <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur:</p>
+        <p>${options.paymentUrl}</p>
+      </div>
+    `;
+    const text = [
+      'WestDrive',
+      `Bonjour ${options.requesterName},`,
+      `Lien de paiement pour la reservation ${options.publicReference}:`,
+      options.paymentUrl,
+    ].join('\n');
+
+    await this.sendEmail({ to: options.to, subject, html, text });
+  }
+
   async sendReservationPaymentConfirmedEmail(options: {
     to: string;
     requesterName: string;
@@ -301,7 +362,7 @@ export class MailService {
         <h2 style="margin-bottom: 8px;">WestDrive - Espace equipe</h2>
         <p>Bonjour ${options.inviteeName},</p>
         <p>Vous avez ete invite(e) a rejoindre l equipe WestDrive avec le role <strong>${options.roleName}</strong>.</p>
-        <p>Pour activer votre compte et definir votre mot de passe, utilisez le lien ci-dessous :</p>
+        <p>Pour activer votre compte et definir votre mot de passe, utilisez le lien ci-dessous (valide 24h) :</p>
         <p><a href="${options.activationUrl}" style="display:inline-block; padding:10px 14px; background:#111827; color:#fff; text-decoration:none; border-radius:6px;">Activer mon compte</a></p>
         <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
         <p>${options.activationUrl}</p>
@@ -311,7 +372,7 @@ export class MailService {
       'WestDrive - Espace equipe',
       `Bonjour ${options.inviteeName},`,
       `Vous avez ete invite(e) avec le role ${options.roleName}.`,
-      'Activez votre compte ici :',
+      'Activez votre compte ici (valide 24h):',
       options.activationUrl,
     ].join('\n');
 

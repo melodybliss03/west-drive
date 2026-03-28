@@ -9,6 +9,7 @@ describe('IamController', () => {
     listPermissions: jest.fn(),
     listRoles: jest.fn(),
     createRole: jest.fn(),
+    deleteRole: jest.fn(),
     updateRolePermissions: jest.fn(),
     assignRoleToUser: jest.fn(),
     assignRoleToEmail: jest.fn(),
@@ -72,6 +73,15 @@ describe('IamController', () => {
       roleId,
       dto,
     );
+  });
+
+  it('DELETE /iam/roles/:roleId calls deleteRole', async () => {
+    const roleId = '8c2d4cb8-6220-4fb8-a391-7a2ba81c9688';
+    const expected = { message: 'Role deleted successfully' };
+    iamServiceMock.deleteRole.mockResolvedValue(expected);
+
+    await expect(controller.deleteRole(roleId)).resolves.toEqual(expected);
+    expect(iamServiceMock.deleteRole).toHaveBeenCalledWith(roleId);
   });
 
   it('POST /iam/roles/:roleId/users/:userId calls assignRoleToUser', async () => {

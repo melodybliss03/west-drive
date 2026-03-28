@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { FlotteItem, etatColors } from "./data";
-import { FleetIncidentDto, fleetService, VehicleDto } from "@/lib/api/services";
+import { FleetIncidentDto, fleetService, VehicleDto, vehiclesService } from "@/lib/api/services";
 import { useToast } from "@/hooks/use-toast";
 import { ApiHttpError, PaginationMeta } from "@/lib/api/types";
 import {
@@ -47,18 +47,32 @@ type FleetRow = FlotteItem & {
   operationalStatus?: VehicleDto["operationalStatus"];
   activeIncidentId?: string;
   imageUrl?: string;
+  maintenanceMileageRule?: number;
+  maintenanceDaysRule?: number;
+  remainingMaintenanceKm?: number | null;
+  remainingMaintenanceDays?: number | null;
+  maintenanceDueSoon?: boolean;
+  maintenanceOverdue?: boolean;
 };
 
 function toArray<T>(payload: T[] | { items: T[] }): T[] {
   return Array.isArray(payload) ? payload : payload.items;
 }
 
+function formatMaintenanceDate(value?: string | null): string {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("fr-FR");
+}
+
 function mapOperationalStatusToEtat(
   status: VehicleDto["operationalStatus"] | undefined,
   hasActiveBreakdown: boolean,
+  maintenanceOverdue: boolean,
 ): string {
   if (hasActiveBreakdown) return "en panne";
-  if (status === "MAINTENANCE") return "entretien requis";
+  if (maintenanceOverdue || status === "MAINTENANCE") return "entretien requis";
   if (status === "INDISPONIBLE") return "en panne";
   return "bon";
 }
@@ -82,21 +96,29 @@ function mapVehicleToFleetRow(
   }));
 
   const enPanne = Boolean(activeIncident);
+  const maintenanceSummary = vehicle.maintenanceSummary;
+  const maintenanceOverdue = Boolean(maintenanceSummary?.isOverdue);
 
   return {
     id: vehicle.id,
     vehicule: vehicle.name,
     plaque: vehicle.plateNumber || "-",
     km: Number(vehicle.mileage || 0),
-    dernierEntretien: "-",
-    prochainEntretien: "-",
-    etat: mapOperationalStatusToEtat(vehicle.operationalStatus, enPanne),
+    dernierEntretien: formatMaintenanceDate(maintenanceSummary?.lastMaintenanceAt),
+    prochainEntretien: formatMaintenanceDate(maintenanceSummary?.nextMaintenanceAt),
+    etat: mapOperationalStatusToEtat(vehicle.operationalStatus, enPanne, maintenanceOverdue),
     enPanne,
     detailPanne: activeIncident?.description,
     historiquePannes: history,
     operationalStatus: vehicle.operationalStatus,
     activeIncidentId: activeIncident?.id,
     imageUrl: vehicle.images?.[0]?.url,
+    maintenanceMileageRule: vehicle.maintenanceRequired?.mileage,
+    maintenanceDaysRule: vehicle.maintenanceRequired?.days,
+    remainingMaintenanceKm: maintenanceSummary?.remainingKm ?? null,
+    remainingMaintenanceDays: maintenanceSummary?.remainingDays ?? null,
+    maintenanceDueSoon: Boolean(maintenanceSummary?.isDueSoon),
+    maintenanceOverdue,
   };
 }
 
@@ -114,17 +136,16 @@ export default function FlotteTab() {
   const [limit] = useState(10);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
 
-  // Dialog states
   const [breakdownDialog, setBreakdownDialog] = useState(false);
   const [mileageDialog, setMileageDialog] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<FleetRow | null>(null);
   const [breakdownDetail, setBreakdownDetail] = useState("");
   const [newMileage, setNewMileage] = useState("");
+  const [maintenanceMileage, setMaintenanceMileage] = useState("");
+  const [maintenanceDays, setMaintenanceDays] = useState("");
   const [isSavingBreakdown, setIsSavingBreakdown] = useState(false);
   const [isSavingMileage, setIsSavingMileage] = useState(false);
-  const [resolvingVehicleId, setResolvingVehicleId] = useState<string | null>(
-    null,
-  );
+  const [resolvingVehicleId, setResolvingVehicleId] = useState<string | null>(null);
 
   const loadFleet = useCallback(async () => {
     setIsLoading(true);
@@ -167,10 +188,7 @@ export default function FlotteTab() {
 
       setFleetItems(
         vehicles.map((vehicle) =>
-          mapVehicleToFleetRow(
-            vehicle,
-            incidentsByVehicle.get(vehicle.id) ?? [],
-          ),
+          mapVehicleToFleetRow(vehicle, incidentsByVehicle.get(vehicle.id) ?? []),
         ),
       );
     } catch (error) {
@@ -224,6 +242,8 @@ export default function FlotteTab() {
   const handleUpdateMileage = (vehicle: FleetRow) => {
     setSelectedVehicle(vehicle);
     setNewMileage(vehicle.km.toString());
+    setMaintenanceMileage(vehicle.maintenanceMileageRule?.toString() ?? "");
+    setMaintenanceDays(vehicle.maintenanceDaysRule?.toString() ?? "");
     setMileageDialog(true);
   };
 
@@ -277,8 +297,8 @@ export default function FlotteTab() {
       return;
     }
 
-    const mileageValue = parseInt(newMileage, 10);
-    if (isNaN(mileageValue) || mileageValue < 0) {
+    const mileageValue = Number.parseInt(newMileage, 10);
+    if (Number.isNaN(mileageValue) || mileageValue < 0) {
       toast({
         title: "Saisie invalide",
         description: "Le kilométrage doit être un entier positif.",
@@ -287,13 +307,73 @@ export default function FlotteTab() {
       return;
     }
 
+    const maintenanceMileageValue = maintenanceMileage.trim()
+      ? Number.parseInt(maintenanceMileage, 10)
+      : undefined;
+    const maintenanceDaysValue = maintenanceDays.trim()
+      ? Number.parseInt(maintenanceDays, 10)
+      : undefined;
+
+    if (
+      (maintenanceMileageValue !== undefined &&
+        (Number.isNaN(maintenanceMileageValue) || maintenanceMileageValue < 0)) ||
+      (maintenanceDaysValue !== undefined &&
+        (Number.isNaN(maintenanceDaysValue) || maintenanceDaysValue < 0))
+    ) {
+      toast({
+        title: "Règles d'entretien invalides",
+        description: "Les valeurs d'entretien (km/jours) doivent être des entiers positifs.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSavingMileage(true);
     try {
-      await fleetService.updateVehicleMileage(selectedVehicle.id, mileageValue);
-      toast({ title: "Kilométrage mis à jour" });
+      try {
+        await fleetService.updateVehicleMileage(selectedVehicle.id, {
+          mileage: mileageValue,
+          maintenanceRequired:
+            maintenanceMileage.trim() || maintenanceDays.trim()
+              ? {
+                  mileage: maintenanceMileageValue,
+                  days: maintenanceDaysValue,
+                }
+              : null,
+        });
+      } catch (error) {
+        const isLegacyBackendConstraint =
+          error instanceof ApiHttpError &&
+          /maintenanceRequired.*should not exist/i.test(error.message);
+
+        if (!isLegacyBackendConstraint) {
+          throw error;
+        }
+
+        await fleetService.updateVehicleMileage(selectedVehicle.id, {
+          mileage: mileageValue,
+        });
+
+        await vehiclesService.update(selectedVehicle.id, {
+          maintenanceRequired:
+            maintenanceMileage.trim() || maintenanceDays.trim()
+              ? {
+                  mileage: maintenanceMileageValue,
+                  days: maintenanceDaysValue,
+                }
+              : null,
+        });
+      }
+
+      toast({
+        title: "Mise à jour enregistrée",
+        description: "Kilométrage et règles d'entretien mis à jour.",
+      });
       setMileageDialog(false);
       setSelectedVehicle(null);
       setNewMileage("");
+      setMaintenanceMileage("");
+      setMaintenanceDays("");
       await loadFleet();
     } catch (error) {
       const message =
@@ -340,11 +420,8 @@ export default function FlotteTab() {
     }
   };
 
-  // Calculate maintenance alerts
-  const checkMaintenanceAlert = (vehicle: FlotteItem) => {
-    // This would check against vehicle maintenance requirements from VehiculesTab
-    // For now, returning simple logic
-    return vehicle.etat === "entretien requis";
+  const checkMaintenanceAlert = (vehicle: FleetRow) => {
+    return Boolean(vehicle.maintenanceDueSoon || vehicle.maintenanceOverdue);
   };
 
   return (
@@ -354,6 +431,7 @@ export default function FlotteTab() {
       className="space-y-6"
     >
       <h2 className="text-2xl font-display font-bold">Gestion de flotte</h2>
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {stats.map((s, i) => (
           <Card key={i}>
@@ -367,20 +445,18 @@ export default function FlotteTab() {
           </Card>
         ))}
       </div>
+
       {loadError && (
         <Card className="border-destructive/20 bg-destructive/5">
           <CardContent className="p-4 flex items-center justify-between gap-3">
             <p className="text-sm text-destructive">{loadError}</p>
-            <Button
-              variant="outline"
-              onClick={() => void loadFleet()}
-              disabled={isLoading}
-            >
+            <Button variant="outline" onClick={() => void loadFleet()} disabled={isLoading}>
               Réessayer
             </Button>
           </CardContent>
         </Card>
       )}
+
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -389,15 +465,9 @@ export default function FlotteTab() {
                 <TableRow>
                   <TableHead>Véhicule</TableHead>
                   <TableHead>Plaque</TableHead>
-                  <TableHead className="hidden sm:table-cell">
-                    Kilométrage
-                  </TableHead>
-                  <TableHead className="hidden md:table-cell">
-                    Dernier entretien
-                  </TableHead>
-                  <TableHead className="hidden md:table-cell">
-                    Prochain entretien
-                  </TableHead>
+                  <TableHead className="hidden sm:table-cell">Kilométrage</TableHead>
+                  <TableHead className="hidden md:table-cell">Dernier entretien</TableHead>
+                  <TableHead className="hidden md:table-cell">Prochain entretien</TableHead>
                   <TableHead>État</TableHead>
                   <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
@@ -405,126 +475,117 @@ export default function FlotteTab() {
               <TableBody>
                 {isLoading && (
                   <TableRow>
-                    <TableCell
-                      colSpan={7}
-                      className="text-center text-muted-foreground py-8"
-                    >
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       Chargement des données flotte...
                     </TableCell>
                   </TableRow>
                 )}
+
                 {!isLoading && !loadError && fleetItems.length === 0 && (
                   <TableRow>
-                    <TableCell
-                      colSpan={7}
-                      className="text-center text-muted-foreground py-8"
-                    >
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       Aucun véhicule de flotte à afficher.
                     </TableCell>
                   </TableRow>
                 )}
-                {!isLoading &&
-                  !loadError &&
-                  fleetItems.map((f) => {
-                    const img = f.imageUrl;
-                    const hasMaintenanceAlert = checkMaintenanceAlert(f);
-                    return (
-                      <TableRow key={f.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {img ? (
-                              <img
-                                src={img}
-                                alt={f.vehicule}
-                                className="h-8 w-8 rounded-lg object-cover flex-shrink-0"
-                              />
-                            ) : (
-                              <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                                <Car className="h-3 w-3 text-muted-foreground" />
-                              </div>
-                            )}
-                            <span className="font-medium">{f.vehicule}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {f.plaque}
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          {f.km.toLocaleString()} km
-                        </TableCell>
-                        <TableCell className="text-xs hidden md:table-cell">
-                          {f.dernierEntretien}
-                        </TableCell>
-                        <TableCell className="text-xs hidden md:table-cell">
-                          {f.prochainEntretien}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              variant="outline"
-                              className={etatColors[f.etat] || ""}
-                            >
-                              {f.etat}
-                            </Badge>
-                            {hasMaintenanceAlert && (
-                              <AlertCircle className="h-4 w-4 text-amber-500" />
-                            )}
-                            {f.enPanne && (
-                              <AlertTriangle className="h-4 w-4 text-destructive" />
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
+
+                {!isLoading && !loadError && fleetItems.map((f) => {
+                  const img = f.imageUrl;
+                  const hasMaintenanceAlert = checkMaintenanceAlert(f);
+
+                  return (
+                    <TableRow key={f.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {img ? (
+                            <img
+                              src={img}
+                              alt={f.vehicule}
+                              className="h-8 w-8 rounded-lg object-cover flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                              <Car className="h-3 w-3 text-muted-foreground" />
+                            </div>
+                          )}
+                          <span className="font-medium">{f.vehicule}</span>
+                        </div>
+                      </TableCell>
+
+                      <TableCell className="font-mono text-xs">{f.plaque}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{f.km.toLocaleString()} km</TableCell>
+                      <TableCell className="text-xs hidden md:table-cell">{f.dernierEntretien}</TableCell>
+                      <TableCell className="text-xs hidden md:table-cell">{f.prochainEntretien}</TableCell>
+
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className={etatColors[f.etat] || ""}>
+                            {f.etat}
+                          </Badge>
+                          {hasMaintenanceAlert && <AlertCircle className="h-4 w-4 text-amber-500" />}
+                          {f.enPanne && <AlertTriangle className="h-4 w-4 text-destructive" />}
+                        </div>
+                        {hasMaintenanceAlert && (
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            {f.remainingMaintenanceDays !== null && `J-${f.remainingMaintenanceDays}`} 
+                            {f.remainingMaintenanceDays !== null && f.remainingMaintenanceKm !== null && " • "}
+                            {f.remainingMaintenanceKm !== null && `${f.remainingMaintenanceKm} km restants`}
+                          </p>
+                        )}
+                      </TableCell>
+
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleUpdateMileage(f)}
+                            disabled={
+                              isSavingMileage ||
+                              isSavingBreakdown ||
+                              resolvingVehicleId === f.id
+                            }
+                            title="Mettre à jour kilométrage et règles d'entretien"
+                          >
+                            <Wrench className="h-4 w-4" />
+                          </Button>
+
+                          {!f.enPanne ? (
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => handleUpdateMileage(f)}
+                              onClick={() => handleDeclareBreakdown(f)}
                               disabled={
                                 isSavingMileage ||
                                 isSavingBreakdown ||
                                 resolvingVehicleId === f.id
                               }
-                              title="Mettre à jour le kilométrage"
+                              className="text-destructive"
+                              title="Déclarer une panne"
                             >
-                              <Wrench className="h-4 w-4" />
+                              <AlertTriangle className="h-4 w-4" />
                             </Button>
-                            {!f.enPanne ? (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleDeclareBreakdown(f)}
-                                disabled={
-                                  isSavingMileage ||
-                                  isSavingBreakdown ||
-                                  resolvingVehicleId === f.id
-                                }
-                                className="text-destructive "
-                                title="Déclarer une panne"
-                              >
-                                <AlertTriangle className="h-4 w-4" />
-                              </Button>
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => void resolveBreakdown(f)}
-                                disabled={
-                                  resolvingVehicleId === f.id ||
-                                  isSavingBreakdown ||
-                                  isSavingMileage
-                                }
-                                className="text-emerald-500 hover:text-emerald-600"
-                                title="Marquer comme réparé"
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => void resolveBreakdown(f)}
+                              disabled={
+                                resolvingVehicleId === f.id ||
+                                isSavingBreakdown ||
+                                isSavingMileage
+                              }
+                              className="text-emerald-500 hover:text-emerald-600"
+                              title="Marquer comme réparé"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
@@ -534,8 +595,7 @@ export default function FlotteTab() {
       {meta && (
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground text-center">
-            Page {meta.page} sur {Math.max(meta.totalPages, 1)} ·{" "}
-            {meta.totalItems} véhicules flotte
+            Page {meta.page} sur {Math.max(meta.totalPages, 1)} · {meta.totalItems} véhicules flotte
           </p>
           <PaginationType>
             <PaginationContent>
@@ -544,14 +604,9 @@ export default function FlotteTab() {
                   href="#"
                   onClick={(e) => {
                     e.preventDefault();
-                    if (meta.hasPreviousPage)
-                      setPage((prev) => Math.max(prev - 1, 1));
+                    if (meta.hasPreviousPage) setPage((prev) => Math.max(prev - 1, 1));
                   }}
-                  className={
-                    !meta.hasPreviousPage
-                      ? "pointer-events-none opacity-50"
-                      : undefined
-                  }
+                  className={!meta.hasPreviousPage ? "pointer-events-none opacity-50" : undefined}
                 />
               </PaginationItem>
               <PaginationItem>
@@ -566,11 +621,7 @@ export default function FlotteTab() {
                     e.preventDefault();
                     if (meta.hasNextPage) setPage((prev) => prev + 1);
                   }}
-                  className={
-                    !meta.hasNextPage
-                      ? "pointer-events-none opacity-50"
-                      : undefined
-                  }
+                  className={!meta.hasNextPage ? "pointer-events-none opacity-50" : undefined}
                 />
               </PaginationItem>
             </PaginationContent>
@@ -578,7 +629,6 @@ export default function FlotteTab() {
         </div>
       )}
 
-      {/* Breakdown Declaration Dialog */}
       <Dialog open={breakdownDialog} onOpenChange={setBreakdownDialog}>
         <DialogContent>
           <DialogHeader>
@@ -599,8 +649,7 @@ export default function FlotteTab() {
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              Le véhicule sera automatiquement marqué comme indisponible lors de
-              la sauvegarde.
+              Le véhicule sera automatiquement marqué comme indisponible lors de la sauvegarde.
             </p>
           </div>
           <DialogFooter>
@@ -618,15 +667,15 @@ export default function FlotteTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Mileage Update Dialog */}
       <Dialog open={mileageDialog} onOpenChange={setMileageDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Mettre à jour le kilométrage</DialogTitle>
+            <DialogTitle>Mettre à jour flotte et entretien</DialogTitle>
             <DialogDescription>
               Véhicule: {selectedVehicle?.vehicule} ({selectedVehicle?.plaque})
             </DialogDescription>
           </DialogHeader>
+
           <div className="space-y-4">
             <div>
               <Label htmlFor="mileage-input">Kilométrage actuel</Label>
@@ -638,36 +687,39 @@ export default function FlotteTab() {
                 onChange={(e) => setNewMileage(e.target.value)}
               />
             </div>
+
+            <div>
+              <Label>Entretien requis - Kilométrage (km)</Label>
+              <Input
+                type="number"
+                placeholder="Ex: 200"
+                value={maintenanceMileage}
+                onChange={(e) => setMaintenanceMileage(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label>Entretien requis - Jours</Label>
+              <Input
+                type="number"
+                placeholder="Ex: 14"
+                value={maintenanceDays}
+                onChange={(e) => setMaintenanceDays(e.target.value)}
+              />
+            </div>
+
             {selectedVehicle && selectedVehicle.km > 0 && (
               <p className="text-xs text-muted-foreground">
                 Kilométrage précédent: {selectedVehicle.km.toLocaleString()} km
               </p>
             )}
           </div>
-          {/* New add */}
 
-          <div>
-            <Label>Entretien requis - Kilométrage (km)</Label>
-            <Input
-              type="number"
-              placeholder="Ex: 150000"
-            />
-          </div>
-          <div>
-            <Label>Entretien requis - Jours</Label>
-            <Input
-              type="number"
-              placeholder="Ex: 14"
-            />
-          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setMileageDialog(false)}>
               Annuler
             </Button>
-            <Button
-              onClick={() => void saveMileage()}
-              disabled={isSavingMileage}
-            >
+            <Button onClick={() => void saveMileage()} disabled={isSavingMileage}>
               {isSavingMileage ? "Mise à jour..." : "Mettre à jour"}
             </Button>
           </DialogFooter>

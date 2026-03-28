@@ -24,6 +24,8 @@ export default function MotDePasseOublie() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const isActivationMode = searchParams.get("mode") === "activation" || window.location.pathname === "/activation-compte";
+  const redirectAfterSuccess = searchParams.get("redirect") || "/connexion";
 
   useEffect(() => {
     const emailFromQuery = searchParams.get("email");
@@ -52,6 +54,11 @@ export default function MotDePasseOublie() {
 
     setLoading(true);
     try {
+      if (isActivationMode) {
+        toast({ title: "Lien d'activation requis", description: "Utilisez le lien d'activation reçu par email." });
+        return;
+      }
+
       await authService.forgotPassword(email);
       toast({ title: "Code envoyé", description: `Un code OTP a été envoyé à ${email}.` });
       setStep("otp");
@@ -86,7 +93,7 @@ export default function MotDePasseOublie() {
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (!password.trim()) errs.password = "Le mot de passe est requis.";
-    else if (password.length < 8) errs.password = "Minimum 8 caractères.";
+    else if (password.length < 12) errs.password = "Minimum 12 caractères.";
     if (!confirmPassword.trim()) errs.confirmPassword = "La confirmation est requise.";
     else if (password !== confirmPassword) errs.confirmPassword = "Les mots de passe ne correspondent pas.";
     setErrors(errs);
@@ -94,13 +101,27 @@ export default function MotDePasseOublie() {
 
     setLoading(true);
     try {
-      await authService.resetPassword(email, otp, password);
-      toast({ title: "Mot de passe mis à jour", description: "Vous pouvez maintenant vous connecter avec votre nouveau mot de passe." });
-      navigate("/connexion");
+      if (isActivationMode) {
+        await authService.activateAccount(email, otp, password);
+        toast({ title: "Compte activé", description: "Votre compte est activé. Vous pouvez maintenant vous connecter." });
+        navigate(redirectAfterSuccess);
+      } else {
+        await authService.resetPassword(email, otp, password);
+        toast({ title: "Mot de passe mis à jour", description: "Vous pouvez maintenant vous connecter avec votre nouveau mot de passe." });
+        navigate("/connexion");
+      }
     } catch (error) {
       const message =
         error instanceof ApiHttpError ? error.message : "Échec de réinitialisation du mot de passe.";
-      toast({ title: "Erreur", description: message, variant: "destructive" });
+      const isExpiredActivationLink =
+        isActivationMode && /expir|expired/i.test(message);
+      toast({
+        title: "Erreur",
+        description: isExpiredActivationLink
+          ? "Votre lien d'activation a expiré. Utilisez Mot de passe oublié pour recevoir un nouveau code."
+          : message,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -140,7 +161,9 @@ export default function MotDePasseOublie() {
                 </div>
                 <h1 className="font-display text-2xl font-bold mb-2">Mot de passe oublié</h1>
                 <p className="text-muted-foreground text-sm">
-                  Entrez votre adresse email pour recevoir un code de vérification.
+                  {isActivationMode
+                    ? "Utilisez les informations du lien reçu par email pour activer votre compte."
+                    : "Entrez votre adresse email pour recevoir un code de vérification."}
                 </p>
               </div>
 
@@ -161,12 +184,12 @@ export default function MotDePasseOublie() {
                 </div>
 
                 <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                  {loading ? "Envoi en cours..." : "Continuer"}
+                  {loading ? "Envoi en cours..." : isActivationMode ? "Vérifier" : "Continuer"}
                 </Button>
 
                 <button
                   type="button"
-                  onClick={() => navigate("/connexion")}
+                  onClick={() => navigate(redirectAfterSuccess)}
                   className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mx-auto"
                 >
                   <ArrowLeft className="h-4 w-4" />
@@ -221,6 +244,14 @@ export default function MotDePasseOublie() {
                         return;
                       }
                       try {
+                        if (isActivationMode) {
+                          toast({
+                            title: "Lien d'activation requis",
+                            description: "Veuillez utiliser le lien d'activation le plus recent recu par email.",
+                          });
+                          return;
+                        }
+
                         await authService.forgotPassword(email);
                         toast({ title: "Code renvoyé", description: `Un nouveau code a été envoyé à ${email}.` });
                       } catch (error) {
@@ -258,8 +289,15 @@ export default function MotDePasseOublie() {
                 </div>
                 <h1 className="font-display text-2xl font-bold mb-2">Nouveau mot de passe</h1>
                 <p className="text-muted-foreground text-sm">
-                  Choisissez un nouveau mot de passe sécurisé.
+                  {isActivationMode
+                    ? "Définissez votre mot de passe pour activer votre compte."
+                    : "Choisissez un nouveau mot de passe sécurisé."}
                 </p>
+                {isActivationMode ? (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Lien expiré ? Utilisez "Mot de passe oublié" pour recevoir un nouveau code.
+                  </p>
+                ) : null}
               </div>
 
               <form onSubmit={handlePasswordSubmit} className="space-y-4" noValidate>

@@ -1,4 +1,5 @@
 import { useParams, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Fuel,
@@ -20,6 +21,7 @@ import TopBar from "@/components/TopBar";
 import ScrollToTop from "@/components/ScrollToTop";
 import { useVehiclesCatalog } from "@/hooks/useVehiclesCatalog";
 import ReservationDialog from "@/components/ReservationDialog";
+import { reviewsService } from "@/lib/api/services";
 
 const energieLabels: Record<string, string> = {
   ESSENCE: "Essence",
@@ -31,6 +33,13 @@ export default function VehiculeDetail() {
   const { id } = useParams();
   const { vehicles, isLoading } = useVehiclesCatalog();
   const vehicule = vehicles.find((item) => item.id === (id || ""));
+
+  const { data: vehicleReviews } = useQuery({
+    queryKey: ["vehicle-reviews", id],
+    queryFn: () => reviewsService.list({ page: 1, limit: 6, vehicleId: String(id || "") }),
+    enabled: !!id,
+    refetchOnWindowFocus: false,
+  });
 
   if (isLoading) {
     return (
@@ -199,6 +208,8 @@ export default function VehiculeDetail() {
                   vehiculeName={vehicule.nom}
                   vehiculeCategorie={vehicule.categorie}
                   vehiculePrixJour={vehicule.prixJour}
+                  vehiculeCaution={vehicule.caution}
+                  vehiculeAdditionalFees={vehicule.autreFraisLibelle}
                 >
                   <Button size="lg" disabled={!vehicule.disponible}>
                     Réserver ce véhicule
@@ -224,6 +235,32 @@ export default function VehiculeDetail() {
           </div>
 
           {/* Similaires */}
+          {vehicleReviews?.items?.length ? (
+            <div className="mt-14">
+              <h2 className="font-display text-2xl font-bold mb-6">Avis sur ce vehicule</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {vehicleReviews.items.map((review) => (
+                  <article key={review.id} className="border border-border rounded-xl p-4 bg-card">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-semibold text-sm">{review.authorName}</p>
+                      <p className="text-xs text-muted-foreground">{new Date(review.createdAt).toLocaleDateString("fr-FR")}</p>
+                    </div>
+                    <p className="text-sm font-medium mb-1">{review.title || "Avis client"}</p>
+                    <div className="flex items-center gap-1 mb-2">
+                      {Array.from({ length: 5 }).map((_, idx) => (
+                        <Star
+                          key={`${review.id}-${idx}`}
+                          className={`h-4 w-4 ${idx < review.rating ? "fill-primary text-primary" : "text-muted-foreground"}`}
+                        />
+                      ))}
+                    </div>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{review.content}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           {similaires.length > 0 && (
             <div className="mt-20">
               <h2 className="font-display text-2xl font-bold mb-6">

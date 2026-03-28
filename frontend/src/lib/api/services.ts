@@ -45,8 +45,22 @@ export type VehicleImageDto = {
   sortOrder?: number;
 };
 
+export type VehicleMaintenanceSummaryDto = {
+  requiredMileage: number | null;
+  requiredDays: number | null;
+  lastMaintenanceAt: string | null;
+  nextMaintenanceAt: string | null;
+  lastMaintenanceMileage: number | null;
+  nextMaintenanceMileage: number | null;
+  remainingKm: number | null;
+  remainingDays: number | null;
+  isDueSoon: boolean;
+  isOverdue: boolean;
+};
+
 export type VehicleDto = {
   id: string;
+  createdAt?: string;
   name: string;
   brand: string;
   model: string;
@@ -71,12 +85,14 @@ export type VehicleDto = {
   active?: boolean;
   isActive?: boolean;
   rating?: number;
+  reviewCount?: number;
   reviewsCount?: number;
   additionalFeesLabels?: { label: string; amount: number }[];
   maintenanceRequired?: {
     mileage?: number;
     days?: number;
-  };
+  } | null;
+  maintenanceSummary?: VehicleMaintenanceSummaryDto | null;
 };
 
 type PaginationParams = {
@@ -179,6 +195,11 @@ export type QuoteEventDto = {
   createdAt: string;
 };
 
+export type CustomerQuoteResponseAction =
+  | "ACCEPTER"
+  | "REFUSER"
+  | "CONTRE_PROPOSITION";
+
 export type FleetIncidentType = "DOMMAGE" | "PANNE" | "HISTORIQUE";
 export type FleetIncidentSeverity = "MINEUR" | "MAJEUR" | "CRITIQUE";
 export type FleetIncidentStatus = "OUVERT" | "EN_COURS" | "RESOLU";
@@ -207,6 +228,7 @@ export type IamRoleDto = {
   id: string;
   name: string;
   description?: string;
+  isSystem?: boolean;
   permissionCodes?: string[];
   rolePermissions?: Array<{
     permission?: {
@@ -248,9 +270,20 @@ export type ReviewDto = {
   rating: number;
   content: string;
   imageUrl?: string;
+  userId?: string | null;
+  vehicleId?: string | null;
+  reservationId?: string | null;
   status: 'DRAFT' | 'PUBLISHED';
   createdAt: string;
   updatedAt: string;
+};
+
+export type PendingReviewReservationDto = {
+  reservationId: string;
+  publicReference: string;
+  endAt: string;
+  vehicleId: string;
+  vehicleName: string;
 };
 
 export type BlogListResponse = PaginatedCollection<BlogArticleDto>;
@@ -267,8 +300,23 @@ export const blogService = {
 };
 
 export const reviewsService = {
-  list: (params: { page?: number; limit?: number }) =>
-    apiRequest<ReviewsListResponse>(`/reviews?page=${params.page ?? 1}&limit=${params.limit ?? 20}`),
+  list: (params: { page?: number; limit?: number; vehicleId?: string }) =>
+    apiRequest<ReviewsListResponse>(
+      `/reviews?page=${params.page ?? 1}&limit=${params.limit ?? 20}` +
+        (params.vehicleId ? `&vehicleId=${encodeURIComponent(params.vehicleId)}` : ''),
+    ),
+  listPendingMine: () => apiRequest<PendingReviewReservationDto[]>('/reviews/me/pending', { auth: true }),
+  createMine: (payload: {
+    reservationId: string;
+    rating: number;
+    content: string;
+    title?: string;
+  }) =>
+    apiRequest<ReviewDto>('/reviews', {
+      method: 'POST',
+      body: payload,
+      auth: true,
+    }),
 };
 
 export type ContactMessagePayload = {
@@ -319,6 +367,12 @@ export const authService = {
 
   resetPassword: (email: string, otp: string, newPassword: string) =>
     apiRequest<{ message: string }>("/auth/reset-password", {
+      method: "POST",
+      body: { email, otp, newPassword },
+    }),
+
+  activateAccount: (email: string, otp: string, newPassword: string) =>
+    apiRequest<{ message: string }>("/auth/activate-account", {
       method: "POST",
       body: { email, otp, newPassword },
     }),
@@ -386,6 +440,11 @@ export type ReservationEventDto = {
 };
 
 export const reservationsService = {
+  listMine: (params?: PaginationParams) =>
+    apiRequest<PaginatedCollection<ReservationDto> | ReservationDto[]>(
+      `/reservations/me/list${toPaginationQuery(params)}`,
+      { auth: true }
+    ),
   list: (params?: PaginationParams, userId?: string) => {
     const query = toPaginationQuery(params);
     const userIdParam = userId ? `&userId=${encodeURIComponent(userId)}` : "";
@@ -442,9 +501,19 @@ export const reservationsService = {
       `/reservations/${id}/events${toPaginationQuery(params)}`,
       { auth: true }
     ),
+  findMineEvents: (id: string, params?: PaginationParams) =>
+    apiRequest<PaginatedCollection<ReservationEventDto> | ReservationEventDto[]>(
+      `/reservations/me/${id}/events${toPaginationQuery(params)}`,
+      { auth: true }
+    ),
 };
 
 export const quotesService = {
+  listMine: (params?: PaginationParams) =>
+    apiRequest<PaginatedCollection<QuoteDto> | QuoteDto[]>(
+      `/quotes/me/list${toPaginationQuery(params)}`,
+      { auth: true },
+    ),
   list: (params?: PaginationParams) =>
     apiRequest<PaginatedCollection<QuoteDto> | QuoteDto[]>(
       `/quotes${toPaginationQuery(params)}`,
@@ -524,6 +593,26 @@ export const quotesService = {
       `/quotes/${id}/events${toPaginationQuery(params)}`,
       { auth: true },
     ),
+  findMineEvents: (id: string, params?: PaginationParams) =>
+    apiRequest<PaginatedCollection<QuoteEventDto> | QuoteEventDto[]>(
+      `/quotes/me/${id}/events${toPaginationQuery(params)}`,
+      { auth: true },
+    ),
+  respondToProposal: (
+    id: string,
+    payload: {
+      action: CustomerQuoteResponseAction;
+      comment?: string;
+    },
+  ) =>
+    apiRequest<{ quote: QuoteDto; paymentLinkUrl?: string }>(
+      `/quotes/me/${id}/respond`,
+      {
+        method: "POST",
+        body: payload,
+        auth: true,
+      },
+    ),
   remove: (id: string) =>
     apiRequest<{ message: string }>(`/quotes/${id}`, {
       method: "DELETE",
@@ -568,10 +657,19 @@ export const fleetService = {
       body: { operationalStatus },
       auth: true,
     }),
-  updateVehicleMileage: (vehicleId: string, mileage: number) =>
+  updateVehicleMileage: (
+    vehicleId: string,
+    payload: {
+      mileage: number;
+      maintenanceRequired?: {
+        mileage?: number;
+        days?: number;
+      } | null;
+    },
+  ) =>
     apiRequest<VehicleDto>(`/fleet/vehicles/${vehicleId}/mileage`, {
       method: "PATCH",
-      body: { mileage },
+      body: payload,
       auth: true,
     }),
   createIncident: (payload: {
@@ -625,6 +723,11 @@ export const iamService = {
     apiRequest<IamRoleDto>("/iam/roles", {
       method: "POST",
       body: payload,
+      auth: true,
+    }),
+  deleteRole: (roleId: string) =>
+    apiRequest<{ message?: string }>(`/iam/roles/${roleId}`, {
+      method: "DELETE",
       auth: true,
     }),
   assignRoleToUser: (roleId: string, userId: string) =>

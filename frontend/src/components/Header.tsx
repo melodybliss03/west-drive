@@ -24,6 +24,19 @@ export default function Header() {
   const isHome = location.pathname === "/";
   const { user, logout } = useAuth();
 
+  const sanitizeProfileValue = (value?: string | null): string => {
+    if (typeof value !== "string") return "";
+    const normalized = value.trim();
+    if (!normalized) return "";
+
+    const lowered = normalized.toLowerCase();
+    if (lowered === "undefined" || lowered === "null") {
+      return "";
+    }
+
+    return normalized;
+  };
+
   const handleNavClick = (link: typeof navLinks[0]) => {
     setMobileOpen(false);
     if (isHome && link.anchor) {
@@ -32,7 +45,16 @@ export default function Header() {
     }
   };
 
-  const initials = user ? (user.prenom[0] + user.nom[0]).toUpperCase() : "";
+  const firstName = sanitizeProfileValue(user?.prenom);
+  const lastName = sanitizeProfileValue(user?.nom);
+  const email = sanitizeProfileValue(user?.email);
+  const fullName = [firstName, lastName].filter(Boolean).join(" ") || (email ? email.split("@")[0] : "Utilisateur");
+  const initials = fullName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("") || "U";
 
   const LangToggle = () => (
     <button
@@ -94,8 +116,8 @@ export default function Header() {
                       className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden"
                     >
                       <div className="px-4 py-3 border-b border-border">
-                        <p className="text-sm font-medium">{user.prenom} {user.nom}</p>
-                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                        <p className="text-sm font-medium">{fullName}</p>
+                        <p className="text-xs text-muted-foreground truncate">{email || "-"}</p>
                       </div>
                       <button
                         onClick={() => { setDropdownOpen(false); navigate("/espace"); }}
@@ -190,8 +212,8 @@ export default function Header() {
                 {user && (
                   <div className="flex flex-col gap-1 pt-3 mt-2 border-t border-border">
                     <div className="px-3 py-2">
-                      <p className="text-sm font-medium">{user.prenom} {user.nom}</p>
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                      <p className="text-sm font-medium">{fullName}</p>
+                      <p className="text-xs text-muted-foreground">{email || "-"}</p>
                     </div>
                     <Link to="/espace" onClick={() => setMobileOpen(false)}>
                       <button className="w-full flex items-center gap-2 px-3 py-2.5 text-sm rounded-lg hover:bg-muted transition-colors">
@@ -224,8 +246,8 @@ export default function Header() {
               className="absolute right-4 mt-1 w-48 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden lg:hidden"
             >
               <div className="px-4 py-3 border-b border-border">
-                <p className="text-sm font-medium">{user.prenom} {user.nom}</p>
-                <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                <p className="text-sm font-medium">{fullName}</p>
+                <p className="text-xs text-muted-foreground truncate">{email || "-"}</p>
               </div>
               <button
                 onClick={() => { setDropdownOpen(false); navigate("/espace"); }}

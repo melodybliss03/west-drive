@@ -1,9 +1,11 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   Logger,
   ServiceUnavailableException,
   UnauthorizedException,
+  forwardRef,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -11,6 +13,7 @@ import * as argon2 from 'argon2';
 import { randomInt, randomUUID } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
+import { ActivateAccountDto } from './dto/activate-account.dto';
 import { ConfirmRegisterOtpDto } from './dto/confirm-register-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
@@ -36,6 +39,7 @@ export class AuthService {
 
   constructor(
     private readonly usersService: UsersService,
+    @Inject(forwardRef(() => IamService))
     private readonly iamService: IamService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
@@ -319,21 +323,59 @@ export class AuthService {
     return { message: 'Password updated successfully' };
   }
 
-  async createPasswordSetupUrl(emailInput: string): Promise<string | null> {
+  async activateAccount(dto: ActivateAccountDto): Promise<{ message: string }> {
+    const email = this.normalizeEmail(dto.email);
+    const otpRecord = await this.validateOtp(
+      email,
+      dto.otp,
+      AuthOtpPurpose.ACCOUNT_ACTIVATION,
+    );
+
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      throw new UnauthorizedException('Invalid OTP');
+    }
+
+    const passwordHash = await argon2.hash(dto.newPassword);
+    await this.usersService.updatePasswordHash(user.id, passwordHash);
+
+    otpRecord.consumedAt = new Date();
+    await this.authOtpRepository.save(otpRecord);
+
+    await this.refreshTokenRepository.update(
+      {
+        userId: user.id,
+        revokedAt: IsNull(),
+      },
+      {
+        revokedAt: new Date(),
+      },
+    );
+
+    return { message: 'Account activated successfully' };
+  }
+
+  async createAccountActivationUrl(
+    emailInput: string,
+    options?: {
+      invitationSource?: string;
+      redirectPath?: string;
+      ttlMinutes?: number;
+    },
+  ): Promise<string | null> {
     const email = this.normalizeEmail(emailInput);
     const user = await this.usersService.findByEmail(email);
     if (!user) {
       return null;
     }
 
-    const ttlMinutes = this.configService.get<number>(
-      'PASSWORD_RESET_OTP_TTL_MINUTES',
-      10,
-    );
+    const ttlMinutes =
+      options?.ttlMinutes ??
+      this.configService.get<number>('ACCOUNT_ACTIVATION_OTP_TTL_MINUTES', 1440);
 
     await this.authOtpRepository.delete({
       email,
-      purpose: AuthOtpPurpose.RESET_PASSWORD,
+      purpose: AuthOtpPurpose.ACCOUNT_ACTIVATION,
       consumedAt: IsNull(),
     });
 
@@ -344,10 +386,11 @@ export class AuthService {
     await this.authOtpRepository.save(
       this.authOtpRepository.create({
         email,
-        purpose: AuthOtpPurpose.RESET_PASSWORD,
+        purpose: AuthOtpPurpose.ACCOUNT_ACTIVATION,
         otpHash,
         payload: {
-          invitationSource: 'reservation',
+          invitationSource: options?.invitationSource ?? 'general',
+          redirectPath: options?.redirectPath ?? '/connexion',
         },
         userId: user.id,
         expiresAt,
@@ -360,7 +403,8 @@ export class AuthService {
       'http://localhost:8080',
     );
 
-    return `${frontendBaseUrl}/mot-de-passe-oublie?email=${encodeURIComponent(email)}&otp=${encodeURIComponent(otp)}`;
+    const redirectPath = encodeURIComponent(options?.redirectPath ?? '/connexion');
+    return `${frontendBaseUrl.replace(/\/$/, '')}/activation-compte?email=${encodeURIComponent(email)}&otp=${encodeURIComponent(otp)}&redirect=${redirectPath}`;
   }
 
   private async issueTokens(
@@ -473,7 +517,9 @@ export class AuthService {
         purpose:
           options.purpose === AuthOtpPurpose.REGISTER
             ? 'register'
-            : 'reset-password',
+            : options.purpose === AuthOtpPurpose.RESET_PASSWORD
+              ? 'reset-password'
+              : 'activation',
         ttlMinutes: options.ttlMinutes,
       });
     } catch (error) {

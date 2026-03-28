@@ -78,7 +78,7 @@ export class Reservation {
   @Column({
     type: 'enum',
     enum: ReservationStatus,
-    default: ReservationStatus.NOUVELLE_DEMANDE,
+    default: ReservationStatus.EN_ATTENTE_PAIEMENT,
   })
   status!: ReservationStatus;
 

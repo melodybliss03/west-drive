@@ -10,6 +10,7 @@ import {
   resolvePagination,
   type PaginatedResponse,
 } from '../shared/pagination/pagination.util';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   Vehicle,
   VehicleOperationalStatus,
@@ -27,6 +28,23 @@ import {
 } from './entities/fleet-incident.entity';
 import { VehicleScheduleSlot } from './entities/vehicle-schedule-slot.entity';
 
+type MaintenanceSummary = {
+  requiredMileage: number | null;
+  requiredDays: number | null;
+  lastMaintenanceAt: string | null;
+  nextMaintenanceAt: string | null;
+  lastMaintenanceMileage: number | null;
+  nextMaintenanceMileage: number | null;
+  remainingKm: number | null;
+  remainingDays: number | null;
+  isDueSoon: boolean;
+  isOverdue: boolean;
+};
+
+type FleetVehicleView = Vehicle & {
+  maintenanceSummary: MaintenanceSummary | null;
+};
+
 @Injectable()
 export class FleetService {
   constructor(
@@ -36,6 +54,7 @@ export class FleetService {
     private readonly incidentRepository: Repository<FleetIncident>,
     @InjectRepository(VehicleScheduleSlot)
     private readonly slotRepository: Repository<VehicleScheduleSlot>,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async getOverview() {
@@ -69,7 +88,7 @@ export class FleetService {
   async listFleetVehicles(
     page = 1,
     limit = 20,
-  ): Promise<PaginatedResponse<Vehicle>> {
+  ): Promise<PaginatedResponse<FleetVehicleView>> {
     const pagination = resolvePagination(page, limit);
     const [items, totalItems] = await this.vehicleRepository.findAndCount({
       order: { createdAt: 'DESC' },
@@ -78,8 +97,23 @@ export class FleetService {
       take: pagination.limit,
     });
 
+    const now = new Date();
+    const enrichedItems = items.map((vehicle) => {
+      const maintenanceSummary = this.computeMaintenanceSummary(vehicle, now);
+      return {
+        ...vehicle,
+        maintenanceSummary,
+      } as FleetVehicleView;
+    });
+
+    await Promise.all(
+      enrichedItems.map((vehicle) =>
+        this.notifyMaintenanceApproaching(vehicle).catch(() => undefined),
+      ),
+    );
+
     return buildPaginatedResponse(
-      items,
+      enrichedItems,
       pagination.page,
       pagination.limit,
       totalItems,
@@ -103,7 +137,26 @@ export class FleetService {
     const vehicle = await this.findVehicleOrFail(vehicleId);
 
     vehicle.mileage = dto.mileage;
-    return this.vehicleRepository.save(vehicle);
+
+    if (dto.maintenanceRequired !== undefined) {
+      vehicle.maintenanceRequired = this.normalizeMaintenanceRequired(
+        dto.maintenanceRequired,
+      );
+    }
+
+    const maintenanceSummary = this.computeMaintenanceSummary(vehicle, new Date());
+    if (maintenanceSummary?.isOverdue) {
+      vehicle.operationalStatus = VehicleOperationalStatus.MAINTENANCE;
+    }
+
+    const savedVehicle = await this.vehicleRepository.save(vehicle);
+
+    await this.notifyMaintenanceApproaching({
+      ...savedVehicle,
+      maintenanceSummary,
+    } as FleetVehicleView).catch(() => undefined);
+
+    return savedVehicle;
   }
 
   async createIncident(dto: CreateFleetIncidentDto): Promise<FleetIncident> {
@@ -324,5 +377,198 @@ export class FleetService {
     if (startAt >= endAt) {
       throw new BadRequestException('startAt must be before endAt');
     }
+  }
+
+  private normalizeMaintenanceRequired(
+    maintenanceRequired:
+      | {
+          mileage?: number;
+          days?: number;
+        }
+      | null
+      | undefined,
+  ): { mileage?: number; days?: number } | null {
+    if (!maintenanceRequired) {
+      return null;
+    }
+
+    const mileage = maintenanceRequired.mileage;
+    const days = maintenanceRequired.days;
+
+    if (mileage === undefined && days === undefined) {
+      return null;
+    }
+
+    return {
+      mileage,
+      days,
+    };
+  }
+
+  private computeMaintenanceSummary(
+    vehicle: Vehicle,
+    referenceDate: Date,
+  ): MaintenanceSummary | null {
+    const maintenanceRequired = vehicle.maintenanceRequired ?? null;
+    if (!maintenanceRequired) {
+      return null;
+    }
+
+    const requiredMileage =
+      typeof maintenanceRequired.mileage === 'number' &&
+      maintenanceRequired.mileage > 0
+        ? maintenanceRequired.mileage
+        : null;
+    const requiredDays =
+      typeof maintenanceRequired.days === 'number' && maintenanceRequired.days > 0
+        ? maintenanceRequired.days
+        : null;
+
+    if (!requiredMileage && !requiredDays) {
+      return null;
+    }
+
+    const now = referenceDate;
+    const dayMs = 24 * 60 * 60 * 1000;
+    const mileage = Math.max(vehicle.mileage ?? 0, 0);
+
+    let lastByDays: Date | null = null;
+    let nextByDays: Date | null = null;
+    if (requiredDays) {
+      const anchor = vehicle.createdAt ?? now;
+      const elapsedDays = Math.max(
+        0,
+        Math.floor((now.getTime() - anchor.getTime()) / dayMs),
+      );
+      const cycles = Math.floor(elapsedDays / requiredDays);
+      lastByDays = new Date(anchor.getTime() + cycles * requiredDays * dayMs);
+      nextByDays = new Date(
+        anchor.getTime() + (cycles + 1) * requiredDays * dayMs,
+      );
+    }
+
+    let lastByMileage: Date | null = null;
+    let nextByMileage: Date | null = null;
+    let lastMaintenanceMileage: number | null = null;
+    let nextMaintenanceMileage: number | null = null;
+    let remainingKm: number | null = null;
+
+    if (requiredMileage) {
+      const completedCycles = Math.floor(mileage / requiredMileage);
+      lastMaintenanceMileage = completedCycles * requiredMileage;
+      nextMaintenanceMileage = (completedCycles + 1) * requiredMileage;
+      remainingKm = Math.max(nextMaintenanceMileage - mileage, 0);
+
+      const averageKmPerDay = requiredDays
+        ? Math.max(requiredMileage / requiredDays, 10)
+        : Math.max(requiredMileage / 30, 10);
+
+      const consumedKmSinceLast = Math.max(mileage - lastMaintenanceMileage, 0);
+      const daysSinceLast = consumedKmSinceLast / averageKmPerDay;
+      const daysUntilNext = remainingKm / averageKmPerDay;
+
+      lastByMileage = new Date(now.getTime() - daysSinceLast * dayMs);
+      nextByMileage = new Date(now.getTime() + daysUntilNext * dayMs);
+    }
+
+    const lastCandidates = [lastByDays, lastByMileage].filter(
+      (value): value is Date => value instanceof Date,
+    );
+    const nextCandidates = [nextByDays, nextByMileage].filter(
+      (value): value is Date => value instanceof Date,
+    );
+
+    const lastMaintenanceAt =
+      lastCandidates.length > 0
+        ? new Date(
+            Math.max(...lastCandidates.map((value) => value.getTime())),
+          )
+        : null;
+    const nextMaintenanceAt =
+      nextCandidates.length > 0
+        ? new Date(
+            Math.min(...nextCandidates.map((value) => value.getTime())),
+          )
+        : null;
+
+    const remainingDays = nextMaintenanceAt
+      ? Math.ceil((nextMaintenanceAt.getTime() - now.getTime()) / dayMs)
+      : null;
+
+    const isOverdue =
+      (remainingDays !== null && remainingDays <= 0) ||
+      (remainingKm !== null && remainingKm <= 0);
+    const isDueSoon =
+      !isOverdue &&
+      ((remainingDays !== null && remainingDays <= 7) ||
+        (remainingKm !== null && remainingKm <= 100));
+
+    return {
+      requiredMileage,
+      requiredDays,
+      lastMaintenanceAt: lastMaintenanceAt?.toISOString() ?? null,
+      nextMaintenanceAt: nextMaintenanceAt?.toISOString() ?? null,
+      lastMaintenanceMileage,
+      nextMaintenanceMileage,
+      remainingKm,
+      remainingDays,
+      isDueSoon,
+      isOverdue,
+    };
+  }
+
+  private async notifyMaintenanceApproaching(
+    vehicle: FleetVehicleView,
+  ): Promise<void> {
+    const summary = vehicle.maintenanceSummary;
+    if (!summary || (!summary.isDueSoon && !summary.isOverdue)) {
+      return;
+    }
+
+    const urgency = summary.isOverdue ? 'overdue' : 'upcoming';
+    const nextDate = summary.nextMaintenanceAt
+      ? summary.nextMaintenanceAt.slice(0, 10)
+      : 'no-date';
+    const nextMileage =
+      summary.nextMaintenanceMileage !== null
+        ? summary.nextMaintenanceMileage.toString()
+        : 'no-mileage';
+
+    const dedupeKey = `fleet-maintenance:${vehicle.id}:${urgency}:${nextDate}:${nextMileage}`;
+
+    const nextDateLabel = summary.nextMaintenanceAt
+      ? new Date(summary.nextMaintenanceAt).toLocaleDateString('fr-FR')
+      : 'date non disponible';
+
+    const remainingBits: string[] = [];
+    if (summary.remainingDays !== null) {
+      remainingBits.push(`${summary.remainingDays} jour(s)`);
+    }
+    if (summary.remainingKm !== null) {
+      remainingBits.push(`${summary.remainingKm} km`);
+    }
+
+    const remainingLabel =
+      remainingBits.length > 0 ? remainingBits.join(' / ') : 'echeance immediate';
+
+    await this.notificationsService.createForAdminWithDedupe(
+      {
+        type: 'flotte',
+        title: summary.isOverdue
+          ? 'Entretien en retard'
+          : 'Entretien approche',
+        message: `${vehicle.name} (${vehicle.plateNumber ?? 'sans plaque'}) - prochain entretien: ${nextDateLabel} (${remainingLabel}).`,
+        metadata: {
+          vehicleId: vehicle.id,
+          vehicleName: vehicle.name,
+          plateNumber: vehicle.plateNumber,
+          maintenanceSummary: summary,
+        },
+      },
+      {
+        dedupeKey,
+        windowHours: 24,
+      },
+    );
   }
 }

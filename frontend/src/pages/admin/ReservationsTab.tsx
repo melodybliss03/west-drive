@@ -210,7 +210,7 @@ export default function ReservationsTab({
   // ── Mise à jour du statut backend ──────────────────────────────────────────
   const updateStatus = async (id: string, nextStatus: Reservation["statut"]) => {
     const map: Record<string, string> = {
-      "en attente":  "EN_ANALYSE",
+      "en attente":  "EN_ATTENTE_PAIEMENT",
       "confirmée":   "CONFIRMEE",
       "en cours":    "EN_COURS",
       "terminée":    "CLOTUREE",
@@ -955,9 +955,6 @@ export default function ReservationsTab({
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
                   <option value="">-- Sélectionner un statut --</option>
-                  <option value="NOUVELLE_DEMANDE">Nouvelle demande</option>
-                  <option value="EN_ANALYSE">En analyse</option>
-                  <option value="PROPOSITION_ENVOYEE">Proposition envoyée</option>
                   <option value="EN_ATTENTE_PAIEMENT">En attente paiement</option>
                   <option value="CONFIRMEE">Confirmée</option>
                   <option value="EN_COURS">En cours</option>

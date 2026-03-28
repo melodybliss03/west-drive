@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   InternalServerErrorException,
   ServiceUnavailableException,
@@ -75,8 +76,19 @@ export class CloudinaryService {
         secureUrl: result.secure_url,
         publicId: result.public_id,
       };
-    } catch {
-      throw new InternalServerErrorException('Cloudinary upload failed');
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'unknown cloudinary error';
+
+      if (/file size|too large|max(imum)? size/i.test(message)) {
+        throw new BadRequestException(
+          'Image too large for Cloudinary upload. Please use a smaller file.',
+        );
+      }
+
+      throw new InternalServerErrorException(
+        `Cloudinary upload failed: ${message}`,
+      );
     }
   }
 

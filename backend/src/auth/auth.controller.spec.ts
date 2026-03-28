@@ -13,6 +13,7 @@ describe('AuthController', () => {
     refresh: jest.fn(),
     forgotPassword: jest.fn(),
     resetPassword: jest.fn(),
+    activateAccount: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -126,5 +127,18 @@ describe('AuthController', () => {
 
     await expect(controller.resetPassword(dto)).resolves.toEqual(expected);
     expect(authServiceMock.resetPassword).toHaveBeenCalledWith(dto);
+  });
+
+  it('POST /auth/activate-account calls activateAccount', async () => {
+    const dto = {
+      email: 'staff@westdrive.fr',
+      otp: '123456',
+      newPassword: 'BrandNewPassword123!',
+    };
+    const expected = { message: 'Account activated successfully' };
+    authServiceMock.activateAccount.mockResolvedValue(expected);
+
+    await expect(controller.activateAccount(dto)).resolves.toEqual(expected);
+    expect(authServiceMock.activateAccount).toHaveBeenCalledWith(dto);
   });
 });

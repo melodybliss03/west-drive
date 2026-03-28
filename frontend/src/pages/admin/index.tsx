@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, CalendarCheck, FileText, Car, Users as UsersIcon, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -149,6 +149,31 @@ export default function Boss() {
     });
     setNotifications(prev => prev.map(n => ({ ...n, lu: true })));
   };
+
+  const loadNotifications = useCallback(async () => {
+    if (!user) {
+      setNotifications([]);
+      return;
+    }
+
+    try {
+      const collection = await notificationsService.list({ page: 1, limit: 25 });
+      const items = Array.isArray(collection) ? collection : collection.items;
+      const mapped: NotifType[] = items.map((n) => ({
+        id: n.id,
+        type: (n.type === "reservation" || n.type === "devis" || n.type === "utilisateur" || n.type === "flotte")
+          ? n.type
+          : "reservation",
+        titre: n.title,
+        message: n.message,
+        date: new Date(n.createdAt).toLocaleString("fr-FR"),
+        lu: n.isRead,
+      }));
+      setNotifications(mapped);
+    } catch {
+      setNotifications([]);
+    }
+  }, [user]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -318,29 +343,13 @@ export default function Boss() {
 
   useEffect(() => {
     if (isBootstrapping || !user) return;
+    void loadNotifications();
+  }, [isBootstrapping, user, loadNotifications]);
 
-    const loadNotifications = async () => {
-      try {
-        const collection = await notificationsService.list({ page: 1, limit: 25 });
-        const items = Array.isArray(collection) ? collection : collection.items;
-        const mapped: NotifType[] = items.map((n) => ({
-          id: n.id,
-          type: (n.type === "reservation" || n.type === "devis" || n.type === "utilisateur" || n.type === "flotte")
-            ? n.type
-            : "reservation",
-          titre: n.title,
-          message: n.message,
-          date: new Date(n.createdAt).toLocaleString("fr-FR"),
-          lu: n.isRead,
-        }));
-        setNotifications(mapped);
-      } catch {
-        setNotifications([]);
-      }
-    };
-
-    loadNotifications();
-  }, [isBootstrapping, user]);
+  useEffect(() => {
+    if (!showNotifs) return;
+    void loadNotifications();
+  }, [showNotifs, loadNotifications]);
 
   useEffect(() => {
     if (isBootstrapping || !user || !hasPermission("quotes.read") || tab !== "devis") return;

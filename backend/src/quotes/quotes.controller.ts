@@ -19,12 +19,15 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { RequirePermissions } from '../iam/decorators/require-permissions.decorator';
 import { PermissionsGuard } from '../iam/guards/permissions.guard';
 import { ConfirmQuotePaymentDto } from './dto/confirm-quote-payment.dto';
 import { ConvertQuoteToReservationDto } from './dto/convert-quote-to-reservation.dto';
 import { CreateQuoteDto } from './dto/create-quote.dto';
+import { CustomerQuoteResponseDto } from './dto/customer-quote-response.dto';
 import { SendQuoteProposalDto } from './dto/send-quote-proposal.dto';
 import { StartQuoteAnalysisDto } from './dto/start-quote-analysis.dto';
 import { StartQuoteNegotiationDto } from './dto/start-quote-negotiation.dto';
@@ -54,6 +57,54 @@ export class QuotesController {
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit = 20,
   ) {
     return this.quotesService.findAll(page, limit);
+  }
+
+  @Get('me/list')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Lister mes devis (espace client)' })
+  @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
+  findMine(
+    @CurrentUser() user: AuthUser,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit = 20,
+  ) {
+    return this.quotesService.findMineForUser(user.sub, user.email, page, limit);
+  }
+
+  @Get('me/:id/events')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Lister la timeline d un devis du client courant' })
+  @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
+  findMineEvents(
+    @CurrentUser() user: AuthUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit = 20,
+  ) {
+    return this.quotesService.findEventsForCustomer(
+      id,
+      user.sub,
+      user.email,
+      page,
+      limit,
+    );
+  }
+
+  @Post('me/:id/respond')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Repondre a une proposition de devis' })
+  @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
+  respondToProposal(
+    @CurrentUser() user: AuthUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: CustomerQuoteResponseDto,
+  ) {
+    return this.quotesService.respondToProposalAsCustomer(
+      id,
+      user.sub,
+      user.email,
+      dto,
+    );
   }
 
   @Get(':id')

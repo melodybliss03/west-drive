@@ -149,6 +149,25 @@ export class IamController {
     return this.iamService.updateRolePermissions(roleId, dto);
   }
 
+  @Delete('roles/:roleId')
+  @RequirePermissions('roles.write')
+  @ApiOperation({
+    summary: 'Supprimer un role custom',
+    description:
+      'Supprime un role non systeme et ses liaisons role-permissions/utilisateurs.',
+  })
+  @ApiParam({
+    name: 'roleId',
+    description: 'UUID du role a supprimer',
+    example: '4ca247ea-c8fa-4747-a434-81c520ddf3d2',
+  })
+  @ApiOkResponse({ description: 'Role supprime avec succes.' })
+  @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
+  @ApiForbiddenResponse({ description: 'Permission roles.write requise.' })
+  deleteRole(@Param('roleId', new ParseUUIDPipe()) roleId: string) {
+    return this.iamService.deleteRole(roleId);
+  }
+
   @Post('roles/:roleId/users/:userId')
   @RequirePermissions('roles.assign')
   @ApiOperation({

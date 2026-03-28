@@ -49,13 +49,14 @@ describe('ReservationsService', () => {
   };
 
   const authService = {
-    createPasswordSetupUrl: jest.fn(),
+    createAccountActivationUrl: jest.fn(),
   };
 
   const mailService = {
     sendReservationAcknowledgement: jest.fn(),
     sendReservationAdminNotification: jest.fn(),
     sendGuestAccountSetupEmail: jest.fn(),
+    sendReservationPaymentLinkEmail: jest.fn(),
     sendReservationStatusUpdate: jest.fn(),
     sendReservationEventNotification: jest.fn(),
   };
@@ -124,7 +125,7 @@ describe('ReservationsService', () => {
     const reservation = {
       id: 'res-1',
       archivedAt: null,
-      status: ReservationStatus.NOUVELLE_DEMANDE,
+      status: ReservationStatus.EN_ATTENTE_PAIEMENT,
     } as Reservation;
 
     reservationRepository.findOne.mockResolvedValue(reservation);
@@ -173,7 +174,7 @@ describe('ReservationsService', () => {
       requesterEmail: 'sophie@westdrive.fr',
       requesterPhone: '+33612345678',
       publicReference: 'RES-20260325-ABCD',
-      status: ReservationStatus.NOUVELLE_DEMANDE,
+      status: ReservationStatus.EN_ATTENTE_PAIEMENT,
       amountTtc: '100.00',
       depositAmount: '200.00',
       startAt: createDto.startAt,
@@ -190,6 +191,12 @@ describe('ReservationsService', () => {
     });
 
     await service.create(createDto);
+
+    expect(reservationRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: ReservationStatus.EN_ATTENTE_PAIEMENT,
+      }),
+    );
 
     expect(notificationsService.createForAdmin).toHaveBeenCalled();
     expect(notificationsService.createForUser).toHaveBeenCalledWith(

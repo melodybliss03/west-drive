@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  InternalServerErrorException,
   Injectable,
   Logger,
   NotFoundException,
@@ -139,7 +140,7 @@ export class ReservationsService {
       amountTtc: (dto.amountTtc ?? 0).toFixed(2),
       depositAmount: (dto.depositAmount ?? 0).toFixed(2),
       publicReference: this.generatePublicReference(),
-      status: ReservationStatus.NOUVELLE_DEMANDE,
+      status: ReservationStatus.EN_ATTENTE_PAIEMENT,
     });
 
     const savedReservation = await this.reservationRepository.save(reservation);
@@ -191,8 +192,8 @@ export class ReservationsService {
 
       await this.notificationsService.createForAdmin({
         type: 'reservation',
-        title: 'Nouvelle demande de reservation',
-        message: `${savedReservation.requesterName} a soumis la demande ${savedReservation.publicReference}.`,
+        title: 'Nouvelle reservation en attente de paiement',
+        message: `${savedReservation.requesterName} a initie la reservation ${savedReservation.publicReference}.`,
         metadata: {
           reservationId: savedReservation.id,
           publicReference: savedReservation.publicReference,
@@ -214,8 +215,13 @@ export class ReservationsService {
       }
 
       if (shouldSendGuestSetupEmail) {
-        const setupUrl = await this.authService.createPasswordSetupUrl(
+        const setupUrl = await this.authService.createAccountActivationUrl(
           savedReservation.requesterEmail,
+          {
+            invitationSource: 'reservation',
+            redirectPath: '/connexion',
+            ttlMinutes: 60 * 24,
+          },
         );
         if (setupUrl) {
           await this.mailService.sendGuestAccountSetupEmail({
@@ -265,6 +271,139 @@ export class ReservationsService {
       pagination.limit,
       totalItems,
     );
+  }
+
+  async findMine(
+    userId: string,
+    requesterEmail: string | undefined,
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponse<Reservation>> {
+    const pagination = resolvePagination(page, limit);
+    const normalizedUserId =
+      typeof userId === 'string' && userId.trim().length > 0
+        ? userId.trim()
+        : null;
+    const normalizedEmail =
+      typeof requesterEmail === 'string' && requesterEmail.trim().length > 0
+        ? requesterEmail.trim().toLowerCase()
+        : null;
+
+    if (!normalizedUserId && !normalizedEmail) {
+      this.logger.warn(
+        'findMine called without exploitable identity (missing userId and requesterEmail in JWT payload)',
+      );
+      return buildPaginatedResponse([], pagination.page, pagination.limit, 0);
+    }
+
+    try {
+      const query = this.reservationRepository
+        .createQueryBuilder('r')
+        .where('r.archivedAt IS NULL')
+        .leftJoinAndSelect('r.vehicle', 'vehicle')
+        .leftJoinAndSelect('r.user', 'user')
+        .orderBy('r.createdAt', 'DESC')
+        .skip(pagination.skip)
+        .take(pagination.limit);
+
+      if (normalizedUserId && normalizedEmail) {
+        query.andWhere('(r.userId = :userId OR LOWER(r.requesterEmail) = :email)', {
+          userId: normalizedUserId,
+          email: normalizedEmail,
+        });
+      } else if (normalizedUserId) {
+        query.andWhere('r.userId = :userId', { userId: normalizedUserId });
+      } else {
+        query.andWhere('LOWER(r.requesterEmail) = :email', {
+          email: normalizedEmail,
+        });
+      }
+
+      const [items, totalItems] = await query.getManyAndCount();
+
+      return buildPaginatedResponse(
+        items,
+        pagination.page,
+        pagination.limit,
+        totalItems,
+      );
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'unknown reason';
+      this.logger.error(
+        `findMine failed (userId=${normalizedUserId ?? 'null'}, email=${normalizedEmail ?? 'null'}, page=${pagination.page}, limit=${pagination.limit}): ${reason}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw new InternalServerErrorException(
+        'Impossible de charger vos reservations pour le moment.',
+      );
+    }
+  }
+
+  async findEventsForCustomer(
+    reservationId: string,
+    userId: string,
+    requesterEmail: string | undefined,
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponse<ReservationEvent>> {
+    const normalizedUserId =
+      typeof userId === 'string' && userId.trim().length > 0
+        ? userId.trim()
+        : null;
+    const normalizedEmail =
+      typeof requesterEmail === 'string' && requesterEmail.trim().length > 0
+        ? requesterEmail.trim().toLowerCase()
+        : null;
+
+    if (!normalizedUserId && !normalizedEmail) {
+      this.logger.warn(
+        `findEventsForCustomer called without identity for reservation ${reservationId}`,
+      );
+      throw new NotFoundException('Reservation not found');
+    }
+
+    let reservation: Reservation | null = null;
+    try {
+      const reservationQuery = this.reservationRepository
+        .createQueryBuilder('r')
+        .where('r.id = :reservationId', { reservationId })
+        .andWhere('r.archivedAt IS NULL');
+
+      if (normalizedUserId && normalizedEmail) {
+        reservationQuery.andWhere(
+          '(r.userId = :userId OR LOWER(r.requesterEmail) = :email)',
+          {
+            userId: normalizedUserId,
+            email: normalizedEmail,
+          },
+        );
+      } else if (normalizedUserId) {
+        reservationQuery.andWhere('r.userId = :userId', {
+          userId: normalizedUserId,
+        });
+      } else {
+        reservationQuery.andWhere('LOWER(r.requesterEmail) = :email', {
+          email: normalizedEmail,
+        });
+      }
+
+      reservation = await reservationQuery.getOne();
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'unknown reason';
+      this.logger.error(
+        `findEventsForCustomer ownership check failed (reservationId=${reservationId}, userId=${normalizedUserId ?? 'null'}, email=${normalizedEmail ?? 'null'}): ${reason}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw new InternalServerErrorException(
+        'Impossible de charger la timeline de cette reservation.',
+      );
+    }
+
+    if (!reservation) {
+      throw new NotFoundException('Reservation not found');
+    }
+
+    return this.findEvents(reservation.id, page, limit);
   }
 
   async findOne(id: string): Promise<Reservation> {
@@ -469,18 +608,8 @@ export class ReservationsService {
   async createPaymentSession(
     reservationId: string,
   ): Promise<{ checkoutUrl: string; sessionId: string }> {
-    const reservation = await this.findOne(reservationId);
-
-    if (reservation.status !== ReservationStatus.EN_ATTENTE_PAIEMENT) {
-      throw new BadRequestException(
-        'Stripe checkout is only allowed from EN_ATTENTE_PAIEMENT status',
-      );
-    }
-
-    const amount = Math.max(
-      Number(reservation.depositAmount),
-      Number(reservation.amountTtc),
-    );
+    const reservation = await this.ensureReservationReadyForPayment(reservationId);
+    const amount = this.calculatePaymentDueAmount(reservation);
 
     const frontendBaseUrl = this.configService.get<string>(
       'FRONTEND_BASE_URL',
@@ -513,6 +642,20 @@ export class ReservationsService {
       throw new BadRequestException('Unable to create Stripe checkout URL');
     }
 
+    try {
+      await this.mailService.sendReservationPaymentLinkEmail({
+        to: reservation.requesterEmail,
+        requesterName: reservation.requesterName,
+        publicReference: reservation.publicReference,
+        paymentUrl: session.url,
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'unknown reason';
+      this.logger.warn(
+        `Payment link email failed for reservation ${reservation.id}: ${reason}`,
+      );
+    }
+
     return {
       checkoutUrl: session.url,
       sessionId: session.id,
@@ -522,18 +665,8 @@ export class ReservationsService {
   async createPaymentLink(
     reservationId: string,
   ): Promise<{ paymentLinkUrl: string }> {
-    const reservation = await this.findOne(reservationId);
-
-    if (reservation.status !== ReservationStatus.EN_ATTENTE_PAIEMENT) {
-      throw new BadRequestException(
-        'Stripe payment link is only allowed from EN_ATTENTE_PAIEMENT status',
-      );
-    }
-
-    const amount = Math.max(
-      Number(reservation.depositAmount),
-      Number(reservation.amountTtc),
-    );
+    const reservation = await this.ensureReservationReadyForPayment(reservationId);
+    const amount = this.calculatePaymentDueAmount(reservation);
 
     const frontendBaseUrl = this.configService.get<string>(
       'FRONTEND_BASE_URL',
@@ -560,6 +693,20 @@ export class ReservationsService {
       amount,
       currency: 'EUR',
     });
+
+    try {
+      await this.mailService.sendReservationPaymentLinkEmail({
+        to: reservation.requesterEmail,
+        requesterName: reservation.requesterName,
+        publicReference: reservation.publicReference,
+        paymentUrl: paymentLinkUrl,
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'unknown reason';
+      this.logger.warn(
+        `Payment link email failed for reservation ${reservation.id}: ${reason}`,
+      );
+    }
 
     return {
       paymentLinkUrl,
@@ -913,5 +1060,56 @@ export class ReservationsService {
         payload,
       }),
     );
+  }
+
+  private async ensureReservationReadyForPayment(
+    reservationId: string,
+  ): Promise<Reservation> {
+    const reservation = await this.findOne(reservationId);
+
+    const allowedStatuses = new Set<ReservationStatus>([
+      ReservationStatus.NOUVELLE_DEMANDE,
+      ReservationStatus.EN_ANALYSE,
+      ReservationStatus.PROPOSITION_ENVOYEE,
+      ReservationStatus.EN_ATTENTE_PAIEMENT,
+    ]);
+
+    if (!allowedStatuses.has(reservation.status)) {
+      throw new BadRequestException(
+        'Stripe payment link is not allowed from current reservation status',
+      );
+    }
+
+    if (reservation.status !== ReservationStatus.EN_ATTENTE_PAIEMENT) {
+      reservation.status = ReservationStatus.EN_ATTENTE_PAIEMENT;
+      await this.reservationRepository.save(reservation);
+
+      await this.appendSystemEvent(reservation.id, 'reservation_status_changed', {
+        status: ReservationStatus.EN_ATTENTE_PAIEMENT,
+        source: 'auto_payment_ready',
+      });
+
+      await this.appendSystemEvent(
+        reservation.id,
+        STATUS_EVENT_MAP[ReservationStatus.EN_ATTENTE_PAIEMENT],
+        {
+          status: ReservationStatus.EN_ATTENTE_PAIEMENT,
+          source: 'auto_payment_ready',
+        },
+      );
+    }
+
+    return reservation;
+  }
+
+  private calculatePaymentDueAmount(reservation: Reservation): number {
+    const rentalAmount = Number(reservation.amountTtc);
+    const depositAmount = Number(reservation.depositAmount);
+
+    const normalizedRental = Number.isFinite(rentalAmount) ? rentalAmount : 0;
+    const normalizedDeposit = Number.isFinite(depositAmount) ? depositAmount : 0;
+    const due = normalizedRental + normalizedDeposit;
+
+    return due > 0 ? due : Math.max(normalizedRental, normalizedDeposit, 0);
   }
 }

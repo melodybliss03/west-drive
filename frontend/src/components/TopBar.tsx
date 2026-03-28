@@ -1,25 +1,41 @@
+import { useQuery } from '@tanstack/react-query'
 import { Star, Phone } from 'lucide-react'
-
-const scrollingReviews = [
-  { nom: "Sophie M.", note: 5, text: "Service impeccable, véhicule livré à l'heure !" },
-  { nom: "Thomas D.", note: 5, text: "Rapport qualité-prix imbattable." },
-  { nom: "Marie L.", note: 4, text: "Équipe réactive, véhicules bien entretenus." },
-  { nom: "Pierre B.", note: 5, text: "Location sans stress, je recommande." },
-  { nom: "Julie R.", note: 5, text: "Processus simple et rapide." },
-  { nom: "Alexandre F.", note: 5, text: "Excellent service client 24/7." },
-];
+import { reviewsService } from '@/lib/api/services'
 
 export default function TopBar() {
+  const { data } = useQuery({
+    queryKey: ['topbar-reviews'],
+    queryFn: () => reviewsService.list({ page: 1, limit: 8 }),
+    refetchOnWindowFocus: false,
+  })
+
+  const scrollingReviews =
+    data?.items?.map((review) => ({
+      nom: review.authorName || 'Client',
+      note: Number(review.rating || 5),
+      text: review.content,
+    })) ?? []
+
+  const reviewsToDisplay = scrollingReviews.length
+    ? [...scrollingReviews, ...scrollingReviews]
+    : [
+        {
+          nom: 'West Drive',
+          note: 5,
+          text: 'Avis clients verifies disponibles sur la page Avis.',
+        },
+      ]
+
   return (
     <div className="fixed top-0 left-0 right-0 z-[60] bg-foreground text-background">
       <div className="flex items-center h-10 overflow-hidden">
         {/* Reviews - shrink to give space to phone */}
         <div className="flex-1 overflow-hidden relative min-w-0">
           <div className="flex animate-marquee whitespace-nowrap gap-8 items-center h-10">
-            {[...scrollingReviews, ...scrollingReviews].map((r, i) => (
+            {reviewsToDisplay.map((r, i) => (
               <span key={i} className="inline-flex items-center gap-1.5 text-[11px]">
                 <span className="flex gap-0.5">
-                  {Array.from({ length: r.note }).map((_, j) => (
+                  {Array.from({ length: Math.min(5, Math.max(1, r.note)) }).map((_, j) => (
                     <Star key={j} className="h-2.5 w-2.5 fill-primary text-primary" />
                   ))}
                 </span>

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  InternalServerErrorException,
   Injectable,
   Logger,
   NotFoundException,
@@ -7,6 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
+import { AuthService } from '../auth/auth.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateReservationDto } from '../reservations/dto/create-reservation.dto';
 import { ReservationsService } from '../reservations/reservations.service';
@@ -20,12 +22,17 @@ import {
 import { ConfirmQuotePaymentDto } from './dto/confirm-quote-payment.dto';
 import { ConvertQuoteToReservationDto } from './dto/convert-quote-to-reservation.dto';
 import { CreateQuoteDto } from './dto/create-quote.dto';
+import {
+  CustomerQuoteResponseAction,
+  CustomerQuoteResponseDto,
+} from './dto/customer-quote-response.dto';
 import { SendQuoteProposalDto } from './dto/send-quote-proposal.dto';
 import { StartQuoteAnalysisDto } from './dto/start-quote-analysis.dto';
 import { StartQuoteNegotiationDto } from './dto/start-quote-negotiation.dto';
 import { UpdateQuoteStatusDto } from './dto/update-quote-status.dto';
 import { QuoteEvent } from './entities/quote-event.entity';
 import { Quote, QuoteStatus } from './entities/quote.entity';
+import { UsersService } from '../users/users.service';
 
 const ALLOWED_TRANSITIONS: Record<QuoteStatus, QuoteStatus[]> = {
   [QuoteStatus.NOUVELLE_DEMANDE]: [
@@ -76,6 +83,8 @@ export class QuotesService {
     private readonly paymentsService: PaymentsService,
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
+    private readonly usersService: UsersService,
+    private readonly authService: AuthService,
     private readonly notificationsService: NotificationsService,
     private readonly reservationsService: ReservationsService,
   ) {}
@@ -83,11 +92,23 @@ export class QuotesService {
   async create(dto: CreateQuoteDto): Promise<Quote> {
     this.ensureDateRange(dto.startAt, dto.endAt);
 
+    const requesterEmail = dto.requesterEmail.toLowerCase();
+    const existingUser = await this.usersService.findByEmail(requesterEmail);
+    const shouldSendGuestActivationEmail = !existingUser;
+
+    if (!existingUser) {
+      await this.usersService.createGuestAccount({
+        email: requesterEmail,
+        requesterName: dto.requesterName,
+        phone: dto.requesterPhone,
+      });
+    }
+
     const quote = this.quoteRepository.create({
       publicReference: this.generatePublicReference(),
       requesterType: dto.requesterType,
       requesterName: dto.requesterName,
-      requesterEmail: dto.requesterEmail.toLowerCase(),
+      requesterEmail,
       requesterPhone: dto.requesterPhone,
       companyName: dto.companyName ?? null,
       companySiret: dto.companySiret ?? null,
@@ -150,6 +171,26 @@ export class QuotesService {
           status: savedQuote.status,
         },
       });
+
+      if (shouldSendGuestActivationEmail) {
+        const activationUrl = await this.authService.createAccountActivationUrl(
+          savedQuote.requesterEmail,
+          {
+            invitationSource: 'quote',
+            redirectPath: '/connexion',
+            ttlMinutes: 60 * 24,
+          },
+        );
+
+        if (activationUrl) {
+          await this.mailService.sendQuoteGuestActivationEmail({
+            to: savedQuote.requesterEmail,
+            requesterName: savedQuote.requesterName,
+            publicReference: savedQuote.publicReference,
+            activationUrl,
+          });
+        }
+      }
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'unknown reason';
       this.logger.warn(
@@ -178,6 +219,58 @@ export class QuotesService {
       pagination.limit,
       totalItems,
     );
+  }
+
+  async findMine(
+    requesterEmail: string,
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponse<Quote>> {
+    const pagination = resolvePagination(page, limit);
+    const [items, totalItems] = await this.quoteRepository.findAndCount({
+      where: {
+        archivedAt: IsNull(),
+        requesterEmail: requesterEmail.toLowerCase(),
+      },
+      order: { createdAt: 'DESC' },
+      skip: pagination.skip,
+      take: pagination.limit,
+    });
+
+    return buildPaginatedResponse(
+      items,
+      pagination.page,
+      pagination.limit,
+      totalItems,
+    );
+  }
+
+  async findMineForUser(
+    userId: string,
+    requesterEmail?: string,
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponse<Quote>> {
+    const resolvedEmail = await this.resolveRequesterEmail(userId, requesterEmail);
+    if (!resolvedEmail) {
+      this.logger.warn(
+        `findMineForUser called without exploitable identity (userId=${userId || 'null'}, email=${requesterEmail || 'null'})`,
+      );
+      return buildPaginatedResponse([], page, limit, 0);
+    }
+
+    try {
+      return this.findMine(resolvedEmail, page, limit);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'unknown reason';
+      this.logger.error(
+        `findMineForUser failed (userId=${userId || 'null'}, email=${resolvedEmail}, page=${page}, limit=${limit}): ${reason}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw new InternalServerErrorException(
+        'Impossible de charger vos devis pour le moment.',
+      );
+    }
   }
 
   async findOne(id: string): Promise<Quote> {
@@ -612,6 +705,126 @@ export class QuotesService {
     );
   }
 
+  async findEventsForCustomer(
+    quoteId: string,
+    userId: string,
+    requesterEmail: string | undefined,
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponse<QuoteEvent>> {
+    const quote = await this.findOneForCustomer(quoteId, userId, requesterEmail);
+    return this.findEvents(quote.id, page, limit);
+  }
+
+  async respondToProposalAsCustomer(
+    quoteId: string,
+    userId: string,
+    requesterEmail: string | undefined,
+    dto: CustomerQuoteResponseDto,
+  ): Promise<{ quote: Quote; paymentLinkUrl?: string }> {
+    const quote = await this.findOneForCustomer(quoteId, userId, requesterEmail);
+    const comment = dto.comment?.trim() ?? '';
+
+    if (
+      dto.action !== CustomerQuoteResponseAction.ACCEPTER &&
+      !comment
+    ) {
+      throw new BadRequestException(
+        'Comment is required for REFUSER and CONTRE_PROPOSITION actions',
+      );
+    }
+
+    let paymentLinkUrl: string | undefined;
+
+    if (dto.action === CustomerQuoteResponseAction.ACCEPTER) {
+      if (
+        quote.status !== QuoteStatus.PROPOSITION_ENVOYEE &&
+        quote.status !== QuoteStatus.EN_NEGOCIATION &&
+        quote.status !== QuoteStatus.EN_ATTENTE_PAIEMENT
+      ) {
+        throw new BadRequestException(
+          `Cannot accept quote in ${quote.status} status`,
+        );
+      }
+
+      if (quote.status !== QuoteStatus.EN_ATTENTE_PAIEMENT) {
+        this.ensureTransition(quote.status, QuoteStatus.EN_ATTENTE_PAIEMENT);
+        quote.status = QuoteStatus.EN_ATTENTE_PAIEMENT;
+      }
+
+      const savedQuote = await this.quoteRepository.save(quote);
+
+      await this.appendSystemEvent(savedQuote.id, 'quote_customer_accepted', {
+        comment: comment || null,
+      });
+
+      paymentLinkUrl = (
+        await this.createPaymentLink(savedQuote.id)
+      ).paymentLinkUrl;
+
+      await this.notifyAdmin(
+        'Devis accepte par le client',
+        `Le client a accepte le devis ${savedQuote.publicReference}.`,
+        savedQuote,
+      );
+
+      return { quote: savedQuote, paymentLinkUrl };
+    }
+
+    if (dto.action === CustomerQuoteResponseAction.REFUSER) {
+      if (
+        quote.status !== QuoteStatus.PROPOSITION_ENVOYEE &&
+        quote.status !== QuoteStatus.EN_NEGOCIATION &&
+        quote.status !== QuoteStatus.EN_ATTENTE_PAIEMENT
+      ) {
+        throw new BadRequestException(
+          `Cannot refuse quote in ${quote.status} status`,
+        );
+      }
+
+      this.ensureTransition(quote.status, QuoteStatus.REFUSEE);
+      quote.status = QuoteStatus.REFUSEE;
+      const savedQuote = await this.quoteRepository.save(quote);
+
+      await this.appendSystemEvent(savedQuote.id, 'quote_customer_rejected', {
+        comment,
+      });
+
+      await this.notifyAdmin(
+        'Devis refuse par le client',
+        `Le client a refuse le devis ${savedQuote.publicReference}.`,
+        savedQuote,
+      );
+
+      return { quote: savedQuote };
+    }
+
+    if (
+      quote.status !== QuoteStatus.PROPOSITION_ENVOYEE &&
+      quote.status !== QuoteStatus.EN_ATTENTE_PAIEMENT
+    ) {
+      throw new BadRequestException(
+        `Cannot counter proposal for quote in ${quote.status} status`,
+      );
+    }
+
+    this.ensureTransition(quote.status, QuoteStatus.EN_NEGOCIATION);
+    quote.status = QuoteStatus.EN_NEGOCIATION;
+    const savedQuote = await this.quoteRepository.save(quote);
+
+    await this.appendSystemEvent(savedQuote.id, 'quote_customer_counter_proposal', {
+      comment,
+    });
+
+    await this.notifyAdmin(
+      'Contre-proposition client',
+      `Le client a envoye une contre-proposition sur ${savedQuote.publicReference}.`,
+      savedQuote,
+    );
+
+    return { quote: savedQuote };
+  }
+
   async remove(id: string): Promise<{ message: string }> {
     const quote = await this.findOne(id);
     quote.archivedAt = new Date();
@@ -737,5 +950,95 @@ export class QuotesService {
         `Quote admin notification failed for quote ${quote.id}: ${reason}`,
       );
     }
+  }
+
+  private async findOneForCustomer(
+    quoteId: string,
+    userId: string,
+    requesterEmail?: string,
+  ): Promise<Quote> {
+    const normalizedUserId =
+      typeof userId === 'string' && userId.trim().length > 0
+        ? userId.trim()
+        : null;
+    const resolvedEmail = await this.resolveRequesterEmail(
+      normalizedUserId,
+      requesterEmail,
+    );
+
+    if (!resolvedEmail && !normalizedUserId) {
+      this.logger.warn(
+        `findOneForCustomer called without identity for quote ${quoteId}`,
+      );
+      throw new NotFoundException('Quote not found');
+    }
+
+    let quote: Quote | null = null;
+    try {
+      const query = this.quoteRepository
+        .createQueryBuilder('q')
+        .where('q.id = :quoteId', { quoteId })
+        .andWhere('q.archivedAt IS NULL');
+
+      if (normalizedUserId && resolvedEmail) {
+        query.andWhere(
+          '(q.userId = :userId OR LOWER(q.requesterEmail) = :email)',
+          {
+            userId: normalizedUserId,
+            email: resolvedEmail,
+          },
+        );
+      } else if (normalizedUserId) {
+        query.andWhere('q.userId = :userId', {
+          userId: normalizedUserId,
+        });
+      } else {
+        query.andWhere('LOWER(q.requesterEmail) = :email', {
+          email: resolvedEmail,
+        });
+      }
+
+      quote = await query.getOne();
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'unknown reason';
+      this.logger.error(
+        `findOneForCustomer failed (quoteId=${quoteId}, userId=${normalizedUserId ?? 'null'}, email=${resolvedEmail ?? 'null'}): ${reason}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw new InternalServerErrorException(
+        'Impossible de charger ce devis pour le moment.',
+      );
+    }
+
+    if (!quote) {
+      throw new NotFoundException('Quote not found');
+    }
+
+    return quote;
+  }
+
+  private async resolveRequesterEmail(
+    userId: string | null,
+    requesterEmail?: string,
+  ): Promise<string | null> {
+    const normalizedFromToken =
+      typeof requesterEmail === 'string' && requesterEmail.trim().length > 0
+        ? requesterEmail.trim().toLowerCase()
+        : null;
+
+    if (normalizedFromToken) {
+      return normalizedFromToken;
+    }
+
+    if (!userId) {
+      return null;
+    }
+
+    const user = await this.usersService.findById(userId);
+    if (!user?.email) {
+      return null;
+    }
+
+    return user.email.trim().toLowerCase();
   }
 }

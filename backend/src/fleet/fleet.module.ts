@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PermissionsGuard } from '../iam/guards/permissions.guard';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { Vehicle } from '../vehicles/entities/vehicle.entity';
 import { FleetController } from './fleet.controller';
 import { FleetService } from './fleet.service';
@@ -9,6 +10,7 @@ import { VehicleScheduleSlot } from './entities/vehicle-schedule-slot.entity';
 
 @Module({
   imports: [
+    NotificationsModule,
     TypeOrmModule.forFeature([Vehicle, FleetIncident, VehicleScheduleSlot]),
   ],
   controllers: [FleetController],
