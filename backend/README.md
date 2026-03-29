@@ -108,6 +108,14 @@ docker compose up --build -d
 docker compose -f docker-compose.prod.yml up --build -d
 ```
 
+Depuis la version fullstack VPS, `docker-compose.prod.yml` embarque aussi le frontend:
+- `api` expose `127.0.0.1:3000`
+- `frontend` expose `127.0.0.1:8080`
+- Nginx VPS route les domaines vers ces ports locaux.
+
+Voir le guide de bascule domaine complet:
+- `backend/docs/vps-fullstack-cutover.md`
+
 ## Contact API (public)
 
 Endpoint public pour le formulaire de contact frontend:

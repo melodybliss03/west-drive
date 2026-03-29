@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   ServiceUnavailableException,
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
@@ -21,6 +22,7 @@ type CheckoutSessionInput = {
 export class PaymentsService {
   private readonly stripeSecretKey: string;
   private readonly stripeWebhookSecret: string;
+  private readonly logger = new Logger(PaymentsService.name);
 
   constructor(private readonly configService: ConfigService) {
     this.stripeSecretKey = this.configService.get<string>('STRIPE_SECRET_KEY', '');
@@ -107,29 +109,60 @@ export class PaymentsService {
     payload: Buffer | string | Record<string, unknown>,
     signature?: string,
   ): Stripe.Event {
+    this.logger.log(
+      `Parsing Stripe webhook (secretConfigured=${!!this.stripeWebhookSecret}, signaturePresent=${!!signature})`,
+    );
+
     const stripe = this.getStripeClient();
 
     if (this.stripeWebhookSecret) {
       if (!signature) {
+        this.logger.warn('Stripe webhook secret configured but stripe-signature header is missing');
         throw new BadRequestException('Missing Stripe signature header');
       }
 
-      return stripe.webhooks.constructEvent(
-        this.toPayloadBuffer(payload),
-        signature,
-        this.stripeWebhookSecret,
+      try {
+        const event = stripe.webhooks.constructEvent(
+          this.toPayloadBuffer(payload),
+          signature,
+          this.stripeWebhookSecret,
+        );
+        this.logger.log(
+          `Stripe webhook verified: type=${event.type ?? 'unknown'} id=${event.id ?? 'unknown'}`,
+        );
+        return event;
+      } catch (err) {
+        this.logger.error(
+          `Stripe webhook signature verification failed: ${err instanceof Error ? err.message : String(err)}`,
+          err instanceof Error ? err.stack : undefined,
+        );
+        throw new BadRequestException('Invalid Stripe webhook signature');
+      }
+    }
+
+    // No webhook secret configured: try to parse payload loosely (useful for local/testing)
+    try {
+      let parsed: Stripe.Event;
+
+      if (typeof payload === 'string') {
+        parsed = JSON.parse(payload) as Stripe.Event;
+      } else if (Buffer.isBuffer(payload)) {
+        parsed = JSON.parse(payload.toString('utf-8')) as Stripe.Event;
+      } else {
+        parsed = payload as unknown as Stripe.Event;
+      }
+
+      this.logger.log(
+        `Stripe webhook parsed (no secret): type=${parsed?.type ?? 'unknown'} id=${parsed?.id ?? 'unknown'}`,
       );
+      return parsed;
+    } catch (err) {
+      this.logger.error(
+        `Failed to parse Stripe webhook payload: ${err instanceof Error ? err.message : String(err)}`,
+        err instanceof Error ? err.stack : undefined,
+      );
+      throw new BadRequestException('Invalid webhook payload');
     }
-
-    if (typeof payload === 'string') {
-      return JSON.parse(payload) as Stripe.Event;
-    }
-
-    if (Buffer.isBuffer(payload)) {
-      return JSON.parse(payload.toString('utf-8')) as Stripe.Event;
-    }
-
-    return payload as unknown as Stripe.Event;
   }
 
   private getStripeClient(): Stripe {

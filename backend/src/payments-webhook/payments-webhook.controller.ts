@@ -30,15 +30,44 @@ export class PaymentsWebhookController {
     @Body() body: Record<string, unknown>,
     @Headers('stripe-signature') signature?: string,
   ): Promise<{ received: true }> {
-    const event = this.paymentsService.parseWebhookEvent(
-      req.rawBody ?? body,
-      signature,
+    const sigPreview = signature ? `${signature.slice(0, 12)}...` : 'missing';
+    const rawLength = req.rawBody
+      ? Buffer.isBuffer(req.rawBody)
+        ? req.rawBody.length
+        : JSON.stringify(req.rawBody).length
+      : typeof body === 'object'
+      ? JSON.stringify(body).length
+      : 0;
+
+    this.logger.log(
+      `Stripe webhook received (signature=${sigPreview}, rawLength=${rawLength})`,
     );
 
-    if (event.type === 'checkout.session.completed') {
-      await this.handleCheckoutSessionCompleted(
-        event.data.object as Stripe.Checkout.Session,
+    let event: Stripe.Event;
+    try {
+      event = this.paymentsService.parseWebhookEvent(req.rawBody ?? body, signature);
+      this.logger.log(`Stripe event parsed: type=${event.type ?? 'unknown'} id=${event.id ?? 'unknown'}`);
+    } catch (err) {
+      this.logger.error(
+        `Failed to parse Stripe webhook: ${err instanceof Error ? err.message : String(err)}`,
+        err instanceof Error ? err.stack : undefined,
       );
+      throw err;
+    }
+
+    try {
+      if (event.type === 'checkout.session.completed') {
+        await this.handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session);
+        this.logger.log(`Processed webhook event checkout.session.completed id=${event.id ?? 'unknown'}`);
+      } else {
+        this.logger.log(`Ignored Stripe event type=${event.type ?? 'unknown'}`);
+      }
+    } catch (err) {
+      this.logger.error(
+        `Error while processing Stripe webhook event: ${err instanceof Error ? err.message : String(err)}`,
+        err instanceof Error ? err.stack : undefined,
+      );
+      throw err;
     }
 
     return { received: true };
@@ -50,22 +79,46 @@ export class PaymentsWebhookController {
     const metadata = session.metadata ?? {};
     const targetType = metadata.targetType;
 
+    this.logger.log(
+      `Handling checkout.session.completed: sessionId=${session.id ?? 'unknown'} targetType=${targetType ?? 'unknown'} metadataKeys=${Object.keys(metadata).join(',')}`,
+    );
+
     if (!session.id) {
       this.logger.warn('Received checkout.session.completed without session id');
       return;
     }
 
     if (targetType === 'reservation' && metadata.reservationId) {
-      await this.reservationsService.confirmPayment(metadata.reservationId, {
-        sessionId: session.id,
-      });
+      this.logger.log(`checkout.session.completed -> reservation: reservationId=${metadata.reservationId} sessionId=${session.id}`);
+      try {
+        await this.reservationsService.confirmPayment(metadata.reservationId, {
+          sessionId: session.id,
+        });
+        this.logger.log(`Reservation payment confirmed: ${metadata.reservationId}`);
+      } catch (err) {
+        this.logger.error(
+          `Failed to confirm reservation payment ${metadata.reservationId}: ${err instanceof Error ? err.message : String(err)}`,
+          err instanceof Error ? err.stack : undefined,
+        );
+        throw err;
+      }
       return;
     }
 
     if (targetType === 'quote' && metadata.quoteId) {
-      await this.quotesService.confirmPayment(metadata.quoteId, {
-        sessionId: session.id,
-      });
+      this.logger.log(`checkout.session.completed -> quote: quoteId=${metadata.quoteId} sessionId=${session.id}`);
+      try {
+        await this.quotesService.confirmPayment(metadata.quoteId, {
+          sessionId: session.id,
+        });
+        this.logger.log(`Quote payment confirmed: ${metadata.quoteId}`);
+      } catch (err) {
+        this.logger.error(
+          `Failed to confirm quote payment ${metadata.quoteId}: ${err instanceof Error ? err.message : String(err)}`,
+          err instanceof Error ? err.stack : undefined,
+        );
+        throw err;
+      }
       return;
     }
 

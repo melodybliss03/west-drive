@@ -240,11 +240,14 @@ jobs:
 
             mkdir -p "$APP_PATH"
 
-            export DOMAIN="${{ secrets.VPS_API_DOMAIN }}"
+            export API_DOMAIN="${{ secrets.VPS_API_DOMAIN }}"
+            export DOMAIN="$API_DOMAIN"
+            export WEB_DOMAIN="${{ secrets.VPS_WEB_DOMAIN }}"
+            export WWW_DOMAIN="${{ secrets.VPS_WWW_DOMAIN }}"
             export LETSENCRYPT_EMAIL="${{ secrets.LETSENCRYPT_EMAIL }}"
             export APP_PATH="$APP_PATH"
 
-            if [ -z "$DOMAIN" ]; then
+            if [ -z "$API_DOMAIN" ]; then
               echo "Missing VPS_API_DOMAIN secret"
               exit 1
             fi
@@ -263,9 +266,9 @@ jobs:
             fi
 
             if [ "$SUDO_MODE" = "nopass" ]; then
-              sudo -n env DOMAIN="$DOMAIN" LETSENCRYPT_EMAIL="$LETSENCRYPT_EMAIL" APP_PATH="$APP_PATH" bash "$APP_PATH/backend/scripts/provision-vps.sh"
+              sudo -n env DOMAIN="$DOMAIN" API_DOMAIN="$API_DOMAIN" WEB_DOMAIN="$WEB_DOMAIN" WWW_DOMAIN="$WWW_DOMAIN" LETSENCRYPT_EMAIL="$LETSENCRYPT_EMAIL" APP_PATH="$APP_PATH" bash "$APP_PATH/backend/scripts/provision-vps.sh"
             elif [ "$SUDO_MODE" = "password" ]; then
-              printf '%s\n' '${{ secrets.VPS_PASSWORD }}' | sudo -S -p '' env DOMAIN="$DOMAIN" LETSENCRYPT_EMAIL="$LETSENCRYPT_EMAIL" APP_PATH="$APP_PATH" bash "$APP_PATH/backend/scripts/provision-vps.sh"
+              printf '%s\n' '${{ secrets.VPS_PASSWORD }}' | sudo -S -p '' env DOMAIN="$DOMAIN" API_DOMAIN="$API_DOMAIN" WEB_DOMAIN="$WEB_DOMAIN" WWW_DOMAIN="$WWW_DOMAIN" LETSENCRYPT_EMAIL="$LETSENCRYPT_EMAIL" APP_PATH="$APP_PATH" bash "$APP_PATH/backend/scripts/provision-vps.sh"
             else
               echo "No sudo privileges for user $USER. Skipping VPS provisioning."
               echo "Run backend/scripts/provision-vps.sh once as root, then keep this CI deploy."
@@ -368,11 +371,14 @@ jobs:
 
             mkdir -p "$APP_PATH"
 
-            export DOMAIN="${{ secrets.VPS_API_DOMAIN }}"
+            export API_DOMAIN="${{ secrets.VPS_API_DOMAIN }}"
+            export DOMAIN="$API_DOMAIN"
+            export WEB_DOMAIN="${{ secrets.VPS_WEB_DOMAIN }}"
+            export WWW_DOMAIN="${{ secrets.VPS_WWW_DOMAIN }}"
             export LETSENCRYPT_EMAIL="${{ secrets.LETSENCRYPT_EMAIL }}"
             export APP_PATH="$APP_PATH"
 
-            if [ -z "$DOMAIN" ]; then
+            if [ -z "$API_DOMAIN" ]; then
               echo "Missing VPS_API_DOMAIN secret"
               exit 1
             fi
@@ -391,9 +397,9 @@ jobs:
             fi
 
             if [ "$SUDO_MODE" = "nopass" ]; then
-              sudo -n env DOMAIN="$DOMAIN" LETSENCRYPT_EMAIL="$LETSENCRYPT_EMAIL" APP_PATH="$APP_PATH" bash "$APP_PATH/backend/scripts/provision-vps.sh"
+              sudo -n env DOMAIN="$DOMAIN" API_DOMAIN="$API_DOMAIN" WEB_DOMAIN="$WEB_DOMAIN" WWW_DOMAIN="$WWW_DOMAIN" LETSENCRYPT_EMAIL="$LETSENCRYPT_EMAIL" APP_PATH="$APP_PATH" bash "$APP_PATH/backend/scripts/provision-vps.sh"
             elif [ "$SUDO_MODE" = "password" ]; then
-              printf '%s\n' '${{ secrets.VPS_PASSWORD }}' | sudo -S -p '' env DOMAIN="$DOMAIN" LETSENCRYPT_EMAIL="$LETSENCRYPT_EMAIL" APP_PATH="$APP_PATH" bash "$APP_PATH/backend/scripts/provision-vps.sh"
+              printf '%s\n' '${{ secrets.VPS_PASSWORD }}' | sudo -S -p '' env DOMAIN="$DOMAIN" API_DOMAIN="$API_DOMAIN" WEB_DOMAIN="$WEB_DOMAIN" WWW_DOMAIN="$WWW_DOMAIN" LETSENCRYPT_EMAIL="$LETSENCRYPT_EMAIL" APP_PATH="$APP_PATH" bash "$APP_PATH/backend/scripts/provision-vps.sh"
             else
               echo "No sudo privileges for user $USER. Skipping VPS provisioning."
               echo "Run backend/scripts/provision-vps.sh once as root, then keep this CI deploy."

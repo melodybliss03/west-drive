@@ -59,5 +59,19 @@ services:
     ports:
       - '127.0.0.1:3000:3000'
 
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_BASE_URL_PROD: ${VITE_API_BASE_URL_PROD:-https://api.pariswestdrive.fr}
+    image: westdrive-frontend:prod
+    container_name: westdrive-frontend-prod
+    restart: always
+    depends_on:
+      - api
+    ports:
+      - '127.0.0.1:8080:80'
+
 volumes:
   westdrive_pg_data_prod:
