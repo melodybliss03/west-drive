@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { FlotteItem, etatColors } from "./data";
-import { FleetIncidentDto, fleetService, VehicleDto, vehiclesService } from "@/lib/api/services";
+import { FleetIncidentDto, fleetService, VehicleDto } from "@/lib/api/services";
 import { useToast } from "@/hooks/use-toast";
 import { ApiHttpError, PaginationMeta } from "@/lib/api/types";
 import {
@@ -48,7 +48,8 @@ type FleetRow = FlotteItem & {
   activeIncidentId?: string;
   imageUrl?: string;
   maintenanceMileageRule?: number;
-  maintenanceDaysRule?: number;
+  lastMaintenanceAtRaw?: string | null;
+  nextMaintenanceAtRaw?: string | null;
   remainingMaintenanceKm?: number | null;
   remainingMaintenanceDays?: number | null;
   maintenanceDueSoon?: boolean;
@@ -114,7 +115,8 @@ function mapVehicleToFleetRow(
     activeIncidentId: activeIncident?.id,
     imageUrl: vehicle.images?.[0]?.url,
     maintenanceMileageRule: vehicle.maintenanceRequired?.mileage,
-    maintenanceDaysRule: vehicle.maintenanceRequired?.days,
+    lastMaintenanceAtRaw: maintenanceSummary?.lastMaintenanceAt ?? null,
+    nextMaintenanceAtRaw: maintenanceSummary?.nextMaintenanceAt ?? null,
     remainingMaintenanceKm: maintenanceSummary?.remainingKm ?? null,
     remainingMaintenanceDays: maintenanceSummary?.remainingDays ?? null,
     maintenanceDueSoon: Boolean(maintenanceSummary?.isDueSoon),
@@ -122,7 +124,11 @@ function mapVehicleToFleetRow(
   };
 }
 
-export default function FlotteTab() {
+interface FlotteTabProps {
+  hasPermission: (perm: string) => boolean;
+}
+
+export default function FlotteTab({ hasPermission }: FlotteTabProps) {
   const { toast } = useToast();
   const [fleetItems, setFleetItems] = useState<FleetRow[]>([]);
   const [overview, setOverview] = useState({
@@ -142,7 +148,8 @@ export default function FlotteTab() {
   const [breakdownDetail, setBreakdownDetail] = useState("");
   const [newMileage, setNewMileage] = useState("");
   const [maintenanceMileage, setMaintenanceMileage] = useState("");
-  const [maintenanceDays, setMaintenanceDays] = useState("");
+  const [lastMaintenanceDate, setLastMaintenanceDate] = useState("");
+  const [nextMaintenanceDate, setNextMaintenanceDate] = useState("");
   const [isSavingBreakdown, setIsSavingBreakdown] = useState(false);
   const [isSavingMileage, setIsSavingMileage] = useState(false);
   const [resolvingVehicleId, setResolvingVehicleId] = useState<string | null>(null);
@@ -243,7 +250,9 @@ export default function FlotteTab() {
     setSelectedVehicle(vehicle);
     setNewMileage(vehicle.km.toString());
     setMaintenanceMileage(vehicle.maintenanceMileageRule?.toString() ?? "");
-    setMaintenanceDays(vehicle.maintenanceDaysRule?.toString() ?? "");
+    // Pre-fill dates as YYYY-MM-DD for <input type="date">
+    setLastMaintenanceDate(vehicle.lastMaintenanceAtRaw?.slice(0, 10) ?? "");
+    setNextMaintenanceDate(vehicle.nextMaintenanceAtRaw?.slice(0, 10) ?? "");
     setMileageDialog(true);
   };
 
@@ -310,19 +319,14 @@ export default function FlotteTab() {
     const maintenanceMileageValue = maintenanceMileage.trim()
       ? Number.parseInt(maintenanceMileage, 10)
       : undefined;
-    const maintenanceDaysValue = maintenanceDays.trim()
-      ? Number.parseInt(maintenanceDays, 10)
-      : undefined;
 
     if (
-      (maintenanceMileageValue !== undefined &&
-        (Number.isNaN(maintenanceMileageValue) || maintenanceMileageValue < 0)) ||
-      (maintenanceDaysValue !== undefined &&
-        (Number.isNaN(maintenanceDaysValue) || maintenanceDaysValue < 0))
+      maintenanceMileageValue !== undefined &&
+      (Number.isNaN(maintenanceMileageValue) || maintenanceMileageValue < 0)
     ) {
       toast({
-        title: "Règles d'entretien invalides",
-        description: "Les valeurs d'entretien (km/jours) doivent être des entiers positifs.",
+        title: "Seuil km invalide",
+        description: "Le seuil kilométrique d'entretien doit être un entier positif.",
         variant: "destructive",
       });
       return;
@@ -330,50 +334,29 @@ export default function FlotteTab() {
 
     setIsSavingMileage(true);
     try {
-      try {
-        await fleetService.updateVehicleMileage(selectedVehicle.id, {
-          mileage: mileageValue,
-          maintenanceRequired:
-            maintenanceMileage.trim() || maintenanceDays.trim()
-              ? {
-                  mileage: maintenanceMileageValue,
-                  days: maintenanceDaysValue,
-                }
-              : null,
-        });
-      } catch (error) {
-        const isLegacyBackendConstraint =
-          error instanceof ApiHttpError &&
-          /maintenanceRequired.*should not exist/i.test(error.message);
-
-        if (!isLegacyBackendConstraint) {
-          throw error;
-        }
-
-        await fleetService.updateVehicleMileage(selectedVehicle.id, {
-          mileage: mileageValue,
-        });
-
-        await vehiclesService.update(selectedVehicle.id, {
-          maintenanceRequired:
-            maintenanceMileage.trim() || maintenanceDays.trim()
-              ? {
-                  mileage: maintenanceMileageValue,
-                  days: maintenanceDaysValue,
-                }
-              : null,
-        });
-      }
+      await fleetService.updateVehicleMileage(selectedVehicle.id, {
+        mileage: mileageValue,
+        maintenanceRequired: maintenanceMileage.trim()
+          ? { mileage: maintenanceMileageValue }
+          : null,
+        lastMaintenanceAt: lastMaintenanceDate
+          ? new Date(lastMaintenanceDate).toISOString()
+          : undefined,
+        nextMaintenanceAt: nextMaintenanceDate
+          ? new Date(nextMaintenanceDate).toISOString()
+          : undefined,
+      });
 
       toast({
         title: "Mise à jour enregistrée",
-        description: "Kilométrage et règles d'entretien mis à jour.",
+        description: "Kilométrage et entretien mis à jour.",
       });
       setMileageDialog(false);
       setSelectedVehicle(null);
       setNewMileage("");
       setMaintenanceMileage("");
-      setMaintenanceDays("");
+      setLastMaintenanceDate("");
+      setNextMaintenanceDate("");
       await loadFleet();
     } catch (error) {
       const message =
@@ -536,21 +519,23 @@ export default function FlotteTab() {
 
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleUpdateMileage(f)}
-                            disabled={
-                              isSavingMileage ||
-                              isSavingBreakdown ||
-                              resolvingVehicleId === f.id
-                            }
-                            title="Mettre à jour kilométrage et règles d'entretien"
-                          >
-                            <Wrench className="h-4 w-4" />
-                          </Button>
+                          {hasPermission('fleet.manage') && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleUpdateMileage(f)}
+                              disabled={
+                                isSavingMileage ||
+                                isSavingBreakdown ||
+                                resolvingVehicleId === f.id
+                              }
+                              title="Mettre à jour kilométrage et règles d'entretien"
+                            >
+                              <Wrench className="h-4 w-4" />
+                            </Button>
+                          )}
 
-                          {!f.enPanne ? (
+                          {hasPermission('fleet.manage') && (!f.enPanne ? (
                             <Button
                               size="sm"
                               variant="ghost"
@@ -580,7 +565,7 @@ export default function FlotteTab() {
                             >
                               <CheckCircle className="h-4 w-4" />
                             </Button>
-                          )}
+                          ))}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -699,25 +684,23 @@ export default function FlotteTab() {
             </div>
 
             <div>
-              <Label>Derniers entretien</Label>
+              <Label>Date du dernier entretien</Label>
               <Input
                 type="date"
-                placeholder="11/08/2024"
-                value={maintenanceDays}
-                onChange={(e) => setMaintenanceDays(e.target.value)}
+                value={lastMaintenanceDate}
+                onChange={(e) => setLastMaintenanceDate(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label>Date du prochain entretien prévu</Label>
+              <Input
+                type="date"
+                value={nextMaintenanceDate}
+                onChange={(e) => setNextMaintenanceDate(e.target.value)}
               />
             </div>
           </div>
-
-          <div>
-              <Label>Prochain entretien</Label>
-              <Input
-                type="date"
-                placeholder="11/08/2024"
-                value={maintenanceDays}
-                onChange={(e) => setMaintenanceDays(e.target.value)}
-              />
-            </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setMileageDialog(false)}>

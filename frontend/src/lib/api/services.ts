@@ -47,11 +47,8 @@ export type VehicleImageDto = {
 
 export type VehicleMaintenanceSummaryDto = {
   requiredMileage: number | null;
-  requiredDays: number | null;
   lastMaintenanceAt: string | null;
   nextMaintenanceAt: string | null;
-  lastMaintenanceMileage: number | null;
-  nextMaintenanceMileage: number | null;
   remainingKm: number | null;
   remainingDays: number | null;
   isDueSoon: boolean;
@@ -90,7 +87,6 @@ export type VehicleDto = {
   additionalFeesLabels?: { label: string; amount: number }[];
   maintenanceRequired?: {
     mileage?: number;
-    days?: number;
   } | null;
   maintenanceSummary?: VehicleMaintenanceSummaryDto | null;
 };
@@ -266,10 +262,11 @@ export type BlogArticleDto = {
 export type ReviewDto = {
   id: string;
   authorName: string;
-  title?: string;
+  title?: string | null;
   rating: number;
   content: string;
-  imageUrl?: string;
+  imageUrl?: string | null;
+  source?: string | null;
   userId?: string | null;
   vehicleId?: string | null;
   reservationId?: string | null;
@@ -315,6 +312,72 @@ export const reviewsService = {
     apiRequest<ReviewDto>('/reviews', {
       method: 'POST',
       body: payload,
+      auth: true,
+    }),
+
+  // ── Admin ───────────────────────────────────────────────────────────────
+  adminList: (params: {
+    page?: number;
+    limit?: number;
+    status?: 'PUBLISHED' | 'DRAFT';
+    minRating?: number;
+    maxRating?: number;
+    source?: string;
+  }) => {
+    let url = `/admin/reviews?page=${params.page ?? 1}&limit=${params.limit ?? 20}`;
+    if (params.status) url += `&status=${encodeURIComponent(params.status)}`;
+    if (params.minRating !== undefined) url += `&minRating=${params.minRating}`;
+    if (params.maxRating !== undefined) url += `&maxRating=${params.maxRating}`;
+    if (params.source) url += `&source=${encodeURIComponent(params.source)}`;
+    return apiRequest<ReviewsListResponse>(url, { auth: true });
+  },
+
+  adminCreate: (payload: {
+    authorName: string;
+    title?: string;
+    rating: number;
+    content: string;
+    source?: string;
+    status?: 'PUBLISHED' | 'DRAFT';
+    createdAt?: string;
+  }) =>
+    apiRequest<ReviewDto>('/admin/reviews', { method: 'POST', body: payload, auth: true }),
+
+  adminUpdate: (
+    id: string,
+    payload: Partial<{
+      authorName: string;
+      title: string | null;
+      rating: number;
+      content: string;
+      source: string | null;
+      status: 'PUBLISHED' | 'DRAFT';
+      createdAt: string;
+    }>,
+  ) =>
+    apiRequest<ReviewDto>(`/admin/reviews/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: payload,
+      auth: true,
+    }),
+
+  adminDelete: (id: string) =>
+    apiRequest<void>(`/admin/reviews/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      auth: true,
+    }),
+
+  adminBulkCreate: (rows: Array<{
+    authorName: string;
+    title?: string;
+    rating: number;
+    content: string;
+    source?: string;
+    createdAt?: string;
+  }>) =>
+    apiRequest<{ created: number; skipped: number }>('/admin/reviews/bulk', {
+      method: 'POST',
+      body: rows,
       auth: true,
     }),
 };
@@ -663,8 +726,9 @@ export const fleetService = {
       mileage: number;
       maintenanceRequired?: {
         mileage?: number;
-        days?: number;
       } | null;
+      lastMaintenanceAt?: string;
+      nextMaintenanceAt?: string;
     },
   ) =>
     apiRequest<VehicleDto>(`/fleet/vehicles/${vehicleId}/mileage`, {

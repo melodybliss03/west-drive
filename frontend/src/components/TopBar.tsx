@@ -5,16 +5,19 @@ import { reviewsService } from '@/lib/api/services'
 export default function TopBar() {
   const { data } = useQuery({
     queryKey: ['topbar-reviews'],
-    queryFn: () => reviewsService.list({ page: 1, limit: 8 }),
+    queryFn: () => reviewsService.list({ page: 1, limit: 50 }),
     refetchOnWindowFocus: false,
   })
 
   const scrollingReviews =
-    data?.items?.map((review) => ({
-      nom: review.authorName || 'Client',
-      note: Number(review.rating || 5),
-      text: review.content,
-    })) ?? []
+    (data?.items ?? [])
+      .slice()
+      .sort((a, b) => b.rating - a.rating)
+      .map((review) => ({
+        nom: review.authorName || 'Client',
+        note: Number(review.rating || 5),
+        text: review.content,
+      }))
 
   const reviewsToDisplay = scrollingReviews.length
     ? [...scrollingReviews, ...scrollingReviews]

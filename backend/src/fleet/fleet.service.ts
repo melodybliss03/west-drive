@@ -30,11 +30,8 @@ import { VehicleScheduleSlot } from './entities/vehicle-schedule-slot.entity';
 
 type MaintenanceSummary = {
   requiredMileage: number | null;
-  requiredDays: number | null;
   lastMaintenanceAt: string | null;
   nextMaintenanceAt: string | null;
-  lastMaintenanceMileage: number | null;
-  nextMaintenanceMileage: number | null;
   remainingKm: number | null;
   remainingDays: number | null;
   isDueSoon: boolean;
@@ -142,6 +139,18 @@ export class FleetService {
       vehicle.maintenanceRequired = this.normalizeMaintenanceRequired(
         dto.maintenanceRequired,
       );
+    }
+
+    if (dto.lastMaintenanceAt !== undefined) {
+      vehicle.lastMaintenanceAt = dto.lastMaintenanceAt
+        ? new Date(dto.lastMaintenanceAt)
+        : null;
+    }
+
+    if (dto.nextMaintenanceAt !== undefined) {
+      vehicle.nextMaintenanceAt = dto.nextMaintenanceAt
+        ? new Date(dto.nextMaintenanceAt)
+        : null;
     }
 
     const maintenanceSummary = this.computeMaintenanceSummary(vehicle, new Date());
@@ -383,26 +392,21 @@ export class FleetService {
     maintenanceRequired:
       | {
           mileage?: number;
-          days?: number;
         }
       | null
       | undefined,
-  ): { mileage?: number; days?: number } | null {
+  ): { mileage?: number } | null {
     if (!maintenanceRequired) {
       return null;
     }
 
     const mileage = maintenanceRequired.mileage;
-    const days = maintenanceRequired.days;
 
-    if (mileage === undefined && days === undefined) {
+    if (mileage === undefined) {
       return null;
     }
 
-    return {
-      mileage,
-      days,
-    };
+    return { mileage };
   }
 
   private computeMaintenanceSummary(
@@ -410,106 +414,51 @@ export class FleetService {
     referenceDate: Date,
   ): MaintenanceSummary | null {
     const maintenanceRequired = vehicle.maintenanceRequired ?? null;
-    if (!maintenanceRequired) {
-      return null;
-    }
-
     const requiredMileage =
-      typeof maintenanceRequired.mileage === 'number' &&
+      typeof maintenanceRequired?.mileage === 'number' &&
       maintenanceRequired.mileage > 0
         ? maintenanceRequired.mileage
         : null;
-    const requiredDays =
-      typeof maintenanceRequired.days === 'number' && maintenanceRequired.days > 0
-        ? maintenanceRequired.days
+
+    const nextMaintenanceDate =
+      vehicle.nextMaintenanceAt instanceof Date &&
+      !Number.isNaN(vehicle.nextMaintenanceAt.getTime())
+        ? vehicle.nextMaintenanceAt
         : null;
 
-    if (!requiredMileage && !requiredDays) {
+    if (!requiredMileage && !nextMaintenanceDate) {
       return null;
     }
 
     const now = referenceDate;
     const dayMs = 24 * 60 * 60 * 1000;
-    const mileage = Math.max(vehicle.mileage ?? 0, 0);
+    const currentMileage = Math.max(vehicle.mileage ?? 0, 0);
 
-    let lastByDays: Date | null = null;
-    let nextByDays: Date | null = null;
-    if (requiredDays) {
-      const anchor = vehicle.createdAt ?? now;
-      const elapsedDays = Math.max(
-        0,
-        Math.floor((now.getTime() - anchor.getTime()) / dayMs),
-      );
-      const cycles = Math.floor(elapsedDays / requiredDays);
-      lastByDays = new Date(anchor.getTime() + cycles * requiredDays * dayMs);
-      nextByDays = new Date(
-        anchor.getTime() + (cycles + 1) * requiredDays * dayMs,
-      );
-    }
+    // Remaining km until absolute threshold
+    const remainingKm =
+      requiredMileage !== null ? requiredMileage - currentMileage : null;
 
-    let lastByMileage: Date | null = null;
-    let nextByMileage: Date | null = null;
-    let lastMaintenanceMileage: number | null = null;
-    let nextMaintenanceMileage: number | null = null;
-    let remainingKm: number | null = null;
-
-    if (requiredMileage) {
-      const completedCycles = Math.floor(mileage / requiredMileage);
-      lastMaintenanceMileage = completedCycles * requiredMileage;
-      nextMaintenanceMileage = (completedCycles + 1) * requiredMileage;
-      remainingKm = Math.max(nextMaintenanceMileage - mileage, 0);
-
-      const averageKmPerDay = requiredDays
-        ? Math.max(requiredMileage / requiredDays, 10)
-        : Math.max(requiredMileage / 30, 10);
-
-      const consumedKmSinceLast = Math.max(mileage - lastMaintenanceMileage, 0);
-      const daysSinceLast = consumedKmSinceLast / averageKmPerDay;
-      const daysUntilNext = remainingKm / averageKmPerDay;
-
-      lastByMileage = new Date(now.getTime() - daysSinceLast * dayMs);
-      nextByMileage = new Date(now.getTime() + daysUntilNext * dayMs);
-    }
-
-    const lastCandidates = [lastByDays, lastByMileage].filter(
-      (value): value is Date => value instanceof Date,
-    );
-    const nextCandidates = [nextByDays, nextByMileage].filter(
-      (value): value is Date => value instanceof Date,
-    );
-
-    const lastMaintenanceAt =
-      lastCandidates.length > 0
-        ? new Date(
-            Math.max(...lastCandidates.map((value) => value.getTime())),
+    // Remaining calendar days until the manually-set next maintenance date
+    const remainingDays =
+      nextMaintenanceDate !== null
+        ? Math.ceil(
+            (nextMaintenanceDate.getTime() - now.getTime()) / dayMs,
           )
         : null;
-    const nextMaintenanceAt =
-      nextCandidates.length > 0
-        ? new Date(
-            Math.min(...nextCandidates.map((value) => value.getTime())),
-          )
-        : null;
-
-    const remainingDays = nextMaintenanceAt
-      ? Math.ceil((nextMaintenanceAt.getTime() - now.getTime()) / dayMs)
-      : null;
 
     const isOverdue =
-      (remainingDays !== null && remainingDays <= 0) ||
-      (remainingKm !== null && remainingKm <= 0);
+      (remainingKm !== null && remainingKm <= 0) ||
+      (remainingDays !== null && remainingDays <= 0);
+
     const isDueSoon =
       !isOverdue &&
-      ((remainingDays !== null && remainingDays <= 7) ||
-        (remainingKm !== null && remainingKm <= 100));
+      ((remainingKm !== null && remainingKm <= 500) ||
+        (remainingDays !== null && remainingDays <= 7));
 
     return {
       requiredMileage,
-      requiredDays,
-      lastMaintenanceAt: lastMaintenanceAt?.toISOString() ?? null,
-      nextMaintenanceAt: nextMaintenanceAt?.toISOString() ?? null,
-      lastMaintenanceMileage,
-      nextMaintenanceMileage,
+      lastMaintenanceAt: vehicle.lastMaintenanceAt?.toISOString() ?? null,
+      nextMaintenanceAt: nextMaintenanceDate?.toISOString() ?? null,
       remainingKm,
       remainingDays,
       isDueSoon,
@@ -529,12 +478,12 @@ export class FleetService {
     const nextDate = summary.nextMaintenanceAt
       ? summary.nextMaintenanceAt.slice(0, 10)
       : 'no-date';
-    const nextMileage =
-      summary.nextMaintenanceMileage !== null
-        ? summary.nextMaintenanceMileage.toString()
+    const mileageThreshold =
+      summary.requiredMileage !== null
+        ? summary.requiredMileage.toString()
         : 'no-mileage';
 
-    const dedupeKey = `fleet-maintenance:${vehicle.id}:${urgency}:${nextDate}:${nextMileage}`;
+    const dedupeKey = `fleet-maintenance:${vehicle.id}:${urgency}:${nextDate}:${mileageThreshold}`;
 
     const nextDateLabel = summary.nextMaintenanceAt
       ? new Date(summary.nextMaintenanceAt).toLocaleDateString('fr-FR')

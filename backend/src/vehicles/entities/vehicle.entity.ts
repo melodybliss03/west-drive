@@ -116,8 +116,13 @@ export class Vehicle {
   })
   maintenanceRequired!: {
     mileage?: number;
-    days?: number;
   } | null;
+
+  @Column({ type: 'timestamptz', name: 'last_maintenance_at', nullable: true })
+  lastMaintenanceAt!: Date | null;
+
+  @Column({ type: 'timestamptz', name: 'next_maintenance_at', nullable: true })
+  nextMaintenanceAt!: Date | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;

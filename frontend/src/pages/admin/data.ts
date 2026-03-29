@@ -141,8 +141,9 @@ export interface AvisRow {
   titre: string;
   contenu: string;
   note: number;
-  source: AvisSource;
+  source: string; // texte libre — AvisSource pour les valeurs connues
   date: string;
+  status: "PUBLISHED" | "DRAFT";
 }
 
 // ── Mock data ──

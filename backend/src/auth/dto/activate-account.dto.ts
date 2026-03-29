@@ -20,9 +20,9 @@ export class ActivateAccountDto {
   @ApiProperty({
     description: 'Mot de passe definitif du compte',
     example: 'NouveauMotDePasseTresFort123!',
-    minLength: 12,
+    minLength: 8,
   })
   @IsString()
-  @MinLength(12)
+  @MinLength(8)
   newPassword!: string;
 }

@@ -120,9 +120,10 @@ interface DevisTabProps {
   page: number;
   setPage: React.Dispatch<React.SetStateAction<number>>;
   meta: PaginationMeta | null;
+  hasPermission: (perm: string) => boolean;
 }
 
-export default function DevisTab({ devis, setDevis, page, setPage, meta }: DevisTabProps) {
+export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPermission }: DevisTabProps) {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [selectedDevis, setSelectedDevis] = useState<DevisRow | null>(null);
@@ -406,9 +407,11 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta }: Devis
                             <Button variant="ghost" size="icon" onClick={() => openDetail(d)}>
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeleteConfirm(d.id)} disabled={isSubmitting}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {hasPermission('quotes.manage') && (
+                              <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeleteConfirm(d.id)} disabled={isSubmitting}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -511,30 +514,30 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta }: Devis
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-border">
-                {canStartAnalysis && (
+                {hasPermission('quotes.manage') && canStartAnalysis && (
                   <Button className="gap-2" onClick={() => setAction("analyse")} disabled={isSubmitting}>
                     <CheckCircle className="h-4 w-4" />
                     Passer en analyse
                   </Button>
                 )}
-                {canSendProposal && (
+                {hasPermission('quotes.manage') && canSendProposal && (
                   <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setAction("valider")} disabled={isSubmitting}>
                     <CheckCircle className="h-4 w-4" />
                     Envoyer proposition
                   </Button>
                 )}
-                {canNegotiate && (
+                {hasPermission('quotes.manage') && canNegotiate && (
                   <Button variant="outline" className="gap-2" onClick={() => setAction("negocier")} disabled={isSubmitting}>
                     Negocier
                   </Button>
                 )}
-                {canRefuse && (
+                {hasPermission('quotes.manage') && canRefuse && (
                   <Button variant="destructive" className="gap-2" onClick={() => setAction("refuser")} disabled={isSubmitting}>
                     <XCircle className="h-4 w-4" />
                     Refuser
                   </Button>
                 )}
-                {canConvert && (
+                {hasPermission('quotes.manage') && canConvert && (
                   <Button variant="outline" className="gap-2 border-teal-400 text-teal-700 hover:bg-teal-50" onClick={() => setAction("convertir")} disabled={isSubmitting}>
                     Convertir en reservation
                   </Button>

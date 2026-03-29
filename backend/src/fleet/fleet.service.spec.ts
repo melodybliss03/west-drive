@@ -96,7 +96,6 @@ describe('FleetService', () => {
       mileage: 5200,
       maintenanceRequired: {
         mileage: 100,
-        days: 1,
       },
     });
 
@@ -106,7 +105,6 @@ describe('FleetService', () => {
         mileage: 5200,
         maintenanceRequired: {
           mileage: 100,
-          days: 1,
         },
       }),
     );

@@ -27,10 +27,10 @@ export class RequestRegisterOtpDto {
   @ApiProperty({
     description: 'Mot de passe du compte (minimum 12 caracteres)',
     example: 'MonMotDePasseTresFort123!',
-    minLength: 12,
+    minLength: 8,
   })
   @IsString()
-  @MinLength(12)
+  @MinLength(8)
   password!: string;
 
   @ApiProperty({

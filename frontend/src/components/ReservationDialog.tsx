@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, Building2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -120,6 +121,7 @@ export default function ReservationDialog({
   vehiculeAdditionalFees = [],
 }: ReservationDialogProps) {
   const { toast } = useToast();
+  const { user, isAuthenticated } = useAuth();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<ClientType>("particulier");
   const [loading, setLoading] = useState(false);
@@ -154,6 +156,17 @@ export default function ReservationDialog({
           selectedAdditionalFeeLabels,
         )
       : null;
+
+  useEffect(() => {
+    if (open && isAuthenticated && user) {
+      setForm((prev) => ({
+        ...prev,
+        nom: [user.prenom, user.nom].filter(Boolean).join(' ').trim() || prev.nom,
+        email: user.email || prev.email,
+        telephone: user.phone || prev.telephone,
+      }));
+    }
+  }, [open, isAuthenticated, user]);
 
   const set = (key: string, val: string) => {
     setForm((p) => ({ ...p, [key]: val }));
@@ -466,6 +479,12 @@ export default function ReservationDialog({
           </div>
 
           {/* Informations personnelles */}
+          {isAuthenticated ? (
+            <div className="p-3 rounded-xl bg-muted/40 text-sm text-muted-foreground flex items-center gap-2">
+              <User className="h-4 w-4 flex-shrink-0" />
+              Connecté en tant que {user?.prenom} {user?.nom} ({user?.email})
+            </div>
+          ) : (
           <div className="space-y-3">
             <p className="text-sm font-semibold text-foreground">
               Vos informations
@@ -554,6 +573,7 @@ export default function ReservationDialog({
               </div>
             </div>
           </div>
+          )}
 
           {/* Commentaire optionnel */}
           {vehiculeAdditionalFees.length > 0 && (

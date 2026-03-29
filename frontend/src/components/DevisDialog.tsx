@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, Building2, Send } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -68,6 +69,7 @@ export default function DevisDialog({
   defaultType = "particulier",
 }: DevisDialogProps) {
   const { toast } = useToast();
+  const { user, isAuthenticated } = useAuth();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<DevisType>(defaultType);
   const [loading, setLoading] = useState(false);
@@ -95,6 +97,17 @@ export default function DevisDialog({
     setForm((p) => ({ ...p, [key]: val }));
     setErrors((p) => ({ ...p, [key]: "" }));
   };
+
+  useEffect(() => {
+    if (open && isAuthenticated && user) {
+      setForm((prev) => ({
+        ...prev,
+        nom: [user.prenom, user.nom].filter(Boolean).join(' ').trim() || prev.nom,
+        email: user.email || prev.email,
+        telephone: user.phone || prev.telephone,
+      }));
+    }
+  }, [open, isAuthenticated, user]);
 
   // ─── Validation avec contrôles de date/heure ────────────────────────────────
   const validate = () => {
@@ -446,6 +459,12 @@ export default function DevisDialog({
               </div>
 
               {/* Informations personnelles */}
+              {isAuthenticated ? (
+                <div className="p-3 rounded-xl bg-muted/40 text-sm text-muted-foreground flex items-center gap-2">
+                  <User className="h-4 w-4 flex-shrink-0" />
+                  Connecté en tant que {user?.prenom} {user?.nom} ({user?.email})
+                </div>
+              ) : (
               <div className="space-y-3">
                 <p className="text-sm font-semibold text-foreground">
                   Vos informations
@@ -540,6 +559,7 @@ export default function DevisDialog({
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Commentaire optionnel */}
               <div className="space-y-1">

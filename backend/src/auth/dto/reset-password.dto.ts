@@ -20,9 +20,9 @@ export class ResetPasswordDto {
   @ApiProperty({
     description: 'Nouveau mot de passe',
     example: 'NouveauMotDePasseTresFort123!',
-    minLength: 12,
+    minLength: 8,
   })
   @IsString()
-  @MinLength(12)
+  @MinLength(8)
   newPassword!: string;
 }

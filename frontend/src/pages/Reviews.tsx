@@ -1,84 +1,46 @@
-import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+﻿import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { format } from "date-fns";
+import { reviewsService, ReviewsListResponse } from "@/lib/api/services";
 import { Link } from "react-router-dom";
 import { ChevronRight, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import TopBar from "@/components/TopBar";
-import { reviewsService, ReviewsListResponse } from "@/lib/api/services";
 import { motion } from "framer-motion";
-import { REVIEWS } from "@/data/reviews";
 
-type UiReview = {
-  id: string;
-  authorName: string;
-  title?: string;
-  rating: number;
-  content: string;
-  createdAt: string;
-  source: "static" | "api";
+const LIMIT = 15;
+
+const SOURCE_BADGE: Record<string, { label: string; dotClass: string; textClass: string }> = {
+  getaround: { label: "Getaround", dotClass: "bg-violet-500", textClass: "text-violet-600" },
+  turo: { label: "Turo", dotClass: "bg-gray-800", textClass: "text-gray-700" },
+  google: { label: "Google", dotClass: "bg-blue-500", textClass: "text-blue-600" },
+  direct: { label: "Direct", dotClass: "bg-emerald-500", textClass: "text-emerald-600" },
 };
-
-const API_LIMIT = 50;
+function sourceBadge(source?: string | null) {
+  if (!source) return null;
+  const key = source.toLowerCase();
+  const cfg = SOURCE_BADGE[key] ?? { label: source, dotClass: "bg-muted-foreground", textClass: "text-muted-foreground" };
+  return (
+    <span className={`inline-flex items-center gap-2 text-xs font-semibold ${cfg.textClass}`}>
+      <span className={`h-2 w-2 rounded-full ${cfg.dotClass}`} />
+      {cfg.label}
+    </span>
+  );
+}
 
 export default function Reviews() {
+  const [page, setPage] = useState(1);
+
   const { data, isLoading, isError } = useQuery<ReviewsListResponse>({
-    queryKey: ["reviews", "public"],
-    queryFn: () => reviewsService.list({ page: 1, limit: API_LIMIT }),
+    queryKey: ["reviews", page],
+    queryFn: () => reviewsService.list({ page, limit: LIMIT }),
     refetchOnWindowFocus: false,
-    retry: 1,
   });
 
-  const staticReviews = useMemo<UiReview[]>(
-    () =>
-      REVIEWS.map((review) => ({
-        id: `static-${review.id}`,
-        authorName: review.authorName,
-        title: review.title,
-        rating: Number(review.rating ?? 0),
-        content: review.content,
-        createdAt: review.createdAt,
-        source: "static",
-      })),
-    [],
-  );
-
-  const apiReviews = useMemo<UiReview[]>(
-    () =>
-      (data?.items ?? []).map((review) => ({
-        id: `api-${review.id}`,
-        authorName: review.authorName,
-        title: review.title,
-        rating: Number(review.rating ?? 0),
-        content: review.content,
-        createdAt: review.createdAt,
-        source: "api",
-      })),
-    [data],
-  );
-
-  const reviews = useMemo<UiReview[]>(() => {
-    const deduped = new Map<string, UiReview>();
-    [...apiReviews, ...staticReviews].forEach((review) => {
-      const key = `${review.authorName}|${review.title ?? ""}|${review.content}`
-        .toLowerCase()
-        .replace(/\s+/g, " ")
-        .trim();
-      if (!deduped.has(key)) {
-        deduped.set(key, review);
-      }
-    });
-
-    return Array.from(deduped.values()).sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
-  }, [apiReviews, staticReviews]);
-
-  const average =
-    reviews.length > 0
-      ? (reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / reviews.length).toFixed(1)
-      : "0.0";
+  const reviews = data?.items ?? [];
+  const meta = data?.meta;
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -87,18 +49,15 @@ export default function Reviews() {
         <Header />
       </div>
 
+      {/* Hero */}
       <section className="pt-40 pb-20 bg-foreground text-background">
         <div className="max-w-5xl mx-auto px-4 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
             <h1 className="font-display text-4xl md:text-5xl font-bold mb-4">
               Avis de nos <span className="text-primary">Clients</span>
             </h1>
             <p className="text-background/70 text-lg max-w-2xl mx-auto mb-8">
-              Retrouvez les retours publies apres location.
+              Plus de confiance pour vos reservations grace aux retours clients 100% verifies.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link to="/vehicules">
@@ -111,65 +70,76 @@ export default function Reviews() {
         </div>
       </section>
 
+      {/* Avis */}
       <section className="max-w-6xl mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <div className="bg-card border border-border rounded-xl p-4">
-            <p className="text-xs text-muted-foreground">Note moyenne</p>
-            <p className="font-display text-2xl font-bold text-primary">{average}</p>
+
+        {/* Status */}
+        {isLoading && (
+          <p className="text-sm text-muted-foreground mb-6">Chargement des avis...</p>
+        )}
+        {isError && (
+          <p className="text-sm text-destructive mb-6">Impossible de recuperer les avis pour le moment.</p>
+        )}
+        {!isLoading && !isError && reviews.length === 0 && (
+          <p className="text-sm text-muted-foreground mb-6">Aucun avis disponible pour le moment.</p>
+        )}
+
+        {/* Pagination haut */}
+        {meta && meta.totalPages > 1 && (
+          <div className="flex items-center justify-between mb-6 gap-4">
+            <p className="text-sm text-muted-foreground">
+              Page {meta.page} / {meta.totalPages} · {meta.totalItems} avis
+            </p>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={!meta.hasPreviousPage || isLoading}>
+                Precedent
+              </Button>
+              <Button size="sm" onClick={() => setPage(p => meta.hasNextPage ? p + 1 : p)} disabled={!meta.hasNextPage || isLoading}>
+                Suivant
+              </Button>
+            </div>
           </div>
-          <div className="bg-card border border-border rounded-xl p-4">
-            <p className="text-xs text-muted-foreground">Avis affiches</p>
-            <p className="font-display text-2xl font-bold">{reviews.length}</p>
+        )}
+
+        {/* Grille masonry */}
+        {reviews.length > 0 && (
+          <div className="columns-1 md:columns-2 xl:columns-3 gap-6 space-y-6 transition-all duration-300 ease-out">
+            {reviews.map(review => (
+              <article
+                key={review.id}
+                className="break-inside-avoid border border-border rounded-2xl p-4 bg-card shadow-sm hover:shadow-lg transition-shadow duration-200"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  {sourceBadge(review.source)}
+                  <span className="text-xs text-muted-foreground">
+                    {format(new Date(review.createdAt), "dd MMM yyyy")}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 mb-2">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star key={i} className={`h-4 w-4 ${i < review.rating ? "fill-primary text-primary" : "text-muted-foreground/30"}`} />
+                  ))}
+                </div>
+                {review.title && <h3 className="mb-2">{review.title}</h3>}
+                <p className="text-sm text-muted-foreground leading-relaxed mb-3">{review.content}</p>
+                <p className="text-sm font-medium">— {review.authorName}</p>
+              </article>
+            ))}
           </div>
-          <div className="bg-card border border-border rounded-xl p-4">
-            <p className="text-xs text-muted-foreground">Avis API ajoutes</p>
-            <p className="font-display text-2xl font-bold">{apiReviews.length}</p>
+        )}
+
+        {/* Pagination bas */}
+        {meta && meta.totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-10">
+            <Button size="sm" variant="outline" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={!meta.hasPreviousPage || isLoading}>
+              Precedent
+            </Button>
+            <span className="text-sm text-muted-foreground px-2">{meta.page} / {meta.totalPages}</span>
+            <Button size="sm" onClick={() => setPage(p => meta.hasNextPage ? p + 1 : p)} disabled={!meta.hasNextPage || isLoading}>
+              Suivant
+            </Button>
           </div>
-        </div>
-
-        {isLoading ? (
-          <p className="text-sm text-muted-foreground mb-6">Chargement des avis API...</p>
-        ) : null}
-
-        {isError ? (
-          <p className="text-sm text-muted-foreground mb-6">
-            Les avis API sont temporairement indisponibles, affichage des avis historiques.
-          </p>
-        ) : null}
-
-        {!isLoading && reviews.length === 0 ? (
-          <div className="text-center py-16 border border-border rounded-2xl bg-card">
-            <p className="text-muted-foreground">Aucun avis publie pour le moment.</p>
-          </div>
-        ) : null}
-
-        <div className="columns-1 md:columns-2 xl:columns-3 gap-6 space-y-6 transition-all duration-300 ease-out">
-          {reviews.map((review) => (
-            <article
-              key={review.id}
-              className="break-inside-avoid border border-border rounded-2xl p-4 bg-card shadow-sm hover:shadow-lg transition-shadow duration-200"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <p className="font-semibold text-sm">{review.authorName}</p>
-                <p className="text-xs text-muted-foreground">
-                  {new Date(review.createdAt).toLocaleDateString("fr-FR")}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-1 mb-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={`${review.id}-${i}`}
-                    className={`h-4 w-4 ${i < review.rating ? "fill-primary text-primary" : "text-muted-foreground"}`}
-                  />
-                ))}
-              </div>
-
-              {review.title ? <h3 className="font-semibold mb-1">{review.title}</h3> : null}
-              <p className="text-sm text-muted-foreground leading-relaxed">{review.content}</p>
-            </article>
-          ))}
-        </div>
+        )}
       </section>
 
       <Footer />

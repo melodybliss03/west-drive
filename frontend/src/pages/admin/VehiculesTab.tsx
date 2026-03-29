@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Car, Plus, Edit, Trash2, Search, Eye, Fuel, Users, Gauge, MapPin } from "lucide-react";
+import { Car, Plus, Edit, Trash2, Search, Eye, Fuel, Users, Gauge, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -64,9 +64,10 @@ interface VehiculesTabProps {
   meta: PaginationMeta | null;
   setMeta: React.Dispatch<React.SetStateAction<PaginationMeta | null>>;
   limit: number;
+  hasPermission: (perm: string) => boolean;
 }
 
-export default function VehiculesTab({ vehicles, setVehicles, page, setPage, meta, setMeta, limit }: VehiculesTabProps) {
+export default function VehiculesTab({ vehicles, setVehicles, page, setPage, meta, setMeta, limit, hasPermission }: VehiculesTabProps) {
   const { toast } = useToast();
   const [searchV, setSearchV] = useState("");
   const [editVehicle, setEditVehicle] = useState<VehiculeForm | null>(null);
@@ -80,8 +81,7 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
   const [isSaving, setIsSaving] = useState(false);
   const [saveLabel, setSaveLabel] = useState("");
   const [deletingVehicleId, setDeletingVehicleId] = useState<string | null>(null);
-  const [viewVehicle, setViewVehicle] = useState<VehiculeView | null>(null);
-
+  const [viewVehicle, setViewVehicle] = useState<VehiculeView | null>(null);  const [viewPhotoIndex, setViewPhotoIndex] = useState(0);
   const filteredVehicles = vehicles.filter(v =>
     v.nom.toLowerCase().includes(searchV.toLowerCase()) ||
     v.marque.toLowerCase().includes(searchV.toLowerCase())
@@ -180,8 +180,13 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
         }
         if (imageFiles.length > 0) {
           setSaveLabel("Upload des images...");
-          for (let index = 0; index < imageFiles.length; index += 1) {
-            await vehiclesService.uploadImage(created.id, imageFiles[index], index);
+          try {
+            for (let index = 0; index < imageFiles.length; index += 1) {
+              await vehiclesService.uploadImage(created.id, imageFiles[index], index);
+            }
+          } catch (uploadError) {
+            try { await vehiclesService.remove(created.id); } catch { /* ignore rollback error */ }
+            throw uploadError;
           }
         }
         setSaveLabel("Actualisation de la liste...");
@@ -246,7 +251,9 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Rechercher…" value={searchV} onChange={e => setSearchV(e.target.value)} className="pl-9 w-56" />
             </div>
-            <Button onClick={openNew} className="gap-2"><Plus className="h-4 w-4" /> Ajouter</Button>
+            {hasPermission('vehicles.write') && (
+              <Button onClick={openNew} className="gap-2"><Plus className="h-4 w-4" /> Ajouter</Button>
+            )}
           </div>
         </div>
 
@@ -305,21 +312,25 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1">
-                              <Button variant="ghost" size="icon" onClick={() => setViewVehicle(v)} disabled={isSaving || !!deletingVehicleId}>
+                              <Button variant="ghost" size="icon" onClick={() => { setViewVehicle(v); setViewPhotoIndex(0); }} disabled={isSaving || !!deletingVehicleId}>
                                 <Eye className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" onClick={() => openEdit(v)} disabled={isSaving || !!deletingVehicleId}>
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setDeleteConfirm(v.id)}
-                                disabled={isSaving || !!deletingVehicleId}
-                                className="text-destructive"
-                              >
-                                {deletingVehicleId === v.id ? <Spinner className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
-                              </Button>
+                              {hasPermission('vehicles.write') && (
+                                <Button variant="ghost" size="icon" onClick={() => openEdit(v)} disabled={isSaving || !!deletingVehicleId}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {hasPermission('vehicles.delete') && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setDeleteConfirm(v.id)}
+                                  disabled={isSaving || !!deletingVehicleId}
+                                  className="text-destructive"
+                                >
+                                  {deletingVehicleId === v.id ? <Spinner className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
+                                </Button>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -363,21 +374,55 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
       </motion.div>
 
       {/* Vehicle View Dialog */}
-      <Dialog open={!!viewVehicle} onOpenChange={() => setViewVehicle(null)}>
+      <Dialog open={!!viewVehicle} onOpenChange={() => { setViewVehicle(null); setViewPhotoIndex(0); }}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Détails du véhicule</DialogTitle>
           </DialogHeader>
           {viewVehicle && (
             <div className="space-y-5">
-              <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/40">
-                {viewVehicle.photos[0] ? (
-                  <img src={viewVehicle.photos[0]} alt={viewVehicle.nom} className="h-20 w-20 rounded-xl object-cover flex-shrink-0" />
-                ) : (
-                  <div className="h-20 w-20 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
-                    <Car className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                )}
+              {viewVehicle.photos.length > 0 ? (
+                <div className="relative w-full h-44 rounded-xl overflow-hidden bg-muted">
+                  <img
+                    src={viewVehicle.photos[viewPhotoIndex]}
+                    alt={`${viewVehicle.nom} – photo ${viewPhotoIndex + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  {viewVehicle.photos.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setViewPhotoIndex(i => (i - 1 + viewVehicle.photos.length) % viewVehicle.photos.length)}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-1 transition-colors"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setViewPhotoIndex(i => (i + 1) % viewVehicle.photos.length)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-1 transition-colors"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+                        {viewVehicle.photos.map((_, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => setViewPhotoIndex(i)}
+                            className={`w-2 h-2 rounded-full transition-colors ${i === viewPhotoIndex ? 'bg-white' : 'bg-white/40'}`}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="w-full h-32 rounded-xl bg-muted flex items-center justify-center">
+                  <Car className="h-10 w-10 text-muted-foreground" />
+                </div>
+              )}
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/40">
                 <div>
                   <p className="font-display font-bold text-lg">{viewVehicle.nom}</p>
                   <p className="text-sm text-muted-foreground">{viewVehicle.marque} · {viewVehicle.annee}</p>
@@ -588,7 +633,7 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                   <Input value={locationForm.streetAddress} onChange={(e) => setLocationForm((prev) => ({ ...prev, streetAddress: e.target.value }))} placeholder="12 Rue de Rivoli" />
                 </div>
                 <div>
-                  <Label>Ville * (une seule ville par véhicule)</Label>
+                  <Label>Ville *</Label>
                   <Input
                     value={locationForm.city}
                     onChange={(e) => {
@@ -601,15 +646,15 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                   <p className="text-xs text-muted-foreground mt-1">Chaque véhicule ne peut être disponible que dans une seule ville</p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 <div>
                   <Label>Kilométrage actuel (km)</Label>
                   <Input type="number" value={editVehicle.kilométrage || 0} onChange={e => setEditVehicle({ ...editVehicle, kilométrage: +e.target.value })} />
                 </div>
-                <div>
+                {/* <div>
                   <Label>Prix/heure (€)</Label>
                   <Input type="number" step="0.01" value={editVehicle.prixHeure || 0} onChange={e => setEditVehicle({ ...editVehicle, prixHeure: +e.target.value })} />
-                </div>
+                </div> */}
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">

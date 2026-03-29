@@ -28,7 +28,7 @@ const energieLabels: Record<string, string> = {
   ESSENCE: "Essence",
   DIESEL: "Diesel",
   ELECTRIQUE: "Électrique",
-  HYBRIDE: "Hybride",
+  // HYBRIDE: "Hybride",
 };
 
 export default function VehiculeDetail() {
@@ -159,6 +159,9 @@ export default function VehiculeDetail() {
                 <div className="flex items-center gap-2 text-sm">
                   <Fuel className="h-4 w-4 text-primary" />
                   <span>{energieLabels[vehicule.energie]}</span>
+                  {vehicule.isHybride && (
+                    <Badge variant="outline" className="text-[12px] px-2 py-1 bg-green-500/30 text-green-700 border-green-200">Hybride</Badge>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Users className="h-4 w-4 text-primary" />

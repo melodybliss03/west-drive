@@ -42,6 +42,8 @@ function extractUsersFromResponse(collection: unknown): Array<Record<string, unk
   return [];
 }
 
+const STAFF_ROLES = new Set(['admin', 'client', 'customer', 'particulier']);
+
 interface UtilisateursTabProps {
   users: AdminUser[];
   setUsers: React.Dispatch<React.SetStateAction<AdminUser[]>>;
@@ -50,9 +52,10 @@ interface UtilisateursTabProps {
   meta: PaginationMeta | null;
   setMeta: React.Dispatch<React.SetStateAction<PaginationMeta | null>>;
   limit: number;
+  hasPermission: (perm: string) => boolean;
 }
 
-export default function UtilisateursTab({ users, setUsers, page, setPage, meta, setMeta, limit }: UtilisateursTabProps) {
+export default function UtilisateursTab({ users, setUsers, page, setPage, meta, setMeta, limit, hasPermission }: UtilisateursTabProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchU, setSearchU] = useState("");
@@ -188,39 +191,53 @@ export default function UtilisateursTab({ users, setUsers, page, setPage, meta, 
                         <TableCell className="font-medium">{u.prenom} {u.nom}</TableCell>
                         <TableCell className="text-xs">{u.email}</TableCell>
                         <TableCell className="hidden sm:table-cell">
-                          <Badge variant="outline" className={u.type === "entreprise" ? "bg-blue-500/10 text-blue-600 border-blue-200" : ""}>
-                            {u.type}
-                          </Badge>
+                          {!STAFF_ROLES.has(u.role.toLowerCase()) ? (
+                            <Badge variant="outline" className="bg-purple-500/10 text-purple-700 border-purple-200 capitalize">
+                              {u.role}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className={u.type === "entreprise" ? "bg-blue-500/10 text-blue-600 border-blue-200" : ""}>
+                              {u.type}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell className="text-xs hidden md:table-cell">{u.creeLe}</TableCell>
                         <TableCell>{u.reservations}</TableCell>
                         <TableCell>
-                          <button
-                            type="button"
-                            className="inline-flex"
-                            onClick={() => toggleStatus(u)}
-                            disabled={!!loadingUserId}
-                          >
+                          {hasPermission('users.write') ? (
+                            <button
+                              type="button"
+                              className="inline-flex"
+                              onClick={() => toggleStatus(u)}
+                              disabled={!!loadingUserId}
+                            >
+                              <Badge variant="outline" className={u.statut === "actif" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200" : "bg-destructive/10 text-destructive border-destructive/20"}>
+                                {loadingUserId === u.id ? <Spinner className="mr-2 h-3.5 w-3.5" /> : null}
+                                {u.statut}
+                              </Badge>
+                            </button>
+                          ) : (
                             <Badge variant="outline" className={u.statut === "actif" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200" : "bg-destructive/10 text-destructive border-destructive/20"}>
-                              {loadingUserId === u.id ? <Spinner className="mr-2 h-3.5 w-3.5" /> : null}
                               {u.statut}
                             </Badge>
-                          </button>
+                          )}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => setSelectedUser(u)}> {/* ← activé */}
+                            <Button variant="ghost" size="icon" onClick={() => setSelectedUser(u)}>
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-destructive"
-                              onClick={() => deleteUser(u)}
-                              disabled={!!loadingUserId}
-                            >
-                              {loadingUserId === u.id ? <Spinner className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
-                            </Button>
+                            {hasPermission('users.delete') && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive"
+                                onClick={() => deleteUser(u)}
+                                disabled={!!loadingUserId}
+                              >
+                                {loadingUserId === u.id ? <Spinner className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

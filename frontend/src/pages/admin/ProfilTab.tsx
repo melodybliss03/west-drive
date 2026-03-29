@@ -532,7 +532,7 @@ export default function ProfilTab() {
               <div className="p-4 rounded-xl border border-dashed border-border bg-muted/30 space-y-4">
                 <p className="text-sm font-medium flex items-center gap-2">
                   <Shield className="h-4 w-4 text-primary" />
-                  Créer un rôle custom
+                  Créer un rôle personnalisé
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <Input

@@ -72,6 +72,7 @@ interface ReservationsTabProps {
   page: number;
   setPage: React.Dispatch<React.SetStateAction<number>>;
   meta: PaginationMeta | null;
+  hasPermission: (perm: string) => boolean;
 }
 
 export default function ReservationsTab({
@@ -80,6 +81,7 @@ export default function ReservationsTab({
   page,
   setPage,
   meta,
+  hasPermission,
 }: ReservationsTabProps) {
   const { toast } = useToast();
 
@@ -866,52 +868,58 @@ export default function ReservationsTab({
                   <div className="flex flex-wrap gap-2">
 
                     {/* Confirmer — si en attente */}
-                    {selectedReservation.statut === "en attente" && (
+                    {hasPermission('reservations.manage') && selectedReservation.statut === "en attente" && (
                       <Button size="sm" className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setAction("confirmer")}>
                         <CheckCircle className="h-3.5 w-3.5" /> Confirmer
                       </Button>
                     )}
 
                     {/* Refuser — si en attente */}
-                    {selectedReservation.statut === "en attente" && (
+                    {hasPermission('reservations.manage') && selectedReservation.statut === "en attente" && (
                       <Button size="sm" variant="destructive" className="gap-1" onClick={() => setAction("refuser")}>
                         <XCircle className="h-3.5 w-3.5" /> Refuser
                       </Button>
                     )}
 
                     {/* Annuler — si en attente ou confirmée */}
-                    {["en attente", "confirmée"].includes(selectedReservation.statut) && (
+                    {hasPermission('reservations.manage') && ["en attente", "confirmée"].includes(selectedReservation.statut) && (
                       <Button size="sm" variant="outline" className="gap-1 text-destructive border-destructive/40 hover:bg-destructive/10" onClick={() => setAction("annuler")}>
                         <XCircle className="h-3.5 w-3.5" /> Annuler
                       </Button>
                     )}
 
                     {/* Démarrer — si confirmée */}
-                    {selectedReservation.statut === "confirmée" && (
+                    {hasPermission('reservations.manage') && selectedReservation.statut === "confirmée" && (
                       <Button size="sm" className="gap-1" onClick={() => setAction("demarrer")}>
                         <Play className="h-3.5 w-3.5" /> Démarrer la location
                       </Button>
                     )}
 
                     {/* Terminer — si en cours */}
-                    {selectedReservation.statut === "en cours" && (
+                    {hasPermission('reservations.manage') && selectedReservation.statut === "en cours" && (
                       <Button size="sm" variant="outline" className="gap-1" onClick={() => setAction("terminer")}>
                         <Flag className="h-3.5 w-3.5" /> Terminer la location
                       </Button>
                     )}
 
-                    {/* Ajouter un événement — toujours disponible */}
-                    <Button size="sm" variant="outline" className="gap-1" onClick={() => setAction("evenement")}>
-                      <Plus className="h-3.5 w-3.5" /> Ajouter un événement
-                    </Button>
+                    {/* Ajouter un événement */}
+                    {hasPermission('reservations.manage') && (
+                      <Button size="sm" variant="outline" className="gap-1" onClick={() => setAction("evenement")}>
+                        <Plus className="h-3.5 w-3.5" /> Ajouter un événement
+                      </Button>
+                    )}
 
-                    <Button size="sm" variant="outline" className="gap-1" onClick={() => setAction("modifier")}>
-                      <Pencil className="h-3.5 w-3.5" /> Modifier
-                    </Button>
+                    {hasPermission('reservations.manage') && (
+                      <Button size="sm" variant="outline" className="gap-1" onClick={() => setAction("modifier")}>
+                        <Pencil className="h-3.5 w-3.5" /> Modifier
+                      </Button>
+                    )}
 
-                    <Button size="sm" variant="destructive" className="gap-1" onClick={() => setAction("supprimer")}>
-                      <Trash2 className="h-3.5 w-3.5" /> Supprimer
-                    </Button>
+                    {hasPermission('reservations.manage') && (
+                      <Button size="sm" variant="destructive" className="gap-1" onClick={() => setAction("supprimer")}>
+                        <Trash2 className="h-3.5 w-3.5" /> Supprimer
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>

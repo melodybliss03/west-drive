@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+﻿import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { setDefaultResultOrder } from 'node:dns';
 import nodemailer, { Transporter } from 'nodemailer';
@@ -80,34 +80,40 @@ export class MailService {
 
     const subject =
       options.purpose === 'register'
-        ? 'WestDrive - Confirmation de votre inscription'
+        ? 'WestDrive — Confirmez votre inscription'
         : options.purpose === 'reset-password'
-          ? 'WestDrive - Reinitialisation de mot de passe'
-          : 'WestDrive - Activation de votre compte';
+          ? 'WestDrive — R&eacute;initialisation de mot de passe'
+          : 'WestDrive — Activation de votre compte';
 
     const actionText =
       options.purpose === 'register'
         ? 'confirmer votre inscription'
         : options.purpose === 'reset-password'
-          ? 'reinitialiser votre mot de passe'
+          ? 'r&eacute;initialiser votre mot de passe'
           : 'activer votre compte';
 
+    const forgotPasswordNote =
+      options.purpose === 'activation'
+        ? `<p style="margin: 16px 0 0; padding: 12px 14px; background: #f9fafb; border-left: 3px solid #d1d5db; border-radius: 4px; font-size: 13px; color: #6b7280;">Si ce code a expir&eacute;, utilisez la fonction <strong>&laquo;&nbsp;Mot de passe oubli&eacute;&nbsp;&raquo;</strong> sur la page de connexion pour en g&eacute;n&eacute;rer un nouveau.</p>`
+        : '';
+
     const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
-        <h2 style="margin-bottom: 8px;">WestDrive</h2>
-        <p>Bonjour,</p>
-        <p>Utilisez le code suivant pour ${actionText}:</p>
-        <p style="font-size: 24px; font-weight: 700; letter-spacing: 4px;">${options.otpCode}</p>
-        <p>Ce code expire dans ${options.ttlMinutes} minutes.</p>
-        <p>Si vous n'etes pas a l'origine de cette demande, ignorez cet email.</p>
+      <p style="margin: 0 0 16px;">Bonjour,</p>
+      <p style="margin: 0 0 8px;">Utilisez le code ci-dessous pour ${actionText}&nbsp;:</p>
+      <div style="margin: 20px 0; text-align: center;">
+        <span style="display: inline-block; padding: 14px 28px; background: #111111; color: #ffffff; font-size: 28px; font-weight: 800; letter-spacing: 8px; border-radius: 10px; font-family: monospace;">${options.otpCode}</span>
       </div>
+      <p style="margin: 0 0 8px; font-size: 13px; color: #6b7280;">Ce code expire dans <strong>${options.ttlMinutes} minutes</strong>.</p>
+      <p style="margin: 0; font-size: 13px; color: #9ca3af;">Si vous n&apos;&ecirc;tes pas &agrave; l&apos;origine de cette demande, ignorez simplement cet e-mail.</p>
+      ${forgotPasswordNote}
     `;
 
     const text = [
       'WestDrive',
       '',
-      `Code OTP: ${options.otpCode}`,
-      `Validite: ${options.ttlMinutes} minutes`,
+      `Code OTP : ${options.otpCode}`,
+      `Validite : ${options.ttlMinutes} minutes`,
+      options.purpose === 'activation' ? '\nSi ce code a expire, utilisez la fonction "Mot de passe oublie" sur la page de connexion.' : '',
     ].join('\n');
 
     let info: unknown;
@@ -138,22 +144,21 @@ export class MailService {
     requesterName: string;
     publicReference: string;
   }): Promise<void> {
-    const subject = `WestDrive - Accuse de reception ${options.publicReference}`;
+    const subject = `WestDrive — Demande de reservation recue`;
     const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
-        <h2 style="margin-bottom: 8px;">WestDrive</h2>
-        <p>Bonjour ${options.requesterName},</p>
-        <p>Nous avons bien recu votre demande de reservation.</p>
-        <p>Reference: <strong>${options.publicReference}</strong></p>
-        <p>Notre equipe vous tiendra informe(e) de chaque evolution.</p>
+      <p style="margin: 0 0 16px;">Bonjour <strong>${options.requesterName}</strong>,</p>
+      <p style="margin: 0 0 12px;">Nous avons bien recu votre demande de reservation.</p>
+      <div style="margin: 20px 0; padding: 14px 16px; background: #f9fafb; border-radius: 10px; border: 1px solid #e5e7eb;">
+        <p style="margin: 0; font-size: 13px; color: #6b7280;">Reference</p>
+        <p style="margin: 4px 0 0; font-size: 18px; font-weight: 700; color: #111827; letter-spacing: 0.5px;">${options.publicReference}</p>
       </div>
+      <p style="margin: 0; font-size: 13px; color: #6b7280;">Notre equipe vous tiendra informe(e) de chaque evolution par e-mail.</p>
     `;
     const text = [
-      'WestDrive',
       `Bonjour ${options.requesterName},`,
       'Nous avons bien recu votre demande de reservation.',
-      `Reference: ${options.publicReference}`,
-      'Notre equipe vous tiendra informe(e) de chaque evolution.',
+      `Reference : ${options.publicReference}`,
+      'Notre equipe vous tiendra informe(e) de chaque evolution par e-mail.',
     ].join('\n');
 
     await this.sendEmail({ to: options.to, subject, html, text });
@@ -166,22 +171,22 @@ export class MailService {
     newStatus: string;
     comment?: string;
   }): Promise<void> {
-    const subject = `WestDrive - Mise a jour reservation ${options.publicReference}`;
+    const subject = `WestDrive — Reservation ${options.publicReference} mise a jour`;
     const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
-        <h2 style="margin-bottom: 8px;">WestDrive</h2>
-        <p>Bonjour ${options.requesterName},</p>
-        <p>Le statut de votre reservation <strong>${options.publicReference}</strong> a change.</p>
-        <p>Nouveau statut: <strong>${options.newStatus}</strong></p>
-        ${options.comment ? `<p>Commentaire: ${options.comment}</p>` : ''}
+      <p style="margin: 0 0 16px;">Bonjour <strong>${options.requesterName}</strong>,</p>
+      <p style="margin: 0 0 12px;">Le statut de votre reservation <strong>${options.publicReference}</strong> vient d&apos;etre mis a jour.</p>
+      <div style="margin: 20px 0; padding: 14px 16px; background: #f9fafb; border-radius: 10px; border: 1px solid #e5e7eb;">
+        <p style="margin: 0; font-size: 13px; color: #6b7280;">Nouveau statut</p>
+        <p style="margin: 4px 0 0; font-size: 16px; font-weight: 700; color: #111827;">${options.newStatus}</p>
+        ${options.comment ? `<hr style="margin: 10px 0; border: none; border-top: 1px solid #e5e7eb;"><p style="margin: 0; font-size: 13px; color: #374151;"><strong>Commentaire&nbsp;:</strong> ${options.comment}</p>` : ''}
       </div>
+      <p style="margin: 0; font-size: 13px; color: #9ca3af;">Vous recevrez un nouvel e-mail a chaque &eacute;tape importante de votre dossier.</p>
     `;
     const text = [
-      'WestDrive',
       `Bonjour ${options.requesterName},`,
-      `Le statut de votre reservation ${options.publicReference} a change.`,
-      `Nouveau statut: ${options.newStatus}`,
-      options.comment ? `Commentaire: ${options.comment}` : '',
+      `Le statut de votre reservation ${options.publicReference} a ete mis a jour.`,
+      `Nouveau statut : ${options.newStatus}`,
+      options.comment ? `Commentaire : ${options.comment}` : '',
     ].join('\n');
 
     await this.sendEmail({ to: options.to, subject, html, text });
@@ -194,20 +199,19 @@ export class MailService {
     title: string;
     description?: string;
   }): Promise<void> {
-    const subject = `WestDrive - Nouvel evenement ${options.publicReference}`;
+    const subject = `WestDrive — Nouvel evenement sur votre reservation`;
     const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
-        <h2 style="margin-bottom: 8px;">WestDrive</h2>
-        <p>Bonjour ${options.requesterName},</p>
-        <p>Un nouvel evenement a ete ajoute a votre reservation <strong>${options.publicReference}</strong>.</p>
-        <p><strong>${options.title}</strong></p>
-        ${options.description ? `<p>${options.description}</p>` : ''}
+      <p style="margin: 0 0 16px;">Bonjour <strong>${options.requesterName}</strong>,</p>
+      <p style="margin: 0 0 12px;">Un nouvel &eacute;v&eacute;nement a &eacute;t&eacute; ajout&eacute; &agrave; votre r&eacute;servation <strong>${options.publicReference}</strong>&nbsp;:</p>
+      <div style="margin: 20px 0; padding: 14px 16px; background: #f9fafb; border-radius: 10px; border: 1px solid #e5e7eb;">
+        <p style="margin: 0; font-weight: 700; font-size: 15px; color: #111827;">${options.title}</p>
+        ${options.description ? `<p style="margin: 8px 0 0; font-size: 13px; color: #374151;">${options.description}</p>` : ''}
       </div>
+      <p style="margin: 0; font-size: 13px; color: #9ca3af;">Pour toute question, contactez-nous &agrave; contact@pariswestdrive.fr.</p>
     `;
     const text = [
-      'WestDrive',
       `Bonjour ${options.requesterName},`,
-      `Un nouvel evenement a ete ajoute a votre reservation ${options.publicReference}.`,
+      `Nouvel evenement sur votre reservation ${options.publicReference} :`,
       options.title,
       options.description ?? '',
     ].join('\n');
@@ -221,20 +225,20 @@ export class MailService {
     requesterEmail: string;
     publicReference: string;
   }): Promise<void> {
-    const subject = `WestDrive - Nouvelle demande ${options.publicReference}`;
+    const subject = `[Back-office] Nouvelle reservation — ${options.publicReference}`;
     const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
-        <h2 style="margin-bottom: 8px;">WestDrive - Back Office</h2>
-        <p>Nouvelle demande de reservation recue.</p>
-        <p>Reference: <strong>${options.publicReference}</strong></p>
-        <p>Client: ${options.requesterName} (${options.requesterEmail})</p>
+      <p style="margin: 0 0 16px; font-weight: 600; color: #111827;">Nouvelle demande de reservation recue</p>
+      <div style="margin: 0 0 16px; padding: 14px 16px; background: #f9fafb; border-radius: 10px; border: 1px solid #e5e7eb; font-size: 14px;">
+        <p style="margin: 0 0 6px;"><span style="color: #6b7280;">Reference&nbsp;:</span> <strong>${options.publicReference}</strong></p>
+        <p style="margin: 0 0 6px;"><span style="color: #6b7280;">Client&nbsp;:</span> ${options.requesterName}</p>
+        <p style="margin: 0;"><span style="color: #6b7280;">E-mail&nbsp;:</span> ${options.requesterEmail}</p>
       </div>
+      <p style="margin: 0; font-size: 12px; color: #9ca3af;">Rendez-vous dans le back-office pour traiter cette demande.</p>
     `;
     const text = [
-      'WestDrive - Back Office',
-      'Nouvelle demande de reservation recue.',
-      `Reference: ${options.publicReference}`,
-      `Client: ${options.requesterName} (${options.requesterEmail})`,
+      '[Back-office] Nouvelle reservation',
+      `Reference : ${options.publicReference}`,
+      `Client : ${options.requesterName} (${options.requesterEmail})`,
     ].join('\n');
 
     await this.sendEmail({ to: options.to, subject, html, text });
@@ -246,23 +250,21 @@ export class MailService {
     publicReference: string;
     setupUrl: string;
   }): Promise<void> {
-    const subject = 'WestDrive - Finalisez votre inscription';
+    const subject = 'WestDrive — Finalisez votre inscription';
     const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
-        <h2 style="margin-bottom: 8px;">WestDrive</h2>
-        <p>Bonjour ${options.requesterName},</p>
-        <p>Votre reservation <strong>${options.publicReference}</strong> est en cours de traitement.</p>
-        <p>Pour suivre son evolution depuis votre espace client, finalisez votre inscription:</p>
-        <p><a href="${options.setupUrl}" style="display:inline-block; padding:10px 14px; background:#111827; color:#fff; text-decoration:none; border-radius:6px;">Definir mon mot de passe</a></p>
-        <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur:</p>
-        <p>${options.setupUrl}</p>
+      <p style="margin: 0 0 16px;">Bonjour <strong>${options.requesterName}</strong>,</p>
+      <p style="margin: 0 0 12px;">Votre reservation <strong>${options.publicReference}</strong> est en cours de traitement.</p>
+      <p style="margin: 0 0 20px;">Pour suivre son &eacute;volution depuis votre espace client, finalisez votre inscription en definissant votre mot de passe&nbsp;:</p>
+      <div style="margin: 0 0 20px; text-align: center;">
+        <a href="${options.setupUrl}" style="display: inline-block; padding: 13px 28px; background: #111111; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 14px; letter-spacing: 0.3px;">D&eacute;finir mon mot de passe</a>
       </div>
+      <p style="margin: 0 0 6px; font-size: 12px; color: #9ca3af;">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur&nbsp;:</p>
+      <p style="margin: 0; font-size: 12px; word-break: break-all; color: #6b7280;">${options.setupUrl}</p>
     `;
     const text = [
-      'WestDrive',
       `Bonjour ${options.requesterName},`,
       `Votre reservation ${options.publicReference} est en cours de traitement.`,
-      'Finalisez votre inscription pour suivre son evolution:',
+      'Finalisez votre inscription pour suivre son evolution :',
       options.setupUrl,
     ].join('\n');
 
@@ -275,23 +277,21 @@ export class MailService {
     publicReference: string;
     activationUrl: string;
   }): Promise<void> {
-    const subject = 'WestDrive - Activez votre espace devis';
+    const subject = 'WestDrive — Activez votre espace devis';
     const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
-        <h2 style="margin-bottom: 8px;">WestDrive</h2>
-        <p>Bonjour ${options.requesterName},</p>
-        <p>Votre demande de devis <strong>${options.publicReference}</strong> est bien enregistree.</p>
-        <p>Pour suivre son evolution depuis votre espace client, activez votre compte (lien valide 24h):</p>
-        <p><a href="${options.activationUrl}" style="display:inline-block; padding:10px 14px; background:#111827; color:#fff; text-decoration:none; border-radius:6px;">Activer mon compte</a></p>
-        <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur:</p>
-        <p>${options.activationUrl}</p>
+      <p style="margin: 0 0 16px;">Bonjour <strong>${options.requesterName}</strong>,</p>
+      <p style="margin: 0 0 12px;">Votre demande de devis <strong>${options.publicReference}</strong> est bien enregistree.</p>
+      <p style="margin: 0 0 20px;">Pour suivre son evolution depuis votre espace client, activez votre compte (lien valable 24&nbsp;h)&nbsp;:</p>
+      <div style="margin: 0 0 20px; text-align: center;">
+        <a href="${options.activationUrl}" style="display: inline-block; padding: 13px 28px; background: #111111; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 14px; letter-spacing: 0.3px;">Activer mon compte</a>
       </div>
+      <p style="margin: 0 0 6px; font-size: 12px; color: #9ca3af;">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur&nbsp;:</p>
+      <p style="margin: 0; font-size: 12px; word-break: break-all; color: #6b7280;">${options.activationUrl}</p>
     `;
     const text = [
-      'WestDrive',
       `Bonjour ${options.requesterName},`,
       `Votre demande de devis ${options.publicReference} est bien enregistree.`,
-      'Activez votre compte (lien valide 24h) pour suivre son evolution:',
+      'Activez votre compte (lien valable 24 h) pour suivre son evolution :',
       options.activationUrl,
     ].join('\n');
 
@@ -304,22 +304,20 @@ export class MailService {
     publicReference: string;
     paymentUrl: string;
   }): Promise<void> {
-    const subject = `WestDrive - Lien de paiement reservation ${options.publicReference}`;
+    const subject = `WestDrive — Lien de paiement reservation ${options.publicReference}`;
     const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
-        <h2 style="margin-bottom: 8px;">WestDrive</h2>
-        <p>Bonjour ${options.requesterName},</p>
-        <p>Voici votre lien de paiement securise pour la reservation <strong>${options.publicReference}</strong>.</p>
-        <p>Vous pourrez reutiliser cet email plus tard si necessaire.</p>
-        <p><a href="${options.paymentUrl}" style="display:inline-block; padding:10px 14px; background:#111827; color:#fff; text-decoration:none; border-radius:6px;">Payer ma reservation</a></p>
-        <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur:</p>
-        <p>${options.paymentUrl}</p>
+      <p style="margin: 0 0 16px;">Bonjour <strong>${options.requesterName}</strong>,</p>
+      <p style="margin: 0 0 12px;">Voici votre lien de paiement securise pour la reservation <strong>${options.publicReference}</strong>.</p>
+      <p style="margin: 0 0 20px; font-size: 13px; color: #6b7280;">Conservez cet e-mail&nbsp;: vous pourrez utiliser ce lien ulterieurement si necessaire.</p>
+      <div style="margin: 0 0 20px; text-align: center;">
+        <a href="${options.paymentUrl}" style="display: inline-block; padding: 13px 28px; background: #111111; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 14px; letter-spacing: 0.3px;">Payer ma reservation</a>
       </div>
+      <p style="margin: 0 0 6px; font-size: 12px; color: #9ca3af;">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur&nbsp;:</p>
+      <p style="margin: 0; font-size: 12px; word-break: break-all; color: #6b7280;">${options.paymentUrl}</p>
     `;
     const text = [
-      'WestDrive',
       `Bonjour ${options.requesterName},`,
-      `Lien de paiement pour la reservation ${options.publicReference}:`,
+      `Lien de paiement pour la reservation ${options.publicReference} :`,
       options.paymentUrl,
     ].join('\n');
 
@@ -331,20 +329,21 @@ export class MailService {
     requesterName: string;
     publicReference: string;
   }): Promise<void> {
-    const subject = `WestDrive - Paiement confirme ${options.publicReference}`;
+    const subject = `WestDrive — Paiement confirme — ${options.publicReference}`;
     const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
-        <h2 style="margin-bottom: 8px;">WestDrive</h2>
-        <p>Bonjour ${options.requesterName},</p>
-        <p>Nous confirmons la bonne reception de votre paiement pour la reservation <strong>${options.publicReference}</strong>.</p>
-        <p>Votre reservation est maintenant confirmee. Notre equipe vous enverra les details de prise en charge.</p>
+      <p style="margin: 0 0 16px;">Bonjour <strong>${options.requesterName}</strong>,</p>
+      <p style="margin: 0 0 12px;">Nous confirmons la bonne reception de votre paiement pour la reservation <strong>${options.publicReference}</strong>.</p>
+      <div style="margin: 20px 0; padding: 14px 16px; background: #f0fdf4; border-radius: 10px; border: 1px solid #bbf7d0;">
+        <p style="margin: 0; font-size: 14px; color: #166534; font-weight: 600;">Paiement recu avec succes</p>
+        <p style="margin: 6px 0 0; font-size: 13px; color: #15803d;">Votre reservation est desormais confirmee.</p>
       </div>
+      <p style="margin: 0; font-size: 13px; color: #6b7280;">Notre equipe vous enverra prochainement les details de votre prise en charge.</p>
     `;
     const text = [
-      'WestDrive',
       `Bonjour ${options.requesterName},`,
       `Paiement confirme pour la reservation ${options.publicReference}.`,
-      'Votre reservation est maintenant confirmee.',
+      'Votre reservation est desormais confirmee.',
+      'Notre equipe vous enverra prochainement les details de votre prise en charge.',
     ].join('\n');
 
     await this.sendEmail({ to: options.to, subject, html, text });
@@ -356,23 +355,21 @@ export class MailService {
     roleName: string;
     activationUrl: string;
   }): Promise<void> {
-    const subject = `WestDrive - Invitation equipe (${options.roleName})`;
+    const subject = `WestDrive — Invitation a rejoindre l'equipe`;
     const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
-        <h2 style="margin-bottom: 8px;">WestDrive - Espace equipe</h2>
-        <p>Bonjour ${options.inviteeName},</p>
-        <p>Vous avez ete invite(e) a rejoindre l equipe WestDrive avec le role <strong>${options.roleName}</strong>.</p>
-        <p>Pour activer votre compte et definir votre mot de passe, utilisez le lien ci-dessous (valide 24h) :</p>
-        <p><a href="${options.activationUrl}" style="display:inline-block; padding:10px 14px; background:#111827; color:#fff; text-decoration:none; border-radius:6px;">Activer mon compte</a></p>
-        <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
-        <p>${options.activationUrl}</p>
+      <p style="margin: 0 0 16px;">Bonjour <strong>${options.inviteeName}</strong>,</p>
+      <p style="margin: 0 0 12px;">Vous avez ete invite(e) &agrave; rejoindre l&apos;&eacute;quipe WestDrive avec le r&ocirc;le <strong>${options.roleName}</strong>.</p>
+      <p style="margin: 0 0 20px;">Pour activer votre compte et definir votre mot de passe, cliquez sur le bouton ci-dessous (lien valable 24&nbsp;h)&nbsp;:</p>
+      <div style="margin: 0 0 20px; text-align: center;">
+        <a href="${options.activationUrl}" style="display: inline-block; padding: 13px 28px; background: #111111; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 14px; letter-spacing: 0.3px;">Activer mon compte</a>
       </div>
+      <p style="margin: 0 0 6px; font-size: 12px; color: #9ca3af;">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur&nbsp;:</p>
+      <p style="margin: 0; font-size: 12px; word-break: break-all; color: #6b7280;">${options.activationUrl}</p>
     `;
     const text = [
-      'WestDrive - Espace equipe',
       `Bonjour ${options.inviteeName},`,
-      `Vous avez ete invite(e) avec le role ${options.roleName}.`,
-      'Activez votre compte ici (valide 24h):',
+      `Vous avez ete invite(e) a rejoindre l'equipe WestDrive avec le role ${options.roleName}.`,
+      'Activez votre compte (lien valable 24 h) :',
       options.activationUrl,
     ].join('\n');
 
@@ -384,21 +381,21 @@ export class MailService {
     requesterName: string;
     publicReference: string;
   }): Promise<void> {
-    const subject = `WestDrive - Accuse de reception devis ${options.publicReference}`;
+    const subject = `WestDrive — Demande de devis bien recue`;
     const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
-        <h2 style="margin-bottom: 8px;">WestDrive</h2>
-        <p>Bonjour ${options.requesterName},</p>
-        <p>Nous avons bien recu votre demande de devis.</p>
-        <p>Reference devis: <strong>${options.publicReference}</strong></p>
-        <p>Notre equipe commerciale vous contactera rapidement avec une proposition adaptee.</p>
+      <p style="margin: 0 0 16px;">Bonjour <strong>${options.requesterName}</strong>,</p>
+      <p style="margin: 0 0 12px;">Nous avons bien recu votre demande de devis.</p>
+      <div style="margin: 20px 0; padding: 14px 16px; background: #f9fafb; border-radius: 10px; border: 1px solid #e5e7eb;">
+        <p style="margin: 0; font-size: 13px; color: #6b7280;">Reference devis</p>
+        <p style="margin: 4px 0 0; font-size: 18px; font-weight: 700; color: #111827; letter-spacing: 0.5px;">${options.publicReference}</p>
       </div>
+      <p style="margin: 0; font-size: 13px; color: #6b7280;">Notre equipe commerciale vous contactera rapidement avec une proposition adaptee &agrave; vos besoins.</p>
     `;
     const text = [
-      'WestDrive',
       `Bonjour ${options.requesterName},`,
       'Nous avons bien recu votre demande de devis.',
-      `Reference devis: ${options.publicReference}`,
+      `Reference devis : ${options.publicReference}`,
+      'Notre equipe commerciale vous contactera rapidement.',
     ].join('\n');
 
     await this.sendEmail({ to: options.to, subject, html, text });
@@ -410,20 +407,20 @@ export class MailService {
     requesterEmail: string;
     publicReference: string;
   }): Promise<void> {
-    const subject = `WestDrive - Nouveau devis ${options.publicReference}`;
+    const subject = `[Back-office] Nouveau devis — ${options.publicReference}`;
     const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
-        <h2 style="margin-bottom: 8px;">WestDrive - Back Office</h2>
-        <p>Nouvelle demande de devis recue.</p>
-        <p>Reference: <strong>${options.publicReference}</strong></p>
-        <p>Client: ${options.requesterName} (${options.requesterEmail})</p>
+      <p style="margin: 0 0 16px; font-weight: 600; color: #111827;">Nouvelle demande de devis recue</p>
+      <div style="margin: 0 0 16px; padding: 14px 16px; background: #f9fafb; border-radius: 10px; border: 1px solid #e5e7eb; font-size: 14px;">
+        <p style="margin: 0 0 6px;"><span style="color: #6b7280;">Reference&nbsp;:</span> <strong>${options.publicReference}</strong></p>
+        <p style="margin: 0 0 6px;"><span style="color: #6b7280;">Client&nbsp;:</span> ${options.requesterName}</p>
+        <p style="margin: 0;"><span style="color: #6b7280;">E-mail&nbsp;:</span> ${options.requesterEmail}</p>
       </div>
+      <p style="margin: 0; font-size: 12px; color: #9ca3af;">Rendez-vous dans le back-office pour traiter cette demande.</p>
     `;
     const text = [
-      'WestDrive - Back Office',
-      'Nouvelle demande de devis recue.',
-      `Reference: ${options.publicReference}`,
-      `Client: ${options.requesterName} (${options.requesterEmail})`,
+      '[Back-office] Nouveau devis',
+      `Reference : ${options.publicReference}`,
+      `Client : ${options.requesterName} (${options.requesterEmail})`,
     ].join('\n');
 
     await this.sendEmail({ to: options.to, subject, html, text });
@@ -439,27 +436,28 @@ export class MailService {
     message?: string;
   }): Promise<void> {
     const formattedAmount = `${options.amountTtc.toFixed(2)} ${options.currency}`;
-    const subject = `WestDrive - Proposition devis ${options.publicReference}`;
+    const subject = `WestDrive — Votre devis ${options.publicReference} est pret`;
     const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
-        <h2 style="margin-bottom: 8px;">WestDrive</h2>
-        <p>Bonjour ${options.requesterName},</p>
-        <p>Votre devis <strong>${options.publicReference}</strong> est pret.</p>
-        <p>Montant propose: <strong>${formattedAmount}</strong></p>
-        ${options.message ? `<p>${options.message}</p>` : ''}
-        <p>Pour valider votre devis, reglez en ligne via le lien securise suivant:</p>
-        <p><a href="${options.paymentUrl}" style="display:inline-block; padding:10px 14px; background:#111827; color:#fff; text-decoration:none; border-radius:6px;">Payer mon devis</a></p>
-        <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur:</p>
-        <p>${options.paymentUrl}</p>
+      <p style="margin: 0 0 16px;">Bonjour <strong>${options.requesterName}</strong>,</p>
+      <p style="margin: 0 0 12px;">Votre devis <strong>${options.publicReference}</strong> est pret.</p>
+      <div style="margin: 20px 0; padding: 14px 16px; background: #f9fafb; border-radius: 10px; border: 1px solid #e5e7eb;">
+        <p style="margin: 0; font-size: 13px; color: #6b7280;">Montant TTC propose</p>
+        <p style="margin: 4px 0 0; font-size: 22px; font-weight: 800; color: #111827;">${formattedAmount}</p>
+        ${options.message ? `<hr style="margin: 10px 0; border: none; border-top: 1px solid #e5e7eb;"><p style="margin: 0; font-size: 13px; color: #374151;">${options.message}</p>` : ''}
       </div>
+      <p style="margin: 0 0 20px; font-size: 14px;">Pour valider votre devis, reglez en ligne via le lien securise suivant&nbsp;:</p>
+      <div style="margin: 0 0 20px; text-align: center;">
+        <a href="${options.paymentUrl}" style="display: inline-block; padding: 13px 28px; background: #111111; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 14px; letter-spacing: 0.3px;">Payer mon devis</a>
+      </div>
+      <p style="margin: 0 0 6px; font-size: 12px; color: #9ca3af;">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur&nbsp;:</p>
+      <p style="margin: 0; font-size: 12px; word-break: break-all; color: #6b7280;">${options.paymentUrl}</p>
     `;
     const text = [
-      'WestDrive',
       `Bonjour ${options.requesterName},`,
       `Votre devis ${options.publicReference} est pret.`,
-      `Montant propose: ${formattedAmount}`,
+      `Montant TTC propose : ${formattedAmount}`,
       options.message ?? '',
-      'Payer le devis:',
+      'Payer le devis :',
       options.paymentUrl,
     ].join('\n');
 
@@ -472,22 +470,18 @@ export class MailService {
     publicReference: string;
     message?: string;
   }): Promise<void> {
-    const subject = `WestDrive - Mise a jour devis ${options.publicReference}`;
+    const subject = `WestDrive — Mise a jour de votre devis ${options.publicReference}`;
     const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
-        <h2 style="margin-bottom: 8px;">WestDrive</h2>
-        <p>Bonjour ${options.requesterName},</p>
-        <p>Apres etude, nous ne pouvons pas donner suite au devis <strong>${options.publicReference}</strong> pour le moment.</p>
-        ${options.message ? `<p>Commentaire: ${options.message}</p>` : ''}
-        <p>Notre equipe reste disponible pour ajuster votre besoin et vous proposer une autre solution.</p>
-      </div>
+      <p style="margin: 0 0 16px;">Bonjour <strong>${options.requesterName}</strong>,</p>
+      <p style="margin: 0 0 12px;">Apres analyse, nous ne sommes pas en mesure de donner suite au devis <strong>${options.publicReference}</strong> pour le moment.</p>
+      ${options.message ? `<div style="margin: 20px 0; padding: 14px 16px; background: #f9fafb; border-radius: 10px; border: 1px solid #e5e7eb;"><p style="margin: 0; font-size: 13px; color: #374151;"><strong>Commentaire&nbsp;:</strong> ${options.message}</p></div>` : '<div style="margin: 12px 0;"></div>'}
+      <p style="margin: 0; font-size: 13px; color: #6b7280;">Notre equipe reste disponible pour etudier toute demande alternative. N&apos;hesitez pas &agrave; nous contacter &agrave; l&apos;adresse contact@pariswestdrive.fr.</p>
     `;
     const text = [
-      'WestDrive',
       `Bonjour ${options.requesterName},`,
-      `Le devis ${options.publicReference} a ete refuse.`,
-      options.message ? `Commentaire: ${options.message}` : '',
-      'Notre equipe peut vous proposer une alternative si besoin.',
+      `Apres analyse, nous ne pouvons pas donner suite au devis ${options.publicReference} pour le moment.`,
+      options.message ? `Commentaire : ${options.message}` : '',
+      'Notre equipe reste disponible pour toute demande alternative.',
     ].join('\n');
 
     await this.sendEmail({ to: options.to, subject, html, text });
@@ -499,20 +493,18 @@ export class MailService {
     publicReference: string;
     comment?: string;
   }): Promise<void> {
-    const subject = `WestDrive - Devis ${options.publicReference} en analyse`;
+    const subject = `WestDrive — Votre devis ${options.publicReference} est en cours d'analyse`;
     const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
-        <h2 style="margin-bottom: 8px;">WestDrive</h2>
-        <p>Bonjour ${options.requesterName},</p>
-        <p>Votre devis <strong>${options.publicReference}</strong> est en cours d analyse par notre equipe.</p>
-        ${options.comment ? `<p>Commentaire: ${options.comment}</p>` : ''}
-      </div>
+      <p style="margin: 0 0 16px;">Bonjour <strong>${options.requesterName}</strong>,</p>
+      <p style="margin: 0 0 12px;">Votre devis <strong>${options.publicReference}</strong> est actuellement en cours d&apos;analyse par notre equipe commerciale.</p>
+      ${options.comment ? `<div style="margin: 20px 0; padding: 14px 16px; background: #f9fafb; border-radius: 10px; border: 1px solid #e5e7eb;"><p style="margin: 0; font-size: 13px; color: #374151;"><strong>Commentaire&nbsp;:</strong> ${options.comment}</p></div>` : '<div style="margin: 12px 0;"></div>'}
+      <p style="margin: 0; font-size: 13px; color: #6b7280;">Nous revenons vers vous des que notre analyse est terminee.</p>
     `;
     const text = [
-      'WestDrive',
       `Bonjour ${options.requesterName},`,
-      `Votre devis ${options.publicReference} est en cours d analyse.`,
-      options.comment ? `Commentaire: ${options.comment}` : '',
+      `Votre devis ${options.publicReference} est en cours d'analyse par notre equipe.`,
+      options.comment ? `Commentaire : ${options.comment}` : '',
+      'Nous revenons vers vous des que notre analyse est terminee.',
     ].join('\n');
 
     await this.sendEmail({ to: options.to, subject, html, text });
@@ -524,19 +516,16 @@ export class MailService {
     publicReference: string;
     message?: string;
   }): Promise<void> {
-    const subject = `WestDrive - Mise a jour de votre devis ${options.publicReference}`;
+    const subject = `WestDrive — Mise a jour de votre devis ${options.publicReference}`;
     const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
-        <h2 style="margin-bottom: 8px;">WestDrive</h2>
-        <p>Bonjour ${options.requesterName},</p>
-        <p>Votre devis <strong>${options.publicReference}</strong> est en negociation.</p>
-        ${options.message ? `<p>${options.message}</p>` : ''}
-      </div>
+      <p style="margin: 0 0 16px;">Bonjour <strong>${options.requesterName}</strong>,</p>
+      <p style="margin: 0 0 12px;">Une mise a jour a ete apportee a votre devis <strong>${options.publicReference}</strong>, actuellement en negociation.</p>
+      ${options.message ? `<div style="margin: 20px 0; padding: 14px 16px; background: #fefce8; border-radius: 10px; border: 1px solid #fef08a;"><p style="margin: 0; font-size: 13px; color: #713f12;">${options.message}</p></div>` : '<div style="margin: 12px 0;"></div>'}
+      <p style="margin: 0; font-size: 13px; color: #6b7280;">Pour toute question, contactez-nous &agrave; contact@pariswestdrive.fr.</p>
     `;
     const text = [
-      'WestDrive',
       `Bonjour ${options.requesterName},`,
-      `Votre devis ${options.publicReference} est en negociation.`,
+      `Votre devis ${options.publicReference} est en negociation — une mise a jour a ete apportee.`,
       options.message ?? '',
     ].join('\n');
 
@@ -551,21 +540,21 @@ export class MailService {
     currency: string;
   }): Promise<void> {
     const formattedAmount = `${options.amountTtc.toFixed(2)} ${options.currency}`;
-    const subject = `WestDrive - Paiement devis confirme ${options.publicReference}`;
+    const subject = `WestDrive — Paiement devis confirme — ${options.publicReference}`;
     const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
-        <h2 style="margin-bottom: 8px;">WestDrive</h2>
-        <p>Bonjour ${options.requesterName},</p>
-        <p>Nous confirmons la reception de votre paiement pour le devis <strong>${options.publicReference}</strong>.</p>
-        <p>Montant regle: <strong>${formattedAmount}</strong></p>
-        <p>Notre equipe vous recontacte rapidement pour la suite de votre reservation.</p>
+      <p style="margin: 0 0 16px;">Bonjour <strong>${options.requesterName}</strong>,</p>
+      <p style="margin: 0 0 12px;">Nous confirmons la bonne reception de votre paiement pour le devis <strong>${options.publicReference}</strong>.</p>
+      <div style="margin: 20px 0; padding: 14px 16px; background: #f0fdf4; border-radius: 10px; border: 1px solid #bbf7d0;">
+        <p style="margin: 0; font-size: 13px; color: #166534; font-weight: 600;">Paiement recu avec succes</p>
+        <p style="margin: 6px 0 0; font-size: 20px; font-weight: 800; color: #15803d;">${formattedAmount}</p>
       </div>
+      <p style="margin: 0; font-size: 13px; color: #6b7280;">Notre equipe vous recontacte rapidement pour la suite de votre dossier.</p>
     `;
     const text = [
-      'WestDrive',
       `Bonjour ${options.requesterName},`,
       `Paiement confirme pour le devis ${options.publicReference}.`,
-      `Montant regle: ${formattedAmount}`,
+      `Montant regle : ${formattedAmount}`,
+      'Notre equipe vous recontacte rapidement.',
     ].join('\n');
 
     await this.sendEmail({ to: options.to, subject, html, text });
@@ -579,23 +568,23 @@ export class MailService {
     subject: string;
     message: string;
   }): Promise<void> {
-    const subject = `WestDrive - Nouveau message contact: ${options.subject}`;
+    const subject = `[Contact] ${options.subject} — ${options.requesterName}`;
     const html = `
-      <h2 style="margin: 0 0 10px; font-size: 20px; color: #111827;">Nouveau message contact</h2>
-      <div style="border: 1px solid #f3f4f6; border-radius: 12px; padding: 14px; background: #ffffff;">
-        <p style="margin: 0 0 6px;"><strong>Nom:</strong> ${options.requesterName}</p>
-        <p style="margin: 0 0 6px;"><strong>Email:</strong> ${options.requesterEmail}</p>
-        ${options.requesterPhone ? `<p style="margin: 0 0 6px;"><strong>Telephone:</strong> ${options.requesterPhone}</p>` : ''}
-        <p style="margin: 0 0 10px;"><strong>Sujet:</strong> ${options.subject}</p>
-        <div style="background: #fafafa; border-radius: 10px; padding: 12px; white-space: pre-line; color: #111827;">${options.message}</div>
+      <p style="margin: 0 0 16px; font-weight: 600; color: #111827;">Nouveau message via le formulaire de contact</p>
+      <div style="margin: 0 0 16px; padding: 14px 16px; background: #f9fafb; border-radius: 10px; border: 1px solid #e5e7eb; font-size: 14px;">
+        <p style="margin: 0 0 6px;"><span style="color: #6b7280;">Nom&nbsp;:</span> ${options.requesterName}</p>
+        <p style="margin: 0 0 6px;"><span style="color: #6b7280;">E-mail&nbsp;:</span> ${options.requesterEmail}</p>
+        ${options.requesterPhone ? `<p style="margin: 0 0 6px;"><span style="color: #6b7280;">T&eacute;l&eacute;phone&nbsp;:</span> ${options.requesterPhone}</p>` : ''}
+        <p style="margin: 0;"><span style="color: #6b7280;">Sujet&nbsp;:</span> <strong>${options.subject}</strong></p>
       </div>
+      <div style="padding: 14px 16px; background: #ffffff; border-radius: 10px; border: 1px solid #e5e7eb; white-space: pre-line; font-size: 14px; color: #1f2937; line-height: 1.6;">${options.message}</div>
     `;
     const text = [
-      'WestDrive - Contact public',
-      `Nom: ${options.requesterName}`,
-      `Email: ${options.requesterEmail}`,
-      options.requesterPhone ? `Telephone: ${options.requesterPhone}` : '',
-      `Sujet: ${options.subject}`,
+      '[Contact]',
+      `Nom : ${options.requesterName}`,
+      `E-mail : ${options.requesterEmail}`,
+      options.requesterPhone ? `Telephone : ${options.requesterPhone}` : '',
+      `Sujet : ${options.subject}`,
       '',
       options.message,
     ].join('\n');
@@ -608,19 +597,16 @@ export class MailService {
     requesterName: string;
     subject: string;
   }): Promise<void> {
-    const subject = 'WestDrive - Message bien recu';
+    const subject = 'WestDrive — Message bien recu';
     const html = `
-      <h2 style="margin: 0 0 10px; font-size: 20px; color: #111827;">Message bien recu</h2>
-      <p style="margin: 0 0 8px;">Bonjour ${options.requesterName},</p>
-      <p style="margin: 0 0 8px;">
-        Nous avons bien recu votre message concernant: <strong>${options.subject}</strong>.
-      </p>
-      <p style="margin: 0;">Notre equipe WestDrive vous repondra dans les plus brefs delais.</p>
+      <p style="margin: 0 0 16px;">Bonjour <strong>${options.requesterName}</strong>,</p>
+      <p style="margin: 0 0 12px;">Nous avons bien recu votre message concernant&nbsp;: <strong>${options.subject}</strong>.</p>
+      <p style="margin: 0 0 20px;">Notre equipe WestDrive vous repondra dans les plus brefs delais.</p>
+      <p style="margin: 0; font-size: 13px; color: #9ca3af;">L&apos;equipe WestDrive &bull; contact@pariswestdrive.fr</p>
     `;
     const text = [
-      'WestDrive',
       `Bonjour ${options.requesterName},`,
-      `Nous avons bien recu votre message concernant: ${options.subject}.`,
+      `Nous avons bien recu votre message concernant : ${options.subject}.`,
       'Notre equipe vous repondra dans les plus brefs delais.',
     ].join('\n');
 
@@ -673,25 +659,20 @@ export class MailService {
     return 'unknown';
   }
 
-  private wrapWithBranding(subject: string, bodyHtml: string): string {
-    return `
-      <div style="margin: 0; padding: 28px 14px; background: #f5f5f5; font-family: Arial, sans-serif; color: #111827;">
-        <div style="max-width: 640px; margin: 0 auto; border-radius: 14px; overflow: hidden; border: 1px solid #e5e7eb; background: #ffffff;">
-          <div style="background: #111111; padding: 16px 20px;">
-            <span style="font-size: 18px; font-weight: 700; letter-spacing: 0.2px; color: #ffffff;">
-              WEST <span style="color: #ff4d00;">DRIVE</span>
-            </span>
-          </div>
-          <div style="padding: 18px 20px;">
-            ${bodyHtml}
-          </div>
-          <div style="border-top: 1px solid #f3f4f6; background: #fafafa; padding: 12px 20px;">
-            <p style="margin: 0; font-size: 12px; color: #6b7280;">
-              ${subject} · WestDrive · contact@pariswestdrive.fr
-            </p>
-          </div>
-        </div>
-      </div>
-    `;
+  private wrapWithBranding(_subject: string, bodyHtml: string): string {
+    return `<div style="margin: 0; padding: 32px 16px; background: #f3f4f6; font-family: 'Helvetica Neue', Arial, sans-serif; color: #1f2937;">
+  <div style="max-width: 600px; margin: 0 auto; border-radius: 16px; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: 0 2px 12px rgba(0,0,0,0.07); background: #ffffff;">
+    <div style="background: #111111; padding: 20px 28px; display: flex; align-items: center;">
+      <span style="font-size: 20px; font-weight: 800; letter-spacing: 1px; color: #ffffff; text-transform: uppercase;">West <span style="color: #ff4d00;">Drive</span></span>
+    </div>
+    <div style="padding: 28px 28px 24px; line-height: 1.65; font-size: 14px; color: #1f2937;">
+      ${bodyHtml}
+    </div>
+    <div style="border-top: 1px solid #f3f4f6; background: #fafafa; padding: 14px 28px;">
+      <p style="margin: 0 0 2px; font-size: 12px; color: #6b7280;">WestDrive &mdash; Location de v&eacute;hicules premium &agrave; Paris</p>
+      <p style="margin: 0; font-size: 12px; color: #9ca3af;">contact@pariswestdrive.fr &bull; www.pariswestdrive.fr</p>
+    </div>
+  </div>
+</div>`;
   }
 }

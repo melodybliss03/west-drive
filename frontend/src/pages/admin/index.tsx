@@ -21,6 +21,7 @@ import {
   reservationsService,
   notificationsService,
   quotesService,
+  reviewsService,
   usersService,
   vehiclesService,
 } from "@/lib/api/services";
@@ -108,6 +109,7 @@ export default function Boss() {
   const [avisPage, setAvisPage] = useState(1);
   const [avisLimit] = useState(10);
   const [avisMeta, setAvisMeta] = useState<PaginationMeta | null>(null);
+  const [avisRefreshKey, setAvisRefreshKey] = useState(0);
   const [notifications, setNotifications] = useState<NotifType[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -398,17 +400,18 @@ export default function Boss() {
     const loadAvis = async () => {
       setIsLoadingAvis(true);
       try {
-        // TODO: Charger les avis depuis une API d'avis
-        // Pour l'instant, les avis sont gérés localement dans le composant AvisTab
-        setAvis([]);
-        setAvisMeta({
-          page: avisPage,
-          limit: avisLimit,
-          totalItems: 0,
-          totalPages: 1,
-          hasNextPage: false,
-          hasPreviousPage: false,
-        });
+        const result = await reviewsService.adminList({ page: avisPage, limit: avisLimit });
+        setAvis(result.items.map(r => ({
+          id: r.id,
+          auteur: r.authorName,
+          titre: r.title ?? "",
+          contenu: r.content,
+          note: r.rating,
+          source: r.source ?? "Direct",
+          date: r.createdAt,
+          status: r.status,
+        })));
+        setAvisMeta(result.meta);
       } catch {
         setAvis([]);
         setAvisMeta(null);
@@ -418,7 +421,7 @@ export default function Boss() {
     };
 
     loadAvis();
-  }, [isBootstrapping, user, tab, avisPage, avisLimit]);
+  }, [isBootstrapping, user, tab, avisPage, avisLimit, avisRefreshKey]);
 
   if (!user) return <AdminAuth />;
   if (!isBackofficeUser) return null;
@@ -536,6 +539,7 @@ export default function Boss() {
                   meta={vehiclesMeta}
                   setMeta={setVehiclesMeta}
                   limit={vehiclesLimit}
+                  hasPermission={hasPermission}
                 />
               )}
               {tab === "reservations" && (
@@ -545,6 +549,7 @@ export default function Boss() {
                   page={reservationsPage}
                   setPage={setReservationsPage}
                   meta={reservationsMeta}
+                  hasPermission={hasPermission}
                 />
               )}
               {tab === "devis" && (
@@ -554,9 +559,10 @@ export default function Boss() {
                   page={devisPage}
                   setPage={setDevisPage}
                   meta={devisMeta}
+                  hasPermission={hasPermission}
                 />
               )}
-              {tab === "flotte" && <FlotteTab />}
+              {tab === "flotte" && <FlotteTab hasPermission={hasPermission} />}
               {tab === "avis" && (
                 <AvisTab
                   avis={avis}
@@ -564,6 +570,8 @@ export default function Boss() {
                   page={avisPage}
                   setPage={setAvisPage}
                   meta={avisMeta}
+                  onRefresh={() => setAvisRefreshKey(k => k + 1)}
+                  hasPermission={hasPermission}
                 />
               )}
               {tab === "utilisateurs" && (
@@ -575,6 +583,7 @@ export default function Boss() {
                   meta={usersMeta}
                   setMeta={setUsersMeta}
                   limit={usersLimit}
+                  hasPermission={hasPermission}
                 />
               )}
               {tab === "profil" && <ProfilTab />}
