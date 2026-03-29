@@ -62,7 +62,7 @@ export default function VehicleCoverageMap({ vehicles }: VehicleCoverageMapProps
   }, [validMarkers]);
 
   return (
-    <div className="relative max-w-5xl mx-auto rounded-2xl overflow-hidden border border-border shadow-lg mb-10">
+    <div className="relative z-30 max-w-5xl mx-auto rounded-2xl overflow-hidden border border-border shadow-lg mb-10">
       <div className="h-[550px] w-full bg-muted/30">
         <MapContainer
           center={center}

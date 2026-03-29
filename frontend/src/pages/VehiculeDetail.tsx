@@ -21,12 +21,14 @@ import TopBar from "@/components/TopBar";
 import ScrollToTop from "@/components/ScrollToTop";
 import { useVehiclesCatalog } from "@/hooks/useVehiclesCatalog";
 import ReservationDialog from "@/components/ReservationDialog";
+import ImageCarousel from "@/components/ImageCarousel";
 import { reviewsService } from "@/lib/api/services";
 
 const energieLabels: Record<string, string> = {
   ESSENCE: "Essence",
   DIESEL: "Diesel",
   ELECTRIQUE: "Électrique",
+  HYBRIDE: "Hybride",
 };
 
 export default function VehiculeDetail() {
@@ -85,8 +87,6 @@ export default function VehiculeDetail() {
     "Entretien et nettoyage",
   ];
 
-  const imageSrc = vehicule.photos[0];
-
   return (
     <div className="min-h-screen">
       <TopBar />
@@ -101,19 +101,14 @@ export default function VehiculeDetail() {
           </Link>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-            {/* Image */}
+            {/* Image Carousel */}
             <div className="rounded-xl overflow-hidden bg-muted aspect-[4/3]">
-              {imageSrc ? (
-                <img
-                  src={imageSrc}
-                  alt={`${vehicule.marque} ${vehicule.modele}`}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                  Aucune image disponible
-                </div>
-              )}
+              <ImageCarousel
+                images={vehicule.photos}
+                alt={`${vehicule.marque} ${vehicule.modele}`}
+                className="aspect-[4/3]"
+                showDots={vehicule.photos.length > 1}
+              />
             </div>
 
             {/* Info */}
@@ -139,13 +134,13 @@ export default function VehiculeDetail() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-1.5">
+              {/* <div className="flex items-center gap-1.5">
                 <Star className="h-4 w-4 fill-primary text-primary" />
                 <span className="font-semibold">{vehicule.note}</span>
                 <span className="text-muted-foreground text-sm">
                   ({vehicule.nbAvis} avis)
                 </span>
-              </div>
+              </div> */}
 
               <p className="text-muted-foreground leading-relaxed">
                 {vehicule.description}
@@ -159,6 +154,7 @@ export default function VehiculeDetail() {
                       ? "Automatique"
                       : "Manuelle"}
                   </span>
+
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Fuel className="h-4 w-4 text-primary" />
@@ -234,9 +230,21 @@ export default function VehiculeDetail() {
             </div>
           </div>
 
-          {/* Similaires */}
+          {similaires.length > 0 && (
+            <div className="mt-20">
+              <h2 className="font-display text-2xl font-bold mb-6">
+                Véhicules similaires
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {similaires.map((v, i) => (
+                  <VehiculeCard key={v.id} vehicule={v} index={i} />
+                ))}
+              </div>
+            </div>
+          )}
+
           {vehicleReviews?.items?.length ? (
-            <div className="mt-14">
+            <div className="mt-20">
               <h2 className="font-display text-2xl font-bold mb-6">Avis sur ce vehicule</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {vehicleReviews.items.map((review) => (
@@ -260,19 +268,6 @@ export default function VehiculeDetail() {
               </div>
             </div>
           ) : null}
-
-          {similaires.length > 0 && (
-            <div className="mt-20">
-              <h2 className="font-display text-2xl font-bold mb-6">
-                Véhicules similaires
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {similaires.map((v, i) => (
-                  <VehiculeCard key={v.id} vehicule={v} index={i} />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </main>
       <Footer />

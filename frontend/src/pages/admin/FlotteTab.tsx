@@ -699,21 +699,25 @@ export default function FlotteTab() {
             </div>
 
             <div>
-              <Label>Entretien requis - Jours</Label>
+              <Label>Derniers entretien</Label>
               <Input
-                type="number"
-                placeholder="Ex: 14"
+                type="date"
+                placeholder="11/08/2024"
                 value={maintenanceDays}
                 onChange={(e) => setMaintenanceDays(e.target.value)}
               />
             </div>
-
-            {selectedVehicle && selectedVehicle.km > 0 && (
-              <p className="text-xs text-muted-foreground">
-                Kilométrage précédent: {selectedVehicle.km.toLocaleString()} km
-              </p>
-            )}
           </div>
+
+          <div>
+              <Label>Prochain entretien</Label>
+              <Input
+                type="date"
+                placeholder="11/08/2024"
+                value={maintenanceDays}
+                onChange={(e) => setMaintenanceDays(e.target.value)}
+              />
+            </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setMileageDialog(false)}>

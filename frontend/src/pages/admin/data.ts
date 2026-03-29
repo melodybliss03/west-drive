@@ -1,7 +1,7 @@
 import { vehicules as mockVehicules, type Vehicule } from "@/data/mock";
 
 // ── Types ──
-export type TabKey = "kpi" | "vehicules" | "reservations" | "flotte" | "utilisateurs" | "profil" | "devis";
+export type TabKey = "kpi" | "vehicules" | "reservations" | "flotte" | "avis" | "utilisateurs" | "profil" | "devis";
 
 export interface TeamMember {
   id: string;
@@ -97,7 +97,7 @@ export interface FlotteItem {
 
 export interface Notification {
   id: string;
-  type: "reservation" | "devis" | "utilisateur" | "flotte";
+  type: "reservation" | "devis" | "utilisateur" | "flotte" | "avis";
   titre: string;
   message: string;
   date: string;
@@ -131,6 +131,18 @@ export interface DevisRow {
     | "annule";
   creeLe: string;
   commentaireRefus?: string;
+}
+
+export type AvisSource = "Getaround" | "Turo" | "Google" | "Direct" | "Autre";
+
+export interface AvisRow {
+  id: string;
+  auteur: string;
+  titre: string;
+  contenu: string;
+  note: number;
+  source: AvisSource;
+  date: string;
 }
 
 // ── Mock data ──
@@ -357,6 +369,7 @@ export const allPermissions = [
   { key: "vehicules", label: "Gestion des véhicules" },
   { key: "reservations", label: "Gestion des réservations" },
   { key: "flotte", label: "Gestion de la flotte" },
+  {key: "avis", label: "Gestion des avis" },
   { key: "utilisateurs", label: "Gestion des utilisateurs" },
 ];
 

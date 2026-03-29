@@ -30,6 +30,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import TopBar from "@/components/TopBar";
 import ScrollToTop from "@/components/ScrollToTop";
+import { generatePDFInvoice } from "@/components/InvoicePDF";
 import {
   CustomerQuoteResponseAction,
   NotificationDto,
@@ -390,6 +391,7 @@ export default function Espace() {
     loadQuotes(quotesPagination.page);
     loadNotifications();
     loadPendingReviews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, reservationsPagination.page, quotesPagination.page]);
 
   const filteredReservations = useMemo(() => {
@@ -525,27 +527,23 @@ export default function Espace() {
   };
 
   const downloadFacture = (facture: UiFacture) => {
-    const content = [
-      "WEST DRIVE - FACTURE",
-      "====================",
-      `N Facture   : ${facture.id}`,
-      `Reservation : ${facture.reservationId}`,
-      `Vehicule    : ${facture.vehicule}`,
-      `Ville       : ${facture.ville}`,
-      `Date        : ${fmtDate(facture.date)}`,
-      `Montant TTC : ${facture.montant} EUR`,
-      "====================",
-      "Merci de votre confiance.",
-    ].join("\n");
-
-    const blob = new Blob([content], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${facture.id}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast({ title: "Facture telechargee", description: `${facture.id} telechargee avec succes.` });
+    const clientName = user?.firstName && user?.lastName 
+      ? `${user.firstName} ${user.lastName}` 
+      : user?.email || 'Client';
+    
+    generatePDFInvoice({
+      id: facture.id,
+      reservationId: facture.reservationId,
+      clientName,
+      clientEmail: user?.email || 'contact@westdrive.fr',
+      date: fmtDate(facture.date),
+      vehicule: facture.vehicule,
+      ville: facture.ville,
+      montant: facture.montant,
+      description: 'Location de véhicule - Facture'
+    });
+    
+    toast({ title: "Facture téléchargée", description: `${facture.id} téléchargée avec succès.` });
   };
 
   const submitReview = async () => {
@@ -849,8 +847,8 @@ export default function Espace() {
                         <TableCell className="text-xs hidden md:table-cell">{f.ville}</TableCell>
                         <TableCell className="font-semibold text-primary">{f.montant} EUR</TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => downloadFacture(f)}>
-                            <Download className="h-4 w-4" /> TXT
+                          <Button variant="ghost" size="sm" className="gap-1.5 text-primary hover:text-primary hover:bg-primary/10" onClick={() => downloadFacture(f)}>
+                            <Download className="h-4 w-4" /> PDF
                           </Button>
                         </TableCell>
                       </TableRow>
