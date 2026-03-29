@@ -14,6 +14,8 @@ import {
 } from '../shared/pagination/pagination.util';
 import { User } from '../users/entities/user.entity';
 import { Vehicle } from '../vehicles/entities/vehicle.entity';
+import { AdminCreateReviewDto } from './dto/admin-create-review.dto';
+import { AdminUpdateReviewDto } from './dto/admin-update-review.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { Review, ReviewStatus } from './entities/review.entity';
 
@@ -231,5 +233,122 @@ export class ReviewsService {
         reviewCount,
       },
     );
+  }
+
+  // ─── Admin methods ─────────────────────────────────────────────────────────
+
+  async adminList(
+    page = 1,
+    limit = 20,
+    filters: {
+      status?: ReviewStatus;
+      minRating?: number;
+      maxRating?: number;
+      source?: string;
+    } = {},
+  ): Promise<PaginatedResponse<Review>> {
+    const pagination = resolvePagination(page, limit);
+
+    const qb = this.reviewRepository
+      .createQueryBuilder('review')
+      .orderBy('review.createdAt', 'DESC')
+      .skip(pagination.skip)
+      .take(pagination.limit);
+
+    if (filters.status) {
+      qb.andWhere('review.status = :status', { status: filters.status });
+    }
+    if (filters.minRating !== undefined) {
+      qb.andWhere('review.rating >= :minRating', { minRating: filters.minRating });
+    }
+    if (filters.maxRating !== undefined) {
+      qb.andWhere('review.rating <= :maxRating', { maxRating: filters.maxRating });
+    }
+    if (filters.source) {
+      qb.andWhere('LOWER(review.source) = LOWER(:source)', { source: filters.source });
+    }
+
+    const [items, totalItems] = await qb.getManyAndCount();
+    return buildPaginatedResponse(items, pagination.page, pagination.limit, totalItems);
+  }
+
+  async adminCreate(dto: AdminCreateReviewDto): Promise<Review> {
+    const review = this.reviewRepository.create({
+      authorName: dto.authorName.trim(),
+      title: dto.title?.trim() || null,
+      rating: dto.rating,
+      content: dto.content.trim(),
+      source: dto.source?.trim() || null,
+      status: dto.status ?? ReviewStatus.PUBLISHED,
+    });
+
+    const saved = await this.reviewRepository.save(review);
+
+    // Override createdAt with historical date if provided
+    if (dto.createdAt) {
+      await this.reviewRepository.manager.query(
+        'UPDATE reviews SET created_at = $1::timestamptz, updated_at = $1::timestamptz WHERE id = $2',
+        [dto.createdAt, saved.id],
+      );
+      saved.createdAt = new Date(dto.createdAt);
+      saved.updatedAt = new Date(dto.createdAt);
+    }
+
+    return saved;
+  }
+
+  async adminUpdate(id: string, dto: AdminUpdateReviewDto): Promise<Review> {
+    const review = await this.reviewRepository.findOne({ where: { id } });
+    if (!review) throw new NotFoundException(`Review ${id} not found`);
+
+    if (dto.authorName !== undefined) review.authorName = dto.authorName.trim();
+    if (dto.title !== undefined) review.title = dto.title?.trim() || null;
+    if (dto.rating !== undefined) review.rating = dto.rating;
+    if (dto.content !== undefined) review.content = dto.content.trim();
+    if (dto.source !== undefined) review.source = dto.source?.trim() || null;
+    if (dto.status !== undefined) review.status = dto.status;
+
+    const saved = await this.reviewRepository.save(review);
+
+    if (dto.createdAt) {
+      await this.reviewRepository.manager.query(
+        'UPDATE reviews SET created_at = $1::timestamptz WHERE id = $2',
+        [dto.createdAt, saved.id],
+      );
+      saved.createdAt = new Date(dto.createdAt);
+    }
+
+    if (review.vehicleId) {
+      await this.refreshVehicleRatingAggregates(review.vehicleId);
+    }
+
+    return saved;
+  }
+
+  async adminDelete(id: string): Promise<void> {
+    const review = await this.reviewRepository.findOne({ where: { id } });
+    if (!review) throw new NotFoundException(`Review ${id} not found`);
+    await this.reviewRepository.remove(review);
+    if (review.vehicleId) {
+      await this.refreshVehicleRatingAggregates(review.vehicleId);
+    }
+  }
+
+  async adminBulkCreate(
+    dtos: AdminCreateReviewDto[],
+  ): Promise<{ created: number; skipped: number }> {
+    let created = 0;
+    let skipped = 0;
+
+    for (const dto of dtos) {
+      try {
+        await this.adminCreate(dto);
+        created++;
+      } catch {
+        skipped++;
+      }
+    }
+
+    return { created, skipped };
   }
 }

@@ -57,6 +57,9 @@ export class Review {
   @Column({ type: 'varchar', name: 'image_url', nullable: true })
   imageUrl!: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  source!: string | null;
+
   @Column({
     type: 'enum',
     enum: ReviewStatus,

@@ -408,6 +408,28 @@ export class IamService implements OnApplicationBootstrap {
   }
 
   private async seedSystemPermissions(): Promise<void> {
+    const PERMISSION_LABELS: Record<string, string> = {
+      'users.read': 'Voir les utilisateurs',
+      'users.write': 'Modifier les utilisateurs',
+      'users.delete': 'Supprimer les utilisateurs',
+      'users.status.write': 'Changer le statut des utilisateurs',
+      'roles.read': 'Voir les rôles',
+      'roles.write': 'Gérer les rôles',
+      'roles.assign': 'Assigner les rôles',
+      'vehicles.read': 'Voir les véhicules',
+      'vehicles.write': 'Modifier les véhicules',
+      'vehicles.delete': 'Supprimer les véhicules',
+      'reservations.read': 'Voir les réservations',
+      'reservations.manage': 'Gérer les réservations',
+      'quotes.read': 'Voir les devis',
+      'quotes.manage': 'Gérer les devis',
+      'fleet.read': 'Voir la flotte',
+      'fleet.manage': 'Gérer la flotte',
+      'avis.read': 'Voir les avis',
+      'avis.write': 'Gérer les avis',
+      'admin.kpi.read': 'Voir le tableau de bord',
+    };
+
     for (const code of SYSTEM_PERMISSIONS) {
       const existingPermission = await this.permissionRepository.findOne({
         where: { code },
@@ -417,7 +439,7 @@ export class IamService implements OnApplicationBootstrap {
         await this.permissionRepository.save(
           this.permissionRepository.create({
             code,
-            label: code,
+            label: PERMISSION_LABELS[code] ?? code,
           }),
         );
       }

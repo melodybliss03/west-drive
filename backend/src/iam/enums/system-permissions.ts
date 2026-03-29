@@ -15,6 +15,8 @@ export const SYSTEM_PERMISSIONS = [
   'quotes.manage',
   'fleet.read',
   'fleet.manage',
+  'avis.read',
+  'avis.write',
   'admin.kpi.read',
 ] as const;
 

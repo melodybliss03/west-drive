@@ -41,6 +41,28 @@ type SeedVehicle = Omit<Partial<Vehicle>, 'images'> & {
   }>;
 };
 
+const PERMISSION_LABELS: Record<string, string> = {
+  'users.read': 'Voir les utilisateurs',
+  'users.write': 'Modifier les utilisateurs',
+  'users.delete': 'Supprimer les utilisateurs',
+  'users.status.write': 'Changer le statut des utilisateurs',
+  'roles.read': 'Voir les rôles',
+  'roles.write': 'Gérer les rôles',
+  'roles.assign': 'Assigner les rôles',
+  'vehicles.read': 'Voir les véhicules',
+  'vehicles.write': 'Modifier les véhicules',
+  'vehicles.delete': 'Supprimer les véhicules',
+  'reservations.read': 'Voir les réservations',
+  'reservations.manage': 'Gérer les réservations',
+  'quotes.read': 'Voir les devis',
+  'quotes.manage': 'Gérer les devis',
+  'fleet.read': 'Voir la flotte',
+  'fleet.manage': 'Gérer la flotte',
+  'avis.read': 'Voir les avis',
+  'avis.write': 'Gérer les avis',
+  'admin.kpi.read': 'Voir le tableau de bord',
+};
+
 async function seedPermissions(permissionRepository: Repository<Permission>) {
   for (const code of SYSTEM_PERMISSIONS) {
     const existing = await permissionRepository.findOne({ where: { code } });
@@ -48,7 +70,7 @@ async function seedPermissions(permissionRepository: Repository<Permission>) {
       await permissionRepository.save(
         permissionRepository.create({
           code,
-          label: code,
+          label: PERMISSION_LABELS[code] ?? code,
         }),
       );
       console.log(`Permission seeded: ${code}`);
