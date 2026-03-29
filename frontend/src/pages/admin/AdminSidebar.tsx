@@ -18,6 +18,7 @@ const sidebarItems: { key: TabKey; icon: typeof BarChart3; label: string }[] = [
   { key: "reservations", icon: CalendarCheck, label: "Réservations" },
   { key: "devis", icon: FileText, label: "Devis" },
   { key: "flotte", icon: Truck, label: "Gestion flotte" },
+  {key: "avis", icon: Users, label: "Avis" },
   { key: "utilisateurs", icon: Users, label: "Utilisateurs" },
   { key: "profil", icon: UserCog, label: "Mon profil" },
 ];

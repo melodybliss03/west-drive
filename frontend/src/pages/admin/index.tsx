@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { type Vehicule } from "@/data/mock";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import type { TabKey, TeamMember, Notification as NotifType, Reservation } from "./data";
-import type { DevisRow } from "./data";
+import type { DevisRow, AvisRow } from "./data";
 import type { AdminUser } from "./types";
 import AdminAuth from "./AdminAuth";
 import AdminSidebar from "./AdminSidebar";
@@ -13,6 +13,7 @@ import DashboardTab from "./DashboardTab";
 import VehiculesTab from "./VehiculesTab";
 import ReservationsTab from "./ReservationsTab";
 import FlotteTab from "./FlotteTab";
+import AvisTab from "./AvisTab";
 import UtilisateursTab from "./UtilisateursTab";
 import ProfilTab from "./ProfilTab";
 import DevisTab from "./DevisTab.tsx";
@@ -43,7 +44,9 @@ const TAB_REQUIRED_PERMISSIONS: Partial<Record<TabKey, string>> = {
   reservations: "reservations.read",
   devis: "quotes.read",
   flotte: "fleet.read",
+  avis: "avis.read",
   utilisateurs: "users.read",
+
 };
 
 const CUSTOMER_ROLE_NAMES = new Set(["customer", "client"]);
@@ -101,6 +104,10 @@ export default function Boss() {
   const [devisPage, setDevisPage] = useState(1);
   const [devisLimit] = useState(10);
   const [devisMeta, setDevisMeta] = useState<PaginationMeta | null>(null);
+  const [avis, setAvis] = useState<AvisRow[]>([]);
+  const [avisPage, setAvisPage] = useState(1);
+  const [avisLimit] = useState(10);
+  const [avisMeta, setAvisMeta] = useState<PaginationMeta | null>(null);
   const [notifications, setNotifications] = useState<NotifType[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -108,6 +115,7 @@ export default function Boss() {
   const [isLoadingReservations, setIsLoadingReservations] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
+  const [isLoadingAvis, setIsLoadingAvis] = useState(false);
 
   const unreadCount = notifications.filter(n => !n.lu).length;
 
@@ -161,7 +169,7 @@ export default function Boss() {
       const items = Array.isArray(collection) ? collection : collection.items;
       const mapped: NotifType[] = items.map((n) => ({
         id: n.id,
-        type: (n.type === "reservation" || n.type === "devis" || n.type === "utilisateur" || n.type === "flotte")
+        type: (n.type === "reservation" || n.type === "devis" || n.type === "utilisateur" || n.type === "flotte" || n.type === "avis")
           ? n.type
           : "reservation",
         titre: n.title,
@@ -384,6 +392,34 @@ export default function Boss() {
     loadQuotes();
   }, [isBootstrapping, user, tab, devisPage, devisLimit]);
 
+  useEffect(() => {
+    if (isBootstrapping || !user || !hasPermission("avis.read") || tab !== "avis") return;
+
+    const loadAvis = async () => {
+      setIsLoadingAvis(true);
+      try {
+        // TODO: Charger les avis depuis une API d'avis
+        // Pour l'instant, les avis sont gérés localement dans le composant AvisTab
+        setAvis([]);
+        setAvisMeta({
+          page: avisPage,
+          limit: avisLimit,
+          totalItems: 0,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        });
+      } catch {
+        setAvis([]);
+        setAvisMeta(null);
+      } finally {
+        setIsLoadingAvis(false);
+      }
+    };
+
+    loadAvis();
+  }, [isBootstrapping, user, tab, avisPage, avisLimit]);
+
   if (!user) return <AdminAuth />;
   if (!isBackofficeUser) return null;
 
@@ -521,6 +557,15 @@ export default function Boss() {
                 />
               )}
               {tab === "flotte" && <FlotteTab />}
+              {tab === "avis" && (
+                <AvisTab
+                  avis={avis}
+                  setAvis={setAvis}
+                  page={avisPage}
+                  setPage={setAvisPage}
+                  meta={avisMeta}
+                />
+              )}
               {tab === "utilisateurs" && (
                 <UtilisateursTab
                   users={users}

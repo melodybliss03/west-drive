@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import type { Vehicule } from "@/data/mock";
 import { motion } from "framer-motion";
 import ReservationDialog from "@/components/ReservationDialog";
-import { Car } from "lucide-react";
+import ImageCarousel from "@/components/ImageCarousel";
 
 const energieLabels: Record<string, string> = {
   ESSENCE: "Essence",
@@ -19,8 +19,6 @@ const transmissionLabels: Record<string, string> = {
 };
 
 export default function VehiculeCard({ vehicule, index = 0 }: { vehicule: Vehicule; index?: number }) {
-  const imageSrc = vehicule.photos[0];
-
   const cardContent = (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -29,20 +27,14 @@ export default function VehiculeCard({ vehicule, index = 0 }: { vehicule: Vehicu
       className="group bg-card border border-border rounded-2xl overflow-hidden"
     >
       <div className="relative aspect-[4/3] bg-muted overflow-hidden">
-        {imageSrc ? (
-          <img
-            src={imageSrc}
-            alt={`${vehicule.marque} ${vehicule.modele}`}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            loading="lazy"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-            <Car className="h-10 w-10" />
-          </div>
-        )}
+        <ImageCarousel
+          images={vehicule.photos}
+          alt={`${vehicule.marque} ${vehicule.modele}`}
+          className="aspect-[4/3]"
+          showDots={true}
+        />
         <Badge
-          className={`absolute top-3 right-3 text-xs ${
+          className={`absolute top-3 right-3 text-xs z-20 ${
             vehicule.disponible
               ? "bg-emerald-500/90 text-background hover:bg-emerald-500"
               : "bg-muted-foreground/80 text-background hover:bg-muted-foreground"
