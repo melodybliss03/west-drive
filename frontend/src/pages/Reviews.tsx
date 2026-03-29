@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,27 +8,72 @@ import Footer from "@/components/Footer";
 import TopBar from "@/components/TopBar";
 import { reviewsService, ReviewsListResponse } from "@/lib/api/services";
 import { motion } from "framer-motion";
+import { REVIEWS } from "@/data/reviews";
 
-const LIMIT = 12;
+type UiReview = {
+  id: string;
+  authorName: string;
+  title?: string;
+  rating: number;
+  content: string;
+  createdAt: string;
+  source: "static" | "api";
+};
+
+const API_LIMIT = 50;
 
 export default function Reviews() {
-  const [page, setPage] = useState(1);
-
   const { data, isLoading, isError } = useQuery<ReviewsListResponse>({
-    queryKey: ["reviews", page],
-    queryFn: () => reviewsService.list({ page, limit: LIMIT }),
+    queryKey: ["reviews", "public"],
+    queryFn: () => reviewsService.list({ page: 1, limit: API_LIMIT }),
     refetchOnWindowFocus: false,
+    retry: 1,
   });
 
-  const reviews = data?.items ?? [];
-  const meta = data?.meta ?? {
-    page: 1,
-    limit: LIMIT,
-    totalItems: 0,
-    totalPages: 1,
-    hasPreviousPage: false,
-    hasNextPage: false,
-  };
+  const staticReviews = useMemo<UiReview[]>(
+    () =>
+      REVIEWS.map((review) => ({
+        id: `static-${review.id}`,
+        authorName: review.authorName,
+        title: review.title,
+        rating: Number(review.rating ?? 0),
+        content: review.content,
+        createdAt: review.createdAt,
+        source: "static",
+      })),
+    [],
+  );
+
+  const apiReviews = useMemo<UiReview[]>(
+    () =>
+      (data?.items ?? []).map((review) => ({
+        id: `api-${review.id}`,
+        authorName: review.authorName,
+        title: review.title,
+        rating: Number(review.rating ?? 0),
+        content: review.content,
+        createdAt: review.createdAt,
+        source: "api",
+      })),
+    [data],
+  );
+
+  const reviews = useMemo<UiReview[]>(() => {
+    const deduped = new Map<string, UiReview>();
+    [...apiReviews, ...staticReviews].forEach((review) => {
+      const key = `${review.authorName}|${review.title ?? ""}|${review.content}`
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
+      if (!deduped.has(key)) {
+        deduped.set(key, review);
+      }
+    });
+
+    return Array.from(deduped.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  }, [apiReviews, staticReviews]);
 
   const average =
     reviews.length > 0
@@ -69,7 +114,7 @@ export default function Reviews() {
       <section className="max-w-6xl mx-auto px-4 py-12">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <div className="bg-card border border-border rounded-xl p-4">
-            <p className="text-xs text-muted-foreground">Note moyenne (page courante)</p>
+            <p className="text-xs text-muted-foreground">Note moyenne</p>
             <p className="font-display text-2xl font-bold text-primary">{average}</p>
           </div>
           <div className="bg-card border border-border rounded-xl p-4">
@@ -77,43 +122,22 @@ export default function Reviews() {
             <p className="font-display text-2xl font-bold">{reviews.length}</p>
           </div>
           <div className="bg-card border border-border rounded-xl p-4">
-            <p className="text-xs text-muted-foreground">Total avis</p>
-            <p className="font-display text-2xl font-bold">{meta.totalItems}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between mb-6 gap-4">
-          <p className="text-sm text-muted-foreground">
-            Page {meta.page} / {meta.totalPages} · {meta.totalItems} avis
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={!meta.hasPreviousPage || isLoading}
-            >
-              Precedent
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setPage((p) => (meta.hasNextPage ? p + 1 : p))}
-              disabled={!meta.hasNextPage || isLoading}
-            >
-              Suivant
-            </Button>
+            <p className="text-xs text-muted-foreground">Avis API ajoutes</p>
+            <p className="font-display text-2xl font-bold">{apiReviews.length}</p>
           </div>
         </div>
 
         {isLoading ? (
-          <p className="text-sm text-muted-foreground mb-6">Chargement des avis...</p>
+          <p className="text-sm text-muted-foreground mb-6">Chargement des avis API...</p>
         ) : null}
 
         {isError ? (
-          <p className="text-sm text-destructive mb-6">Impossible de recuperer les avis pour le moment.</p>
+          <p className="text-sm text-muted-foreground mb-6">
+            Les avis API sont temporairement indisponibles, affichage des avis historiques.
+          </p>
         ) : null}
 
-        {!isLoading && !isError && reviews.length === 0 ? (
+        {!isLoading && reviews.length === 0 ? (
           <div className="text-center py-16 border border-border rounded-2xl bg-card">
             <p className="text-muted-foreground">Aucun avis publie pour le moment.</p>
           </div>

@@ -19,7 +19,6 @@ import { CustomerOnlyGuard } from '../auth/guards/customer-only.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { CreateReviewDto } from './dto/create-review.dto';
-import { ListReviewsQueryDto } from './dto/list-reviews-query.dto';
 import { ReviewsService } from './reviews.service';
 
 @ApiTags('Reviews')
@@ -32,9 +31,9 @@ export class ReviewsController {
   findAllPublished(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit = 20,
-    @Query() query?: ListReviewsQueryDto,
+    @Query('vehicleId') vehicleId?: string,
   ) {
-    return this.reviewsService.listPublished(page, limit, query?.vehicleId);
+    return this.reviewsService.listPublished(page, limit, vehicleId);
   }
 
   @Get('me/pending')

@@ -527,8 +527,8 @@ export default function Espace() {
   };
 
   const downloadFacture = (facture: UiFacture) => {
-    const clientName = user?.firstName && user?.lastName 
-      ? `${user.firstName} ${user.lastName}` 
+    const clientName = user?.prenom && user?.nom
+      ? `${user.prenom} ${user.nom}`
       : user?.email || 'Client';
     
     generatePDFInvoice({
