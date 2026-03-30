@@ -289,7 +289,14 @@ jobs:
               # Remove potentially dangerous keys from the provided secret
               printf '%s\n' '${{ secrets.BACKEND_ENV_PRODUCTION }}' | sed -e '/^[[:space:]]*DB_RESET=/d' -e '/^[[:space:]]*CONFIRM_DB_RESET=/d' > .env.production
               sed -i 's/\r$//' .env.production
-              echo ".env.production written from BACKEND_ENV_PRODUCTION secret (DB_RESET removed)"
+              # Re-inject reset flags only if explicitly set via dedicated secrets
+              if [ -n '${{ secrets.DB_RESET }}' ]; then
+                echo "DB_RESET=${{ secrets.DB_RESET }}" >> .env.production
+              fi
+              if [ -n '${{ secrets.CONFIRM_DB_RESET }}' ]; then
+                echo "CONFIRM_DB_RESET=${{ secrets.CONFIRM_DB_RESET }}" >> .env.production
+              fi
+              echo ".env.production written from BACKEND_ENV_PRODUCTION secret"
             fi
 
             if [ ! -f .env.production ]; then
@@ -420,7 +427,14 @@ jobs:
               # Remove potentially dangerous keys from the provided secret
               printf '%s\n' '${{ secrets.BACKEND_ENV_PRODUCTION }}' | sed -e '/^[[:space:]]*DB_RESET=/d' -e '/^[[:space:]]*CONFIRM_DB_RESET=/d' > .env.production
               sed -i 's/\r$//' .env.production
-              echo ".env.production written from BACKEND_ENV_PRODUCTION secret (DB_RESET removed)"
+              # Re-inject reset flags only if explicitly set via dedicated secrets
+              if [ -n '${{ secrets.DB_RESET }}' ]; then
+                echo "DB_RESET=${{ secrets.DB_RESET }}" >> .env.production
+              fi
+              if [ -n '${{ secrets.CONFIRM_DB_RESET }}' ]; then
+                echo "CONFIRM_DB_RESET=${{ secrets.CONFIRM_DB_RESET }}" >> .env.production
+              fi
+              echo ".env.production written from BACKEND_ENV_PRODUCTION secret"
             fi
 
             if [ ! -f .env.production ]; then
