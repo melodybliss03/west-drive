@@ -128,9 +128,10 @@ export default function BlogDetail() {
 
           {/* Extrait / Introduction */}
           {article.excerpt && (
-            <p className="text-lg text-muted-foreground leading-relaxed mb-8 border-l-4 border-primary pl-4">
-              {article.excerpt}
-            </p>
+            <div
+              className="text-lg text-muted-foreground leading-relaxed mb-8 border-l-4 border-primary pl-4 prose prose-lg max-w-none dark:prose-invert"
+              dangerouslySetInnerHTML={{ __html: article.excerpt }}
+            />
           )}
 
           {/* Contenu — première moitié */}

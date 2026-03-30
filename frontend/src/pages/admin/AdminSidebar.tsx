@@ -1,4 +1,4 @@
-import { BarChart3, Car, CalendarCheck, Truck, Users, UserCog, LogOut, FileText } from "lucide-react";
+import { BarChart3, Car, CalendarCheck, Truck, Users, UserCog, LogOut, FileText, Newspaper } from "lucide-react";
 import type { TabKey } from "./data";
 import {
   Sidebar,
@@ -19,6 +19,7 @@ const sidebarItems: { key: TabKey; icon: typeof BarChart3; label: string }[] = [
   { key: "devis", icon: FileText, label: "Devis" },
   { key: "flotte", icon: Truck, label: "Gestion flotte" },
   {key: "avis", icon: Users, label: "Avis" },
+  { key: "blog", icon: Newspaper, label: "Blog" },
   { key: "utilisateurs", icon: Users, label: "Utilisateurs" },
   { key: "profil", icon: UserCog, label: "Mon profil" },
 ];

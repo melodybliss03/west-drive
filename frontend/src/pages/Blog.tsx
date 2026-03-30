@@ -150,7 +150,7 @@ export default function Blog() {
                     {new Date(article.publishedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
                   </p>
                   <h2 className="font-display font-semibold text-lg mb-2 leading-snug">{article.title}</h2>
-                  <p className="text-sm text-muted-foreground mb-4 flex-1 leading-relaxed">{article.excerpt}</p>
+                  <div className="text-sm text-muted-foreground mb-4 flex-1 leading-relaxed prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: article.excerpt }} />
                   <Link to={`/blog/${article.slug}`}>
                     <Button variant="outline" size="sm" className="gap-1 w-full sm:w-auto">
                       Lire l'article <ChevronRight className="h-3.5 w-3.5" />

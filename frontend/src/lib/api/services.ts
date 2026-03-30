@@ -294,6 +294,72 @@ export const blogService = {
         (params.search ? `&search=${encodeURIComponent(params.search)}` : ''),
     ),
   getBySlug: (slug: string) => apiRequest<BlogArticleDto>(`/blog/${encodeURIComponent(slug)}`),
+
+  // ── Admin ───────────────────────────────────────────────────────────────
+  adminList: (params: {
+    page?: number;
+    limit?: number;
+    status?: 'PUBLISHED' | 'DRAFT';
+    category?: string;
+    search?: string;
+  }) => {
+    let url = `/admin/blog?page=${params.page ?? 1}&limit=${params.limit ?? 20}`;
+    if (params.status) url += `&status=${encodeURIComponent(params.status)}`;
+    if (params.category) url += `&category=${encodeURIComponent(params.category)}`;
+    if (params.search) url += `&search=${encodeURIComponent(params.search)}`;
+    return apiRequest<BlogListResponse>(url, { auth: true });
+  },
+
+  adminGetById: (id: string) =>
+    apiRequest<BlogArticleDto>(`/admin/blog/${encodeURIComponent(id)}`, { auth: true }),
+
+  adminCreate: (payload: {
+    title: string;
+    slug?: string;
+    excerpt?: string;
+    content: string;
+    category?: string;
+    mainImageUrl?: string;
+    status?: 'PUBLISHED' | 'DRAFT';
+    publishedAt?: string;
+  }) =>
+    apiRequest<BlogArticleDto>('/admin/blog', { method: 'POST', body: payload, auth: true }),
+
+  adminUpdate: (
+    id: string,
+    payload: Partial<{
+      title: string;
+      slug: string;
+      excerpt: string;
+      content: string;
+      category: string;
+      mainImageUrl: string;
+      status: 'PUBLISHED' | 'DRAFT';
+      publishedAt: string;
+    }>,
+  ) =>
+    apiRequest<BlogArticleDto>(`/admin/blog/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: payload,
+      auth: true,
+    }),
+
+  adminDelete: (id: string) =>
+    apiRequest<void>(`/admin/blog/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      auth: true,
+    }),
+
+  adminUploadImage: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiRequest<{ url: string }>('/admin/blog/upload-image', {
+      method: 'POST',
+      body: formData,
+      auth: true,
+      isFormData: true,
+    });
+  },
 };
 
 export const reviewsService = {

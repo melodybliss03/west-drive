@@ -1,7 +1,7 @@
 import { vehicules as mockVehicules, type Vehicule } from "@/data/mock";
 
 // ── Types ──
-export type TabKey = "kpi" | "vehicules" | "reservations" | "flotte" | "avis" | "utilisateurs" | "profil" | "devis";
+export type TabKey = "kpi" | "vehicules" | "reservations" | "flotte" | "avis" | "blog" | "utilisateurs" | "profil" | "devis";
 
 export interface TeamMember {
   id: string;

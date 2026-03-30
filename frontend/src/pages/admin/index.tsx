@@ -14,6 +14,7 @@ import VehiculesTab from "./VehiculesTab";
 import ReservationsTab from "./ReservationsTab";
 import FlotteTab from "./FlotteTab";
 import AvisTab from "./AvisTab";
+import BlogTab from "./BlogTab";
 import UtilisateursTab from "./UtilisateursTab";
 import ProfilTab from "./ProfilTab";
 import DevisTab from "./DevisTab.tsx";
@@ -46,6 +47,7 @@ const TAB_REQUIRED_PERMISSIONS: Partial<Record<TabKey, string>> = {
   devis: "quotes.read",
   flotte: "fleet.read",
   avis: "avis.read",
+  blog: "blog.read",
   utilisateurs: "users.read",
 
 };
@@ -574,6 +576,7 @@ export default function Boss() {
                   hasPermission={hasPermission}
                 />
               )}
+              {tab === "blog" && <BlogTab hasPermission={hasPermission} />}
               {tab === "utilisateurs" && (
                 <UtilisateursTab
                   users={users}

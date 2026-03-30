@@ -127,6 +127,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     throw new ApiHttpError(fallbackMessage, response.status);
   }
 
+  // 204 No Content — nothing to parse
+  if (response.status === 204 || !rawBody) {
+    return undefined as T;
+  }
+
   if (!json) {
     throw new ApiHttpError("Réponse API invalide", response.status);
   }

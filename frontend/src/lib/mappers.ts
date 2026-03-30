@@ -46,7 +46,6 @@ export function mapVehicleDtoToVehicule(dto: VehicleDto): Vehicule {
     autreFraisLibelle: dto.additionalFeesLabels ?? [],
     entretenueRequis: {
       kilométrage: dto.maintenanceRequired?.mileage,
-      jours: dto.maintenanceRequired?.days,
     },
   };
 }
