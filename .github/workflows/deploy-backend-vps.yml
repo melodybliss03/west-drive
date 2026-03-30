@@ -163,6 +163,8 @@ jobs:
 
             cd "$APP_PATH"
             git remote set-url origin "$REPO_URL"
+            git reset --hard HEAD
+            git clean -fd
             if ! git fetch --depth 1 origin "$BRANCH"; then
               echo "git fetch failed for branch $BRANCH"
               if [ -z "${{ secrets.GH_REPO_TOKEN }}" ]; then
@@ -222,6 +224,8 @@ jobs:
 
             cd "$APP_PATH"
             git remote set-url origin "$REPO_URL"
+            git reset --hard HEAD
+            git clean -fd
             if ! git fetch --depth 1 origin "$BRANCH"; then
               echo "git fetch failed for branch $BRANCH"
               if [ -z "${{ secrets.GH_REPO_TOKEN }}" ]; then
