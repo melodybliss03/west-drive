@@ -171,7 +171,6 @@ jobs:
               exit 1
             fi
             git reset --hard FETCH_HEAD
-            git clean -fd
 
       - name: Fail when key auth failed and no password fallback
         if: ${{ env.HAS_SSH_KEY == 'true' && steps.sync_key.outcome == 'failure' && env.HAS_PASSWORD != 'true' }}
@@ -230,7 +229,6 @@ jobs:
               exit 1
             fi
             git reset --hard FETCH_HEAD
-            git clean -fd
 
       - name: Apply deployment on VPS (SSH key)
         if: ${{ env.HAS_SSH_KEY == 'true' && steps.sync_key.outcome == 'success' }}
