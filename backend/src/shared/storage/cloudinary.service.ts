@@ -92,6 +92,58 @@ export class CloudinaryService {
     }
   }
 
+  async uploadImage(options: {
+    folder: string;
+    fileBuffer: Buffer;
+    mimeType: string;
+    originalName: string;
+  }): Promise<UploadedAsset> {
+    if (!this.enabled) {
+      if (this.nodeEnv === 'production') {
+        throw new ServiceUnavailableException(
+          'Cloudinary upload is disabled in production',
+        );
+      }
+
+      const fakePublicId = `mock/${options.folder}/${Date.now()}`;
+      return {
+        secureUrl: `https://res.cloudinary.com/demo/image/upload/${fakePublicId}.jpg`,
+        publicId: fakePublicId,
+      };
+    }
+
+    const dataUri = `data:${options.mimeType};base64,${options.fileBuffer.toString('base64')}`;
+
+    try {
+      const result = await cloudinary.uploader.upload(dataUri, {
+        folder: `${this.folder}/${options.folder}`,
+        resource_type: 'image',
+        use_filename: true,
+        unique_filename: true,
+        overwrite: false,
+        filename_override: options.originalName,
+      });
+
+      return {
+        secureUrl: result.secure_url,
+        publicId: result.public_id,
+      };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'unknown cloudinary error';
+
+      if (/file size|too large|max(imum)? size/i.test(message)) {
+        throw new BadRequestException(
+          'Image too large for Cloudinary upload. Please use a smaller file.',
+        );
+      }
+
+      throw new InternalServerErrorException(
+        `Cloudinary upload failed: ${message}`,
+      );
+    }
+  }
+
   async deleteAsset(publicId: string): Promise<void> {
     if (!this.enabled) {
       return;

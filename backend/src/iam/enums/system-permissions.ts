@@ -17,6 +17,8 @@ export const SYSTEM_PERMISSIONS = [
   'fleet.manage',
   'avis.read',
   'avis.write',
+  'blog.read',
+  'blog.write',
   'admin.kpi.read',
 ] as const;
 

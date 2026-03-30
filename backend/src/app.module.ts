@@ -24,6 +24,8 @@ import { PaymentsWebhookModule } from './payments-webhook/payments-webhook.modul
 import { QuoteEvent } from './quotes/entities/quote-event.entity';
 import { Quote } from './quotes/entities/quote.entity';
 import { QuotesModule } from './quotes/quotes.module';
+import { BlogArticle } from './blog/entities/blog-article.entity';
+import { BlogModule } from './blog/blog.module';
 import { Review } from './reviews/entities/review.entity';
 import { ReviewsModule } from './reviews/reviews.module';
 import { ReservationEvent } from './reservations/entities/reservation-event.entity';
@@ -77,6 +79,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
                 Reservation,
                 ReservationEvent,
                 Review,
+                BlogArticle,
                 CompanyProfile,
               ],
               migrations: ['dist/database/migrations/*.js'],
@@ -101,6 +104,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
           QuotesModule,
           ReservationsModule,
           ReviewsModule,
+          BlogModule,
         ]),
   ],
   controllers: [AppController],

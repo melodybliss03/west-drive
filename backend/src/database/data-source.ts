@@ -12,6 +12,7 @@ import { UserRole } from '../iam/entities/user-role.entity';
 import { Notification } from '../notifications/entities/notification.entity';
 import { QuoteEvent } from '../quotes/entities/quote-event.entity';
 import { Quote } from '../quotes/entities/quote.entity';
+import { BlogArticle } from '../blog/entities/blog-article.entity';
 import { Review } from '../reviews/entities/review.entity';
 import { ReservationEvent } from '../reservations/entities/reservation-event.entity';
 import { Reservation } from '../reservations/entities/reservation.entity';
@@ -45,6 +46,7 @@ export default new DataSource({
     Quote,
     QuoteEvent,
     Review,
+    BlogArticle,
     Reservation,
     ReservationEvent,
     CompanyProfile,

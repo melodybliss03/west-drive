@@ -60,6 +60,8 @@ const PERMISSION_LABELS: Record<string, string> = {
   'fleet.manage': 'Gérer la flotte',
   'avis.read': 'Voir les avis',
   'avis.write': 'Gérer les avis',
+  'blog.read': 'Voir les articles',
+  'blog.write': 'Gérer les articles',
   'admin.kpi.read': 'Voir le tableau de bord',
 };
 
