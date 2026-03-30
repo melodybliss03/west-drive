@@ -38,7 +38,7 @@ export default function Header() {
     return normalized;
   };
 
-  const handleNavClick = (link: typeof navLinks[0]) => {
+  const handleNavClick = (link: (typeof navLinks)[0]) => {
     setMobileOpen(false);
     if (isHome && link.anchor) {
       const el = document.querySelector(link.anchor);
@@ -50,13 +50,16 @@ export default function Header() {
   const lastName = sanitizeProfileValue(user?.nom);
   const email = sanitizeProfileValue(user?.email);
   const accountRoute = isBackofficeUser(user) ? "/boss" : "/espace";
-  const fullName = [firstName, lastName].filter(Boolean).join(" ") || (email ? email.split("@")[0] : "Utilisateur");
-  const initials = fullName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("") || "U";
+  const fullName =
+    [firstName, lastName].filter(Boolean).join(" ") ||
+    (email ? email.split("@")[0] : "Utilisateur");
+  const initials =
+    fullName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("") || "U";
 
   const LangToggle = () => (
     <button
@@ -72,16 +75,29 @@ export default function Header() {
   return (
     <header className="fixed top-10 left-0 right-0 z-50 glass-header">
       <div className="max-w-6xl mx-auto flex items-center justify-between h-20 px-4">
-
         {/* Logo — toujours visible */}
-        <Link to="/" className="font-display text-xl font-bold tracking-tight" aria-label="WEST DRIVE accueil">
-          WEST <span className="text-primary">DRIVE</span>
+        <Link
+          to="/"
+          className="font-display font-bold tracking-tight flex items-center"
+          aria-label="WEST DRIVE accueil"
+        >
+          <img 
+            src="/logo_westdrive.png" 
+            alt="WEST DRIVE" 
+            className="h-6 w-auto sm:h-4 md:h-8 lg:h-8 xl:h-8 object-contain"
+          />
         </Link>
 
         {/* Nav desktop — visible uniquement sur grands écrans (lg+) */}
-        <nav className="hidden lg:flex items-center gap-6" aria-label="Navigation principale">
+        <nav
+          className="hidden lg:flex items-center gap-6"
+          aria-label="Navigation principale"
+        >
           {navLinks.map((link) => {
-            const isActive = link.href === "/" ? location.pathname === "/" : location.pathname.startsWith(link.href);
+            const isActive =
+              link.href === "/"
+                ? location.pathname === "/"
+                : location.pathname.startsWith(link.href);
             return (
               <Link
                 key={link.label}
@@ -110,7 +126,10 @@ export default function Header() {
               <AnimatePresence>
                 {dropdownOpen && (
                   <>
-                    <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setDropdownOpen(false)}
+                    />
                     <motion.div
                       initial={{ opacity: 0, y: -8 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -119,16 +138,25 @@ export default function Header() {
                     >
                       <div className="px-4 py-3 border-b border-border">
                         <p className="text-sm font-medium">{fullName}</p>
-                        <p className="text-xs text-muted-foreground truncate">{email || "-"}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {email || "-"}
+                        </p>
                       </div>
                       <button
-                        onClick={() => { setDropdownOpen(false); navigate(accountRoute); }}
+                        onClick={() => {
+                          setDropdownOpen(false);
+                          navigate(accountRoute);
+                        }}
                         className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-secondary transition-colors"
                       >
                         <LayoutDashboard className="h-4 w-4" /> Mon espace
                       </button>
                       <button
-                        onClick={() => { setDropdownOpen(false); logout(); navigate("/"); }}
+                        onClick={() => {
+                          setDropdownOpen(false);
+                          logout();
+                          navigate("/");
+                        }}
                         className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-destructive hover:bg-secondary transition-colors"
                       >
                         <LogOut className="h-4 w-4" /> Déconnexion
@@ -140,7 +168,9 @@ export default function Header() {
             </div>
           ) : (
             <Link to="/inscription">
-              <Button size="sm" className="font-medium">Créer un compte</Button>
+              <Button size="sm" className="font-medium">
+                Créer un compte
+              </Button>
             </Link>
           )}
         </div>
@@ -161,7 +191,9 @@ export default function Header() {
             </button>
           ) : (
             <Link to="/inscription">
-              <Button size="sm" className="font-medium text-xs px-3">Créer un compte</Button>
+              <Button size="sm" className="font-medium text-xs px-3">
+                Créer un compte
+              </Button>
             </Link>
           )}
 
@@ -171,7 +203,11 @@ export default function Header() {
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label={mobileOpen ? "Fermer le menu" : "Ouvrir le menu"}
           >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {mobileOpen ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
           </button>
         </div>
       </div>
@@ -191,9 +227,15 @@ export default function Header() {
               exit={{ opacity: 0, height: 0 }}
               className="lg:hidden bg-background border-b border-border relative z-50"
             >
-              <nav className="flex flex-col p-4 gap-1" aria-label="Navigation mobile">
+              <nav
+                className="flex flex-col p-4 gap-1"
+                aria-label="Navigation mobile"
+              >
                 {navLinks.map((link) => {
-                  const isActive = link.href === "/" ? location.pathname === "/" : location.pathname.startsWith(link.href);
+                  const isActive =
+                    link.href === "/"
+                      ? location.pathname === "/"
+                      : location.pathname.startsWith(link.href);
                   return (
                     <Link
                       key={link.label}
@@ -215,15 +257,24 @@ export default function Header() {
                   <div className="flex flex-col gap-1 pt-3 mt-2 border-t border-border">
                     <div className="px-3 py-2">
                       <p className="text-sm font-medium">{fullName}</p>
-                      <p className="text-xs text-muted-foreground">{email || "-"}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {email || "-"}
+                      </p>
                     </div>
-                    <Link to={accountRoute} onClick={() => setMobileOpen(false)}>
+                    <Link
+                      to={accountRoute}
+                      onClick={() => setMobileOpen(false)}
+                    >
                       <button className="w-full flex items-center gap-2 px-3 py-2.5 text-sm rounded-lg hover:bg-muted transition-colors">
                         <LayoutDashboard className="h-4 w-4" /> Mon espace
                       </button>
                     </Link>
                     <button
-                      onClick={() => { setMobileOpen(false); logout(); navigate("/"); }}
+                      onClick={() => {
+                        setMobileOpen(false);
+                        logout();
+                        navigate("/");
+                      }}
                       className="w-full flex items-center gap-2 px-3 py-2.5 text-sm rounded-lg text-destructive hover:bg-muted transition-colors"
                     >
                       <LogOut className="h-4 w-4" /> Déconnexion
@@ -240,7 +291,10 @@ export default function Header() {
       <AnimatePresence>
         {dropdownOpen && user && (
           <>
-            <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setDropdownOpen(false)} />
+            <div
+              className="fixed inset-0 z-40 lg:hidden"
+              onClick={() => setDropdownOpen(false)}
+            />
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -249,16 +303,25 @@ export default function Header() {
             >
               <div className="px-4 py-3 border-b border-border">
                 <p className="text-sm font-medium">{fullName}</p>
-                <p className="text-xs text-muted-foreground truncate">{email || "-"}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {email || "-"}
+                </p>
               </div>
               <button
-                onClick={() => { setDropdownOpen(false); navigate(accountRoute); }}
+                onClick={() => {
+                  setDropdownOpen(false);
+                  navigate(accountRoute);
+                }}
                 className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-secondary transition-colors"
               >
                 <LayoutDashboard className="h-4 w-4" /> Mon espace
               </button>
               <button
-                onClick={() => { setDropdownOpen(false); logout(); navigate("/"); }}
+                onClick={() => {
+                  setDropdownOpen(false);
+                  logout();
+                  navigate("/");
+                }}
                 className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-destructive hover:bg-secondary transition-colors"
               >
                 <LogOut className="h-4 w-4" /> Déconnexion
