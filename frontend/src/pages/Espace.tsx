@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -936,7 +937,9 @@ export default function Espace() {
                     onChange={(e) => setProfileForm((p) => ({ ...p, phone: e.target.value }))}
                   />
                 </div>
-                <Button onClick={saveProfile} disabled={profileSaving}>Enregistrer les modifications</Button>
+                <Button onClick={saveProfile} disabled={profileSaving}>
+                  {profileSaving ? <><Spinner className="mr-2" />Enregistrement...</> : "Enregistrer les modifications"}
+                </Button>
               </div>
             </TabsContent>
           </Tabs>
@@ -1135,7 +1138,7 @@ export default function Espace() {
                       onClick={() => respondQuote("REFUSER")}
                       disabled={quoteResponseLoading}
                     >
-                      <XCircle className="h-4 w-4" /> Refuser
+                      {quoteResponseLoading ? <Spinner className="mr-1" /> : <XCircle className="h-4 w-4" />} Refuser
                     </Button>
                     <Button
                       variant="outline"
@@ -1143,14 +1146,14 @@ export default function Espace() {
                       onClick={() => respondQuote("CONTRE_PROPOSITION")}
                       disabled={quoteResponseLoading}
                     >
-                      <MessageSquare className="h-4 w-4" /> Contre-proposition
+                      {quoteResponseLoading ? <Spinner className="mr-1" /> : <MessageSquare className="h-4 w-4" />} Contre-proposition
                     </Button>
                     <Button
                       className="gap-2 flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
                       onClick={() => respondQuote("ACCEPTER")}
                       disabled={quoteResponseLoading}
                     >
-                      <CheckCircle className="h-4 w-4" /> Accepter
+                      {quoteResponseLoading ? <Spinner className="mr-1" /> : <CheckCircle className="h-4 w-4" />} Accepter
                     </Button>
                   </DialogFooter>
                 </>
@@ -1222,7 +1225,7 @@ export default function Espace() {
                   Plus tard
                 </Button>
                 <Button onClick={submitReview} disabled={reviewSubmitting}>
-                  Publier mon avis
+                  {reviewSubmitting ? <><Spinner className="mr-2" />Publication...</> : "Publier mon avis"}
                 </Button>
               </DialogFooter>
             </div>

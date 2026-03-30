@@ -3,6 +3,7 @@ import { MapPin, Phone, Mail, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/hooks/use-toast";
 import { contactService } from "@/lib/api/services";
 import Header from "@/components/Header";
@@ -80,8 +81,7 @@ export default function Contact() {
                   <Textarea id="message" name="message" required rows={6} placeholder="Votre message..." />
                 </div>
                 <Button type="submit" disabled={loading} className="gap-2">
-                  <Send className="h-4 w-4" />
-                  {loading ? "Envoi en cours..." : "Envoyer"}
+                  {loading ? <><Spinner className="mr-1" />Envoi en cours...</> : <><Send className="h-4 w-4" />Envoyer</>}
                 </Button>
               </form>
             </div>

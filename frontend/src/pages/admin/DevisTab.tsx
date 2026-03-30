@@ -16,6 +16,8 @@ import {
   Clock3,
   RefreshCw,
 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
+import { formatDate } from "@/lib/format";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -397,7 +399,7 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
                         <TableCell>
                           <span className="text-sm">{d.nombreVehicules}x {d.typeVehicule}</span>
                         </TableCell>
-                        <TableCell className="text-xs hidden sm:table-cell">{d.dateDebut} {" -> "} {d.dateFin}</TableCell>
+                        <TableCell className="text-xs hidden sm:table-cell">{formatDate(d.dateDebut)} {"-> "} {formatDate(d.dateFin)}</TableCell>
                         <TableCell className="text-xs hidden md:table-cell">{new Date(d.creeLe).toLocaleDateString("fr-FR")}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={devisStatColors[d.statut] || ""}>{d.statut}</Badge>
@@ -468,7 +470,7 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">Demande</p>
                   <div className="flex items-center gap-2"><Car className="h-4 w-4 text-muted-foreground" /><span>{selectedDevis.nombreVehicules}x {selectedDevis.typeVehicule}</span></div>
-                  <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-muted-foreground" /><span>{selectedDevis.dateDebut} {" -> "} {selectedDevis.dateFin}</span></div>
+                  <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-muted-foreground" /><span>{formatDate(selectedDevis.dateDebut)} {"-> "} {formatDate(selectedDevis.dateFin)}</span></div>
                   <div className="flex items-center gap-2">
                     {selectedDevis.type === "entreprise" ? <Building2 className="h-4 w-4 text-muted-foreground" /> : <User className="h-4 w-4 text-muted-foreground" />}
                     <span>{selectedDevis.type}</span>
@@ -557,7 +559,7 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
               />
               <DialogFooter>
                 <Button variant="outline" onClick={() => setAction(null)} disabled={isSubmitting}>Annuler</Button>
-                <Button onClick={handleStartAnalysis} disabled={isSubmitting}>{isSubmitting ? "Traitement..." : "Confirmer"}</Button>
+                <Button onClick={handleStartAnalysis} disabled={isSubmitting}>{isSubmitting ? <><Spinner className="mr-2" />Traitement...</> : "Confirmer"}</Button>
               </DialogFooter>
             </div>
           )}
@@ -624,7 +626,7 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
               <DialogFooter>
                 <Button variant="outline" onClick={() => setAction(null)} disabled={isSubmitting}>Annuler</Button>
                 <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleValider} disabled={isSubmitting}>
-                  {isSubmitting ? "Envoi..." : "Envoyer la proposition"}
+                  {isSubmitting ? <><Spinner className="mr-2" />Traitement...</> : "Envoyer la proposition"}
                 </Button>
               </DialogFooter>
             </div>
@@ -641,7 +643,7 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
               />
               <DialogFooter>
                 <Button variant="outline" onClick={() => setAction(null)} disabled={isSubmitting}>Annuler</Button>
-                <Button onClick={handleStartNegotiation} disabled={isSubmitting}>{isSubmitting ? "Traitement..." : "Envoyer"}</Button>
+                <Button onClick={handleStartNegotiation} disabled={isSubmitting}>{isSubmitting ? <><Spinner className="mr-2" />Traitement...</> : "Envoyer"}</Button>
               </DialogFooter>
             </div>
           )}
@@ -664,7 +666,7 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setAction(null)} disabled={isSubmitting}>Annuler</Button>
-                <Button variant="destructive" onClick={handleRefuser} disabled={isSubmitting}>{isSubmitting ? "Traitement..." : "Confirmer le refus"}</Button>
+                <Button variant="destructive" onClick={handleRefuser} disabled={isSubmitting}>{isSubmitting ? <><Spinner className="mr-2" />Traitement...</> : "Confirmer le refus"}</Button>
               </DialogFooter>
             </div>
           )}
@@ -688,7 +690,7 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setAction(null)} disabled={isSubmitting}>Annuler</Button>
-                <Button onClick={handleConvert} disabled={isSubmitting}>{isSubmitting ? "Conversion..." : "Convertir"}</Button>
+                <Button onClick={handleConvert} disabled={isSubmitting}>{isSubmitting ? <><Spinner className="mr-2" />Conversion...</> : "Convertir"}</Button>
               </DialogFooter>
             </div>
           )}

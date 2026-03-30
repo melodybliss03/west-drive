@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, User, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -167,7 +168,7 @@ export default function Inscription() {
             </div>
 
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? "Création en cours..." : "Créer mon compte"}
+              {loading ? <><Spinner className="mr-2" />Création en cours...</> : "Créer mon compte"}
             </Button>
 
             <p className="text-center text-sm text-muted-foreground">

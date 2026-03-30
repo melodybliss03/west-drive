@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Check, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/hooks/use-toast";
 import { quotesService, reservationsService } from "@/lib/api/services";
 import { ApiHttpError } from "@/lib/api/types";
@@ -256,8 +257,7 @@ export default function Checkout() {
         )}
 
         <Button onClick={() => void handleStartPayment()} disabled={loading || !canStartPayment} className="w-full gap-2">
-          <ExternalLink className="h-4 w-4" />
-          {loading ? "Redirection vers Stripe..." : "Passer au paiement sécurisé →"}
+          {loading ? <><Spinner className="mr-1" />Redirection vers Stripe...</> : <><ExternalLink className="h-4 w-4" />Passer au paiement sécurisé →</>}
         </Button>
 
         <Button variant="outline" onClick={() => navigate("/")} className="w-full">

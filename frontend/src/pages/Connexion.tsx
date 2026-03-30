@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
@@ -97,7 +98,7 @@ export default function Connexion() {
             </div>
 
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? "Connexion..." : "Se connecter"}
+              {loading ? <><Spinner className="mr-2" />Connexion...</> : "Se connecter"}
             </Button>
 
             <p className="text-center text-sm text-muted-foreground">

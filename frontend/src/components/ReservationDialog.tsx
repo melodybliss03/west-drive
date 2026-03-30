@@ -4,6 +4,7 @@ import { User, Building2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -685,7 +686,7 @@ export default function ReservationDialog({
             </p>
           )}
           <Button type="submit" className="w-full" size="lg" disabled={loading}>
-            {loading ? "Envoi en cours..." : "Confirmer ma réservation"}
+            {loading ? <><Spinner className="mr-2" />Envoi en cours...</> : "Confirmer ma réservation"}
           </Button>
         </form>
       </DialogContent>

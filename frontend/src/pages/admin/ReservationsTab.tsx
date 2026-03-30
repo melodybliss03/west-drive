@@ -3,6 +3,8 @@ import {
   Car, Eye, Search, Users, CheckCircle, XCircle, Mail, Phone,
   MapPin, Clock, Plus, ChevronLeft, Play, Flag, Calendar, Filter, Pencil, Trash2
 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -123,6 +125,9 @@ export default function ReservationsTab({
   // Timeline loading state
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [timelineEvents, setTimelineEvents] = useState<any[]>([]);
+
+  // Action submission loading state
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ── Filtrage de la liste ───────────────────────────────────────────────────
   const filteredRes = useMemo(() => {
@@ -260,6 +265,7 @@ export default function ReservationsTab({
       return;
     }
     if (!selectedReservation) return;
+    setIsSubmitting(true);
     try {
       await updateStatus(selectedReservation.id, "confirmée");
       await reservationsService.createEvent(selectedReservation.id, {
@@ -281,6 +287,7 @@ export default function ReservationsTab({
       toast({ title: "Réservation confirmée", description: "Le client a été notifié." });
       closeModal();
     } catch (_) { /* géré dans updateStatus */ }
+    finally { setIsSubmitting(false); }
   };
 
   // ── Action : Annuler ───────────────────────────────────────────────────────
@@ -292,6 +299,7 @@ export default function ReservationsTab({
       return;
     }
     if (!selectedReservation) return;
+    setIsSubmitting(true);
     try {
       await updateStatus(selectedReservation.id, "annulée");
       await reservationsService.createEvent(selectedReservation.id, {
@@ -313,6 +321,7 @@ export default function ReservationsTab({
       toast({ title: "Réservation annulée" });
       closeModal();
     } catch (_) { /* géré dans updateStatus */ }
+    finally { setIsSubmitting(false); }
   };
 
   // ── Action : Refuser ───────────────────────────────────────────────────────
@@ -322,6 +331,7 @@ export default function ReservationsTab({
       return;
     }
     if (!selectedReservation) return;
+    setIsSubmitting(true);
     try {
       await updateStatus(selectedReservation.id, "refusée");
       await reservationsService.createEvent(selectedReservation.id, {
@@ -343,6 +353,7 @@ export default function ReservationsTab({
       toast({ title: "Réservation refusée", description: "Le client a été notifié." });
       closeModal();
     } catch (_) { /* géré dans updateStatus */ }
+    finally { setIsSubmitting(false); }
   };
 
   // ── Action : Démarrer location ─────────────────────────────────────────────
@@ -352,6 +363,7 @@ export default function ReservationsTab({
       return;
     }
     if (!selectedReservation) return;
+    setIsSubmitting(true);
     try {
       const photosBase64 = await Promise.all(
         photoFiles.map(
@@ -389,6 +401,7 @@ export default function ReservationsTab({
       toast({ title: "Location démarrée" });
       closeModal();
     } catch (_) { /* géré dans updateStatus */ }
+    finally { setIsSubmitting(false); }
   };
 
   // ── Action : Terminer location ─────────────────────────────────────────────
@@ -398,6 +411,7 @@ export default function ReservationsTab({
       return;
     }
     if (!selectedReservation) return;
+    setIsSubmitting(true);
     try {
       const photosBase64 = await Promise.all(
         photoFiles.map(
@@ -435,6 +449,7 @@ export default function ReservationsTab({
       toast({ title: "Location terminée" });
       closeModal();
     } catch (_) { /* géré dans updateStatus */ }
+    finally { setIsSubmitting(false); }
   };
 
   // ── Action : Créer événement custom ───────────────────────────────────────
@@ -444,6 +459,7 @@ export default function ReservationsTab({
       return;
     }
     if (!selectedReservation) return;
+    setIsSubmitting(true);
     try {
       await reservationsService.createEvent(selectedReservation.id, {
         type: "custom_event",
@@ -463,7 +479,7 @@ export default function ReservationsTab({
     } catch (error) {
       const message = error instanceof ApiHttpError ? error.message : "Impossible d'ajouter l'événement.";
       toast({ title: "Erreur", description: message, variant: "destructive" });
-    }
+    } finally { setIsSubmitting(false); }
   };
 
   const handleModifierReservation = async () => {
@@ -481,6 +497,7 @@ export default function ReservationsTab({
       return;
     }
 
+    setIsSubmitting(true);
     try {
       // Patch the basic fields
       await reservationsService.patch(selectedReservation.id, {
@@ -522,11 +539,12 @@ export default function ReservationsTab({
     } catch (error) {
       const message = error instanceof ApiHttpError ? error.message : "Impossible de modifier la réservation.";
       setEditError(message);
-    }
+    } finally { setIsSubmitting(false); }
   };
 
   const handleSupprimerReservation = async () => {
     if (!selectedReservation) return;
+    setIsSubmitting(true);
     try {
       await reservationsService.remove(selectedReservation.id);
       setReservations((prev) => prev.filter((r) => r.id !== selectedReservation.id));
@@ -535,7 +553,7 @@ export default function ReservationsTab({
     } catch (error) {
       const message = error instanceof ApiHttpError ? error.message : "Impossible de supprimer la réservation.";
       toast({ title: "Erreur", description: message, variant: "destructive" });
-    }
+    } finally { setIsSubmitting(false); }
   };
 
   // ── Titre de la modal selon l'action active ────────────────────────────────
@@ -668,7 +686,7 @@ export default function ReservationsTab({
                       const img = r.vehicleImageUrl;
                       return (
                         <TableRow key={r.id}>
-                          <TableCell className="font-mono text-xs">{r.id}</TableCell>
+                          <TableCell className="font-mono text-xs">{r.publicReference ?? r.id}</TableCell>
                           <TableCell className="font-medium">{r.client}</TableCell>
                           <TableCell className="text-xs hidden md:table-cell">{r.email}</TableCell>
                           <TableCell>
@@ -684,10 +702,10 @@ export default function ReservationsTab({
                             </div>
                           </TableCell>
                           <TableCell className="text-xs hidden sm:table-cell">
-                            {r.debut}{r.heureDebut ? ` ${r.heureDebut}` : ""}
+                            {formatDateTime(r.debut)}
                           </TableCell>
                           <TableCell className="text-xs hidden sm:table-cell">
-                            {r.fin}{r.heureFin ? ` ${r.heureFin}` : ""}
+                            {formatDateTime(r.fin)}
                           </TableCell>
                           <TableCell className="font-semibold">{r.montant} €</TableCell>
                           <TableCell className="font-semibold">{r.caution} €</TableCell>
@@ -803,27 +821,15 @@ export default function ReservationsTab({
                       <p className="text-xs text-muted-foreground mb-1">Début</p>
                       <div className="flex items-center gap-1 text-sm font-medium">
                         <Calendar className="h-3.5 w-3.5 text-primary" />
-                        {selectedReservation.debut}
+                        {formatDateTime(selectedReservation.debut)}
                       </div>
-                      {selectedReservation.heureDebut && (
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
-                          <Clock className="h-3.5 w-3.5" />
-                          {selectedReservation.heureDebut}
-                        </div>
-                      )}
                     </div>
                     <div className="p-3 rounded-xl bg-muted/40">
                       <p className="text-xs text-muted-foreground mb-1">Fin</p>
                       <div className="flex items-center gap-1 text-sm font-medium">
                         <Calendar className="h-3.5 w-3.5 text-primary" />
-                        {selectedReservation.fin}
+                        {formatDateTime(selectedReservation.fin)}
                       </div>
-                      {selectedReservation.heureFin && (
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
-                          <Clock className="h-3.5 w-3.5" />
-                          {selectedReservation.heureFin}
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -1018,9 +1024,9 @@ export default function ReservationsTab({
               {editError && <p className="text-xs text-destructive">{editError}</p>}
 
               <DialogFooter>
-                <Button variant="outline" onClick={goBack}>Annuler</Button>
-                <Button className="gap-2" onClick={handleModifierReservation}>
-                  <Pencil className="h-4 w-4" /> Enregistrer
+                <Button variant="outline" onClick={goBack} disabled={isSubmitting}>Annuler</Button>
+                <Button className="gap-2" onClick={handleModifierReservation} disabled={isSubmitting}>
+                  {isSubmitting ? <Spinner className="mr-1" /> : <Pencil className="h-4 w-4" />} Enregistrer
                 </Button>
               </DialogFooter>
             </div>
@@ -1029,12 +1035,12 @@ export default function ReservationsTab({
           {action === "supprimer" && selectedReservation && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Cette action est irreversible. La réservation <span className="font-medium text-foreground">{selectedReservation.id}</span> sera supprimée.
+                Cette action est irreversible. La réservation <span className="font-medium text-foreground">{selectedReservation.publicReference ?? selectedReservation.id}</span> sera supprimée.
               </p>
               <DialogFooter>
-                <Button variant="outline" onClick={goBack}>Annuler</Button>
-                <Button variant="destructive" className="gap-2" onClick={handleSupprimerReservation}>
-                  <Trash2 className="h-4 w-4" /> Supprimer définitivement
+                <Button variant="outline" onClick={goBack} disabled={isSubmitting}>Annuler</Button>
+                <Button variant="destructive" className="gap-2" onClick={handleSupprimerReservation} disabled={isSubmitting}>
+                  {isSubmitting ? <Spinner className="mr-1" /> : <Trash2 className="h-4 w-4" />} Supprimer définitivement
                 </Button>
               </DialogFooter>
             </div>
@@ -1059,9 +1065,9 @@ export default function ReservationsTab({
                 {commentaireError && <p className="text-xs text-destructive">{commentaireError}</p>}
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={goBack}>Annuler</Button>
-                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2" onClick={handleConfirmer}>
-                  <CheckCircle className="h-4 w-4" /> Confirmer et envoyer
+                <Button variant="outline" onClick={goBack} disabled={isSubmitting}>Annuler</Button>
+                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2" onClick={handleConfirmer} disabled={isSubmitting}>
+                  {isSubmitting ? <Spinner className="mr-1" /> : <CheckCircle className="h-4 w-4" />} Confirmer et envoyer
                 </Button>
               </DialogFooter>
             </div>
@@ -1096,9 +1102,9 @@ export default function ReservationsTab({
                 {commentaireError && <p className="text-xs text-destructive">{commentaireError}</p>}
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={goBack}>Retour</Button>
-                <Button variant="destructive" className="gap-2" onClick={handleAnnuler}>
-                  <XCircle className="h-4 w-4" /> Confirmer l'annulation
+                <Button variant="outline" onClick={goBack} disabled={isSubmitting}>Retour</Button>
+                <Button variant="destructive" className="gap-2" onClick={handleAnnuler} disabled={isSubmitting}>
+                  {isSubmitting ? <Spinner className="mr-1" /> : <XCircle className="h-4 w-4" />} Confirmer l'annulation
                 </Button>
               </DialogFooter>
             </div>
@@ -1123,9 +1129,9 @@ export default function ReservationsTab({
                 {commentaireError && <p className="text-xs text-destructive">{commentaireError}</p>}
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={goBack}>Retour</Button>
-                <Button variant="destructive" className="gap-2" onClick={handleRefuser}>
-                  <XCircle className="h-4 w-4" /> Refuser la réservation
+                <Button variant="outline" onClick={goBack} disabled={isSubmitting}>Retour</Button>
+                <Button variant="destructive" className="gap-2" onClick={handleRefuser} disabled={isSubmitting}>
+                  {isSubmitting ? <Spinner className="mr-1" /> : <XCircle className="h-4 w-4" />} Refuser la réservation
                 </Button>
               </DialogFooter>
             </div>
@@ -1171,9 +1177,9 @@ export default function ReservationsTab({
                 )}
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={goBack}>Retour</Button>
-                <Button className="gap-2" onClick={handleDemarrer}>
-                  <Play className="h-4 w-4" /> Démarrer la location
+                <Button variant="outline" onClick={goBack} disabled={isSubmitting}>Retour</Button>
+                <Button className="gap-2" onClick={handleDemarrer} disabled={isSubmitting}>
+                  {isSubmitting ? <Spinner className="mr-1" /> : <Play className="h-4 w-4" />} Démarrer la location
                 </Button>
               </DialogFooter>
             </div>
@@ -1220,9 +1226,9 @@ export default function ReservationsTab({
                 )}
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={goBack}>Retour</Button>
-                <Button variant="outline" className="gap-2" onClick={handleTerminer}>
-                  <Flag className="h-4 w-4" /> Terminer la location
+                <Button variant="outline" onClick={goBack} disabled={isSubmitting}>Retour</Button>
+                <Button variant="outline" className="gap-2" onClick={handleTerminer} disabled={isSubmitting}>
+                  {isSubmitting ? <Spinner className="mr-1" /> : <Flag className="h-4 w-4" />} Terminer la location
                 </Button>
               </DialogFooter>
             </div>
@@ -1269,9 +1275,9 @@ export default function ReservationsTab({
                 <Switch checked={evtEnvoiEmail} onCheckedChange={setEvtEnvoiEmail} />
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={goBack}>Annuler</Button>
-                <Button className="gap-2" onClick={handleAjouterEvenement}>
-                  <Plus className="h-4 w-4" /> Ajouter l'événement
+                <Button variant="outline" onClick={goBack} disabled={isSubmitting}>Annuler</Button>
+                <Button className="gap-2" onClick={handleAjouterEvenement} disabled={isSubmitting}>
+                  {isSubmitting ? <Spinner className="mr-1" /> : <Plus className="h-4 w-4" />} Ajouter l'événement
                 </Button>
               </DialogFooter>
             </div>

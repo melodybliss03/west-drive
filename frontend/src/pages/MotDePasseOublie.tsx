@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Mail, KeyRound, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -184,7 +185,7 @@ export default function MotDePasseOublie() {
                 </div>
 
                 <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                  {loading ? "Envoi en cours..." : isActivationMode ? "Vérifier" : "Continuer"}
+                  {loading ? <><Spinner className="mr-2" />Envoi en cours...</> : isActivationMode ? "Vérifier" : "Continuer"}
                 </Button>
 
                 <button
@@ -231,7 +232,7 @@ export default function MotDePasseOublie() {
                 </div>
 
                 <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                  {loading ? "Vérification..." : "Continuer"}
+                  {loading ? <><Spinner className="mr-2" />Vérification...</> : "Continuer"}
                 </Button>
 
                 <p className="text-center text-sm text-muted-foreground">
@@ -332,7 +333,7 @@ export default function MotDePasseOublie() {
                 </div>
 
                 <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                  {loading ? "Mise à jour..." : "Mettre à jour"}
+                  {loading ? <><Spinner className="mr-2" />Mise à jour...</> : "Mettre à jour"}
                 </Button>
               </form>
             </>

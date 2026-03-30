@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Mail, KeyRound, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/hooks/use-toast";
 import { authService } from "@/lib/api/services";
 import { ApiHttpError } from "@/lib/api/types";
@@ -125,7 +126,7 @@ export default function AdminMotDePasseOublie() {
                   {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
                 </div>
                 <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                  {loading ? "Envoi..." : "Continuer"}
+                  {loading ? <><Spinner className="mr-2" />Envoi...</> : "Continuer"}
                 </Button>
                 <button type="button" onClick={() => navigate("/boss")} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mx-auto">
                   <ArrowLeft className="h-4 w-4" /> Retour
@@ -150,7 +151,7 @@ export default function AdminMotDePasseOublie() {
                   {errors.otp && <p className="text-xs text-destructive">{errors.otp}</p>}
                 </div>
                 <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                  {loading ? "Vérification..." : "Continuer"}
+                  {loading ? <><Spinner className="mr-2" />Vérification...</> : "Continuer"}
                 </Button>
                 <p className="text-center text-sm text-muted-foreground">
                   Pas reçu ? <button type="button" onClick={() => toast({ title: "Code renvoyé", description: `Nouveau code envoyé à ${email}.` })} className="text-primary font-medium hover:underline">Renvoyer</button>
@@ -183,7 +184,7 @@ export default function AdminMotDePasseOublie() {
                   {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword}</p>}
                 </div>
                 <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                  {loading ? "Mise à jour..." : "Mettre à jour"}
+                  {loading ? <><Spinner className="mr-2" />Mise à jour...</> : "Mettre à jour"}
                 </Button>
               </form>
             </>

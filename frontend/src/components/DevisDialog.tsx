@@ -3,6 +3,7 @@ import { User, Building2, Send } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/hooks/use-toast";
 import { quotesService } from "@/lib/api/services";
 import { ApiHttpError } from "@/lib/api/types";
@@ -602,7 +603,7 @@ export default function DevisDialog({
                 size="lg"
                 disabled={loading}
               >
-                {loading ? "Envoi en cours..." : "Envoyer ma demande de devis"}
+                {loading ? <><Spinner className="mr-2" />Envoi en cours...</> : "Envoyer ma demande de devis"}
               </Button>
             </form>
           </>
