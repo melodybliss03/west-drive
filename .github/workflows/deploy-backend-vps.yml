@@ -107,6 +107,17 @@ jobs:
           chmod 600 "$KEY_PATH"
           echo "VPS_SSH_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
 
+      - name: Check VPS reachability
+        run: |
+          HOST="${{ secrets.VPS_HOST }}"
+          PORT="${VPS_PORT_CLEAN:-22}"
+          echo "Testing TCP connection to $HOST:$PORT ..."
+          if ! nc -zvw 10 "$HOST" "$PORT" 2>&1; then
+            echo "::error::Cannot reach VPS at $HOST:$PORT — check firewall rules and VPS_HOST/VPS_SSH_PORT secrets."
+            exit 1
+          fi
+          echo "VPS is reachable."
+
       - name: Sync repository on VPS (SSH key)
         id: sync_key
         if: ${{ env.HAS_SSH_KEY == 'true' }}
