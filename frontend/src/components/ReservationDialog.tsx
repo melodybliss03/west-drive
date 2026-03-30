@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { User, Building2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ interface ReservationDialogProps {
   vehiculeName?: string;
   vehiculeCategorie?: string;
   vehiculePrixJour?: number;
+  vehiculePrixHeure?: number;
   vehiculeCaution?: number;
   vehiculeAdditionalFees?: Array<{ label: string; amount: number }>;
 }
@@ -77,32 +79,61 @@ function computeReservationPricing(
   startAt: Date,
   endAt: Date,
   pricePerDay: number,
+  pricePerHour: number,
   vehicleDepositAmount: number | undefined,
   additionalFees: Array<{ label: string; amount: number }>,
   selectedAdditionalFeeLabels: string[],
-): { rentalAmount: number; depositAmount: number; totalAmount: number } {
-  const days = Math.max(
-    1,
-    Math.ceil((endAt.getTime() - startAt.getTime()) / (1000 * 60 * 60 * 24)),
-  );
-
+): {
+  rentalBase: number;
+  pricingMode: "heure" | "jour";
+  totalHours: number;
+  totalDays: number;
+  hourlyCost: number;
+  dailyCost: number;
+  additionalFeesAmount: number;
+  rentalAmount: number;
+  depositAmount: number;
+  totalAmount: number;
+} {
   const safePricePerDay =
     typeof pricePerDay === "number" && Number.isFinite(pricePerDay) && pricePerDay > 0
       ? pricePerDay
       : 50;
+  const safePricePerHour =
+    typeof pricePerHour === "number" && Number.isFinite(pricePerHour) && pricePerHour > 0
+      ? pricePerHour
+      : 0;
 
-  const baseRentalAmount = days * safePricePerDay;
-  const selectedAdditionalFeesAmount = additionalFees
+  const durationMs = endAt.getTime() - startAt.getTime();
+  const totalHours = durationMs / (1000 * 60 * 60);
+  const totalDays = Math.max(1, Math.ceil(totalHours / 24));
+
+  const dailyCost = totalDays * safePricePerDay;
+  const hourlyCostRaw = safePricePerHour > 0 ? totalHours * safePricePerHour : Infinity;
+
+  const pricingMode: "heure" | "jour" =
+    safePricePerHour > 0 && hourlyCostRaw < dailyCost ? "heure" : "jour";
+  const rentalBase =
+    pricingMode === "heure" ? Math.round(hourlyCostRaw * 100) / 100 : dailyCost;
+
+  const additionalFeesAmount = additionalFees
     .filter((fee) => selectedAdditionalFeeLabels.includes(fee.label))
     .reduce((sum, fee) => sum + (Number(fee.amount) || 0), 0);
 
-  const rentalAmount = baseRentalAmount + selectedAdditionalFeesAmount;
+  const rentalAmount = rentalBase + additionalFeesAmount;
   const depositAmount =
     typeof vehicleDepositAmount === "number" && Number.isFinite(vehicleDepositAmount)
       ? Math.max(vehicleDepositAmount, 0)
       : Math.max(rentalAmount * 2, 500);
 
   return {
+    rentalBase,
+    pricingMode,
+    totalHours,
+    totalDays,
+    hourlyCost: safePricePerHour > 0 ? hourlyCostRaw : 0,
+    dailyCost,
+    additionalFeesAmount,
     rentalAmount,
     depositAmount,
     totalAmount: rentalAmount + depositAmount,
@@ -117,11 +148,13 @@ export default function ReservationDialog({
   vehiculeName,
   vehiculeCategorie,
   vehiculePrixJour,
+  vehiculePrixHeure,
   vehiculeCaution,
   vehiculeAdditionalFees = [],
 }: ReservationDialogProps) {
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<ClientType>("particulier");
   const [loading, setLoading] = useState(false);
@@ -151,11 +184,21 @@ export default function ReservationDialog({
           startAt,
           endAt,
           vehiculePrixJour ?? 50,
+          vehiculePrixHeure ?? 0,
           vehiculeCaution,
           vehiculeAdditionalFees,
           selectedAdditionalFeeLabels,
         )
       : null;
+
+  const CLIENT_ROLE_NAMES_RESY = new Set(["client", "customer", "particulier"]);
+  const isStaffOrAdmin =
+    isAuthenticated &&
+    user !== null &&
+    (
+      (user.role != null && user.role.trim() !== "" && !CLIENT_ROLE_NAMES_RESY.has(user.role.toLowerCase())) ||
+      user.roles.some((r) => typeof r === "string" && r.trim() !== "" && !CLIENT_ROLE_NAMES_RESY.has(r.toLowerCase()))
+    );
 
   useEffect(() => {
     if (open && isAuthenticated && user) {
@@ -177,11 +220,15 @@ export default function ReservationDialog({
   const validate = () => {
     const errs: Record<string, string> = {};
 
-    if (!form.nom.trim()) errs.nom = "Le nom complet est requis.";
-    if (!form.email.trim()) errs.email = "L'email est requis.";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
-      errs.email = "Email invalide.";
-    if (!form.telephone.trim()) errs.telephone = "Le téléphone est requis.";
+    // Personal info is pre-filled from auth context for logged-in users;
+    // skip validation since the fields are hidden for them.
+    if (!isAuthenticated) {
+      if (!form.nom.trim()) errs.nom = "Le nom complet est requis.";
+      if (!form.email.trim()) errs.email = "L'email est requis.";
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+        errs.email = "Email invalide.";
+      if (!form.telephone.trim()) errs.telephone = "Le téléphone est requis.";
+    }
     if (!form.ville) errs.ville = "La ville est requise.";
 
     // Date de prise
@@ -247,6 +294,14 @@ export default function ReservationDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isStaffOrAdmin) {
+      toast({
+        title: "Accès refusé",
+        description: "Les comptes administrateurs et personnel ne peuvent pas effectuer de réservations.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!validate()) return;
     setLoading(true);
 
@@ -277,27 +332,33 @@ export default function ReservationDialog({
         depositAmount: pricing.depositAmount,
       });
 
-      let payment;
-      try {
-        payment = await reservationsService.createPaymentLink(created.id);
-      } catch (error) {
-        const isLegacyPaymentStatusError =
-          error instanceof ApiHttpError &&
-          /EN_ATTENTE_PAIEMENT status/i.test(error.message);
+      const pricingLabel =
+        pricing.pricingMode === "heure"
+          ? `${Math.round(pricing.totalHours * 10) / 10} h × ${vehiculePrixHeure ?? 0} €/h`
+          : `${pricing.totalDays} j × ${vehiculePrixJour ?? 50} €/j`;
 
-        if (!isLegacyPaymentStatusError) {
-          throw error;
-        }
-
-        await reservationsService.patchStatus(created.id, "EN_ATTENTE_PAIEMENT");
-        payment = await reservationsService.createPaymentLink(created.id);
-      }
-
-      toast({
-        title: "Réservation créée",
-        description: "Redirection vers le paiement sécurisé Stripe.",
+      setLoading(false);
+      setOpen(false);
+      navigate("/checkout", {
+        state: {
+          reservationBackendId: created.id,
+          reservationId: created.publicReference,
+          vehiculeName: vehiculeName ?? "",
+          startAt: startAt.toISOString(),
+          endAt: endAt.toISOString(),
+          pickupCity: form.ville,
+          pricingMode: pricing.pricingMode,
+          pricingLabel,
+          rentalBase: pricing.rentalBase,
+          additionalFees: vehiculeAdditionalFees.filter((fee) =>
+            selectedAdditionalFeeLabels.includes(fee.label),
+          ),
+          additionalFeesAmount: pricing.additionalFeesAmount,
+          rentalAmount: pricing.rentalAmount,
+          depositAmount: pricing.depositAmount,
+          totalAmount: pricing.totalAmount,
+        },
       });
-      window.location.assign(payment.paymentLinkUrl);
     } catch (error) {
       const message =
         error instanceof ApiHttpError
@@ -479,12 +540,7 @@ export default function ReservationDialog({
           </div>
 
           {/* Informations personnelles */}
-          {isAuthenticated ? (
-            <div className="p-3 rounded-xl bg-muted/40 text-sm text-muted-foreground flex items-center gap-2">
-              <User className="h-4 w-4 flex-shrink-0" />
-              Connecté en tant que {user?.prenom} {user?.nom} ({user?.email})
-            </div>
-          ) : (
+          {!isAuthenticated && (
           <div className="space-y-3">
             <p className="text-sm font-semibold text-foreground">
               Vos informations
@@ -623,6 +679,11 @@ export default function ReservationDialog({
             />
           </div>
 
+          {isStaffOrAdmin && (
+            <p className="text-sm text-destructive text-center">
+              Les comptes administrateurs et personnel ne peuvent pas effectuer de réservations.
+            </p>
+          )}
           <Button type="submit" className="w-full" size="lg" disabled={loading}>
             {loading ? "Envoi en cours..." : "Confirmer ma réservation"}
           </Button>

@@ -23,6 +23,7 @@ import { useVehiclesCatalog } from "@/hooks/useVehiclesCatalog";
 import ReservationDialog from "@/components/ReservationDialog";
 import ImageCarousel from "@/components/ImageCarousel";
 import { reviewsService } from "@/lib/api/services";
+import { useAuth } from "@/contexts/AuthContext";
 
 const energieLabels: Record<string, string> = {
   ESSENCE: "Essence",
@@ -34,6 +35,15 @@ const energieLabels: Record<string, string> = {
 export default function VehiculeDetail() {
   const { id } = useParams();
   const { vehicles, isLoading } = useVehiclesCatalog();
+  const { user, isAuthenticated } = useAuth();
+  const CLIENT_ROLE_NAMES_DETAIL = new Set(["client", "customer", "particulier"]);
+  const isStaffOrAdmin =
+    isAuthenticated &&
+    user !== null &&
+    (
+      (user.role != null && user.role.trim() !== "" && !CLIENT_ROLE_NAMES_DETAIL.has(user.role.toLowerCase())) ||
+      user.roles.some((r) => typeof r === "string" && r.trim() !== "" && !CLIENT_ROLE_NAMES_DETAIL.has(r.toLowerCase()))
+    );
   const vehicule = vehicles.find((item) => item.id === (id || ""));
 
   const { data: vehicleReviews } = useQuery({
@@ -207,6 +217,7 @@ export default function VehiculeDetail() {
                   vehiculeName={vehicule.nom}
                   vehiculeCategorie={vehicule.categorie}
                   vehiculePrixJour={vehicule.prixJour}
+                  vehiculePrixHeure={vehicule.prixHeure}
                   vehiculeCaution={vehicule.caution}
                   vehiculeAdditionalFees={vehicule.autreFraisLibelle}
                 >

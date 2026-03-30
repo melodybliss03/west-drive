@@ -93,7 +93,7 @@ export default function MotDePasseOublie() {
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (!password.trim()) errs.password = "Le mot de passe est requis.";
-    else if (password.length < 12) errs.password = "Minimum 12 caractères.";
+    else if (password.length < 8) errs.password = "Minimum 8 caractères.";
     if (!confirmPassword.trim()) errs.confirmPassword = "La confirmation est requise.";
     else if (password !== confirmPassword) errs.confirmPassword = "Les mots de passe ne correspondent pas.";
     setErrors(errs);

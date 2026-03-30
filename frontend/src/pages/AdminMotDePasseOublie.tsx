@@ -63,7 +63,7 @@ export default function AdminMotDePasseOublie() {
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (!password.trim()) errs.password = "Le mot de passe est requis.";
-    else if (password.length < 12) errs.password = "Minimum 12 caractères.";
+    else if (password.length < 8) errs.password = "Minimum 8 caractères.";
     if (!confirmPassword.trim()) errs.confirmPassword = "La confirmation est requise.";
     else if (password !== confirmPassword) errs.confirmPassword = "Les mots de passe ne correspondent pas.";
     setErrors(errs);
@@ -174,7 +174,7 @@ export default function AdminMotDePasseOublie() {
               <form onSubmit={handlePasswordSubmit} className="space-y-4" noValidate>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Nouveau mot de passe <span className="text-primary">*</span></label>
-                  <Input type="password" placeholder="Min. 12 caractères" value={password} onChange={e => { setPassword(e.target.value); setErrors(p => ({ ...p, password: "" })); }} className={errors.password ? "border-destructive" : ""} />
+                  <Input type="password" placeholder="Min. 8 caractères" value={password} onChange={e => { setPassword(e.target.value); setErrors(p => ({ ...p, password: "" })); }} className={errors.password ? "border-destructive" : ""} />
                   {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
                 </div>
                 <div className="space-y-1.5">

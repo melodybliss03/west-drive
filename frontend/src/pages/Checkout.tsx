@@ -10,17 +10,19 @@ type PaymentFlow = "reservation" | "quote";
 
 type ReservationState = {
   vehiculeName: string;
-  categorie: string;
-  dateDebut: string;
-  dateFin: string;
-  prixJour: number;
-  nbJours: number;
-  total: number;
   reservationId: string;
   reservationBackendId: string;
-  email: string;
-  nom: string;
-  caution?: number;
+  startAt: string;
+  endAt: string;
+  pickupCity?: string;
+  pricingMode: "heure" | "jour";
+  pricingLabel: string;
+  rentalBase: number;
+  additionalFees: Array<{ label: string; amount: number }>;
+  additionalFeesAmount: number;
+  rentalAmount: number;
+  depositAmount: number;
+  totalAmount: number;
 };
 
 export default function Checkout() {
@@ -129,24 +131,11 @@ export default function Checkout() {
       let response;
       if (flow === "quote") {
         response = await quotesService.createPaymentLink(String(quoteIdFromQuery));
+        window.location.assign(response.paymentLinkUrl);
       } else {
-        try {
-          response = await reservationsService.createPaymentLink(String(effectiveReservationId));
-        } catch (error) {
-          const isLegacyPaymentStatusError =
-            error instanceof ApiHttpError &&
-            /EN_ATTENTE_PAIEMENT status/i.test(error.message);
-
-          if (!isLegacyPaymentStatusError) {
-            throw error;
-          }
-
-          await reservationsService.patchStatus(String(effectiveReservationId), "EN_ATTENTE_PAIEMENT");
-          response = await reservationsService.createPaymentLink(String(effectiveReservationId));
-        }
+        response = await reservationsService.createPaymentSession(String(effectiveReservationId));
+        window.location.assign(response.checkoutUrl);
       }
-
-      window.location.assign(response.paymentLinkUrl);
     } catch (error) {
       setLoading(false);
       const message =
@@ -217,12 +206,46 @@ export default function Checkout() {
         </div>
 
         {reservation && (
-          <div className="rounded-lg bg-muted/40 p-4 text-sm space-y-1">
-            <p className="font-medium text-foreground">{reservation.vehiculeName}</p>
-            <p className="text-muted-foreground">
-              Du {new Date(reservation.dateDebut).toLocaleDateString("fr-FR")} au {new Date(reservation.dateFin).toLocaleDateString("fr-FR")}
-            </p>
-            <p className="text-muted-foreground">Réf: {reservation.reservationId}</p>
+          <div className="rounded-lg bg-muted/40 p-4 text-sm space-y-3">
+            <div className="space-y-1">
+              <p className="font-semibold text-foreground">{reservation.vehiculeName}</p>
+              <p className="text-muted-foreground">
+                Du {new Date(reservation.startAt).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })} au {new Date(reservation.endAt).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+              </p>
+              {reservation.pickupCity && (
+                <p className="text-muted-foreground">Prise en charge : {reservation.pickupCity}</p>
+              )}
+              <p className="text-muted-foreground">Réf : {reservation.reservationId}</p>
+            </div>
+
+            <div className="border-t border-border pt-3 space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Location ({reservation.pricingLabel})</span>
+                <span className="font-medium">{reservation.rentalBase.toFixed(2)} €</span>
+              </div>
+              {reservation.additionalFees.map((fee) => (
+                <div key={fee.label} className="flex justify-between">
+                  <span className="text-muted-foreground">{fee.label}</span>
+                  <span className="font-medium">+{Number(fee.amount).toFixed(2)} €</span>
+                </div>
+              ))}
+              {reservation.additionalFeesAmount > 0 && (
+                <div className="flex justify-between border-t border-border pt-1.5">
+                  <span className="text-muted-foreground">Sous-total location</span>
+                  <span className="font-medium">{reservation.rentalAmount.toFixed(2)} €</span>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+              <span className="font-semibold">Caution :</span> {reservation.depositAmount.toFixed(2)} € — prélevée à la remise des clés, restituée en fin de location.
+            </div>
+
+            <div className="rounded-md bg-primary/5 border border-primary/20 px-3 py-2.5 flex justify-between items-center">
+              <span className="font-semibold text-foreground">Total à régler</span>
+              <span className="text-xl font-bold text-primary">{reservation.rentalAmount.toFixed(2)} €</span>
+            </div>
+            <p className="text-xs text-muted-foreground text-center">TVA incluse · La caution n’est pas incluse dans ce montant</p>
           </div>
         )}
 
@@ -234,7 +257,7 @@ export default function Checkout() {
 
         <Button onClick={() => void handleStartPayment()} disabled={loading || !canStartPayment} className="w-full gap-2">
           <ExternalLink className="h-4 w-4" />
-          {loading ? "Redirection vers Stripe..." : "Payer maintenant"}
+          {loading ? "Redirection vers Stripe..." : "Passer au paiement sécurisé →"}
         </Button>
 
         <Button variant="outline" onClick={() => navigate("/")} className="w-full">

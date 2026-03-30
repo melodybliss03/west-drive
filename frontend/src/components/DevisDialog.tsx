@@ -70,6 +70,14 @@ export default function DevisDialog({
 }: DevisDialogProps) {
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
+  const CLIENT_ROLE_NAMES_DEVIS = new Set(["client", "customer", "particulier"]);
+  const isStaffOrAdmin =
+    isAuthenticated &&
+    user !== null &&
+    (
+      (user.role != null && user.role.trim() !== "" && !CLIENT_ROLE_NAMES_DEVIS.has(user.role.toLowerCase())) ||
+      user.roles.some((r) => typeof r === "string" && r.trim() !== "" && !CLIENT_ROLE_NAMES_DEVIS.has(r.toLowerCase()))
+    );
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<DevisType>(defaultType);
   const [loading, setLoading] = useState(false);
@@ -113,11 +121,15 @@ export default function DevisDialog({
   const validate = () => {
     const errs: Record<string, string> = {};
 
-    if (!form.nom.trim()) errs.nom = "Le nom complet est requis.";
-    if (!form.email.trim()) errs.email = "L'email est requis.";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
-      errs.email = "Email invalide.";
-    if (!form.telephone.trim()) errs.telephone = "Le téléphone est requis.";
+    // Personal info is pre-filled from auth context for logged-in users;
+    // skip validation since the fields are hidden for them.
+    if (!isAuthenticated) {
+      if (!form.nom.trim()) errs.nom = "Le nom complet est requis.";
+      if (!form.email.trim()) errs.email = "L'email est requis.";
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+        errs.email = "Email invalide.";
+      if (!form.telephone.trim()) errs.telephone = "Le téléphone est requis.";
+    }
     if (!form.ville) errs.ville = "La ville est requise.";
 
     // Date de prise
@@ -178,6 +190,14 @@ export default function DevisDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isStaffOrAdmin) {
+      toast({
+        title: "Accès refusé",
+        description: "Les comptes administrateurs et personnel ne peuvent pas effectuer de demandes de devis.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!validate()) return;
     setLoading(true);
 
@@ -459,12 +479,7 @@ export default function DevisDialog({
               </div>
 
               {/* Informations personnelles */}
-              {isAuthenticated ? (
-                <div className="p-3 rounded-xl bg-muted/40 text-sm text-muted-foreground flex items-center gap-2">
-                  <User className="h-4 w-4 flex-shrink-0" />
-                  Connecté en tant que {user?.prenom} {user?.nom} ({user?.email})
-                </div>
-              ) : (
+              {!isAuthenticated && (
               <div className="space-y-3">
                 <p className="text-sm font-semibold text-foreground">
                   Vos informations
@@ -576,6 +591,11 @@ export default function DevisDialog({
                 />
               </div>
 
+              {isStaffOrAdmin && (
+                <p className="text-sm text-destructive text-center">
+                  Les comptes administrateurs et personnel ne peuvent pas effectuer de demandes de devis.
+                </p>
+              )}
               <Button
                 type="submit"
                 className="w-full"

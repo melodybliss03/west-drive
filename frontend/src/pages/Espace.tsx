@@ -103,10 +103,7 @@ type TabPagination = {
   totalPages: number;
 };
 
-const MOCK_FACTURES: UiFacture[] = [
-  { id: "F-2025-001", reservationId: "RES-2025-001", date: "2025-06-13", montant: 165, vehicule: "Renault Clio V", ville: "Puteaux" },
-  { id: "F-2025-002", reservationId: "RES-2025-003", date: "2025-04-08", montant: 255, vehicule: "Peugeot 3008", ville: "Nanterre" },
-];
+const INVOICE_STATUSES = new Set<StatutReservation>(["CONFIRMEE", "EN_COURS", "CLOTUREE"]);
 
 const statutColors: Record<string, string> = {
   EN_ATTENTE: "bg-amber-500/10 text-amber-600 border-amber-200",
@@ -158,14 +155,20 @@ const quoteEventLabels: Record<string, string> = {
 };
 
 const reservationEventLabels: Record<string, string> = {
-  reservation_created: "Reservation creee",
-  reservation_ack_email_sent: "Accuse de reception envoye",
-  reservation_admin_notified: "Equipe admin notifiee",
-  reservation_status_changed: "Statut mis a jour",
-  reservation_payment_session_created: "Session paiement creee",
-  reservation_payment_link_created: "Lien de paiement genere",
-  reservation_payment_confirmed: "Paiement confirme",
-  reservation_archived: "Reservation archivee",
+  reservation_created: "Réservation créée",
+  reservation_ack_email_sent: "Accusé de réception envoyé",
+  reservation_admin_notified: "Équipe admin notifiée",
+  reservation_status_changed: "Statut mis à jour",
+  reservation_updated: "Réservation mise à jour",
+  reservation_payment_session_created: "Session de paiement créée",
+  reservation_payment_link_created: "Lien de paiement généré",
+  reservation_payment_confirmed: "Paiement confirmé",
+  reservation_stripe_preauth_created: "Pré-autorisation de paiement validée",
+  reservation_commercial_reviewed: "Dossier en cours d’analyse",
+  reservation_counter_offer_sent: "Proposition commerciale envoyée",
+  reservation_vehicle_handover: "Véhicule remis au client",
+  reservation_closed: "Réservation clôturée",
+  reservation_archived: "Réservation archivée",
 };
 
 function toItems<T>(value: PaginatedCollection<T> | T[]): T[] {
@@ -250,7 +253,20 @@ export default function Espace() {
   const [quotes, setQuotes] = useState<UiDevis[]>([]);
   const [quotesPagination, setQuotesPagination] = useState<TabPagination>({ page: 1, totalPages: 1 });
   const [notifications, setNotifications] = useState<NotificationDto[]>([]);
-  const [factures] = useState<UiFacture[]>(MOCK_FACTURES);
+  const factures: UiFacture[] = useMemo(
+    () =>
+      reservations
+        .filter((r) => INVOICE_STATUSES.has(r.statut))
+        .map((r) => ({
+          id: `F-${r.publicReference}`,
+          reservationId: r.publicReference,
+          date: r.dateDebut,
+          montant: r.montant,
+          vehicule: r.vehicule,
+          ville: r.ville,
+        })),
+    [reservations],
+  );
 
   const [selectedReservation, setSelectedReservation] = useState<UiReservation | null>(null);
   const [selectedDevis, setSelectedDevis] = useState<UiDevis | null>(null);

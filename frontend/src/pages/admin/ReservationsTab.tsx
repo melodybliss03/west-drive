@@ -353,6 +353,21 @@ export default function ReservationsTab({
     }
     if (!selectedReservation) return;
     try {
+      const photosBase64 = await Promise.all(
+        photoFiles.map(
+          (file) =>
+            new Promise<{ filename: string; content: string }>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () =>
+                resolve({
+                  filename: file.name,
+                  content: (reader.result as string).split(",")[1] ?? "",
+                });
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            }),
+        ),
+      );
       await reservationsService.createEvent(selectedReservation.id, {
         type: "reservation_vehicle_handover",
         payload: {
@@ -361,6 +376,7 @@ export default function ReservationsTab({
           visibleClient: true,
           sendEmail: true,
           kmStart: Number(kmInput),
+          ...(photosBase64.length > 0 ? { photos: photosBase64 } : {}),
         },
       });
       setReservations(prev =>
@@ -383,6 +399,21 @@ export default function ReservationsTab({
     }
     if (!selectedReservation) return;
     try {
+      const photosBase64 = await Promise.all(
+        photoFiles.map(
+          (file) =>
+            new Promise<{ filename: string; content: string }>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () =>
+                resolve({
+                  filename: file.name,
+                  content: (reader.result as string).split(",")[1] ?? "",
+                });
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            }),
+        ),
+      );
       await reservationsService.createEvent(selectedReservation.id, {
         type: "reservation_closed",
         payload: {
@@ -391,6 +422,7 @@ export default function ReservationsTab({
           visibleClient: true,
           sendEmail: true,
           kmEnd: Number(kmInput),
+          ...(photosBase64.length > 0 ? { photos: photosBase64 } : {}),
         },
       });
       setReservations(prev =>
