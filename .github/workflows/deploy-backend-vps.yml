@@ -163,8 +163,6 @@ jobs:
 
             cd "$APP_PATH"
             git remote set-url origin "$REPO_URL"
-            git reset --hard HEAD
-            git clean -fd
             if ! git fetch --depth 1 origin "$BRANCH"; then
               echo "git fetch failed for branch $BRANCH"
               if [ -z "${{ secrets.GH_REPO_TOKEN }}" ]; then
@@ -172,8 +170,8 @@ jobs:
               fi
               exit 1
             fi
-            git checkout -B "$BRANCH" "origin/$BRANCH"
-            git reset --hard "$SHA"
+            git reset --hard FETCH_HEAD
+            git clean -fd
 
       - name: Fail when key auth failed and no password fallback
         if: ${{ env.HAS_SSH_KEY == 'true' && steps.sync_key.outcome == 'failure' && env.HAS_PASSWORD != 'true' }}
@@ -224,8 +222,6 @@ jobs:
 
             cd "$APP_PATH"
             git remote set-url origin "$REPO_URL"
-            git reset --hard HEAD
-            git clean -fd
             if ! git fetch --depth 1 origin "$BRANCH"; then
               echo "git fetch failed for branch $BRANCH"
               if [ -z "${{ secrets.GH_REPO_TOKEN }}" ]; then
@@ -233,8 +229,8 @@ jobs:
               fi
               exit 1
             fi
-            git checkout -B "$BRANCH" "origin/$BRANCH"
-            git reset --hard "$SHA"
+            git reset --hard FETCH_HEAD
+            git clean -fd
 
       - name: Apply deployment on VPS (SSH key)
         if: ${{ env.HAS_SSH_KEY == 'true' && steps.sync_key.outcome == 'success' }}
