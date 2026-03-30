@@ -143,23 +143,56 @@ export class MailService {
     to: string;
     requesterName: string;
     publicReference: string;
+    vehicleName?: string;
+    startAt?: string;
+    endAt?: string;
+    pickupCity?: string;
+    amountTtc?: number;
+    requesterPhone?: string;
+    requesterType?: string;
+    companyName?: string;
   }): Promise<void> {
-    const subject = `WestDrive — Demande de reservation recue`;
+    const fmt = (iso?: string) => {
+      if (!iso) return '';
+      try {
+        return new Date(iso).toLocaleString('fr-FR', {
+          day: '2-digit', month: 'long', year: 'numeric',
+          hour: '2-digit', minute: '2-digit',
+        });
+      } catch { return iso; }
+    };
+
+    const bookingRows = [
+      options.vehicleName ? `<tr><td style="padding: 6px 0; color: #6b7280; font-size: 13px;">V&eacute;hicule</td><td style="padding: 6px 0; font-weight: 600; font-size: 13px; text-align: right;">${options.vehicleName}</td></tr>` : '',
+      options.startAt ? `<tr><td style="padding: 6px 0; color: #6b7280; font-size: 13px;">D&eacute;but</td><td style="padding: 6px 0; font-size: 13px; text-align: right;">${fmt(options.startAt)}</td></tr>` : '',
+      options.endAt ? `<tr><td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Fin</td><td style="padding: 6px 0; font-size: 13px; text-align: right;">${fmt(options.endAt)}</td></tr>` : '',
+      options.pickupCity ? `<tr><td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Ville</td><td style="padding: 6px 0; font-size: 13px; text-align: right;">${options.pickupCity}</td></tr>` : '',
+      options.companyName ? `<tr><td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Entreprise</td><td style="padding: 6px 0; font-size: 13px; text-align: right;">${options.companyName}</td></tr>` : '',
+      options.amountTtc !== undefined ? `<tr><td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Montant TTC</td><td style="padding: 6px 0; font-weight: 700; font-size: 14px; color: #111827; text-align: right;">${options.amountTtc.toFixed(2)}&nbsp;&euro;</td></tr>` : '',
+    ].filter(Boolean).join('');
+
+    const subject = `WestDrive \u2014 Demande de r\u00e9servation re\u00e7ue`;
     const html = `
       <p style="margin: 0 0 16px;">Bonjour <strong>${options.requesterName}</strong>,</p>
-      <p style="margin: 0 0 12px;">Nous avons bien recu votre demande de reservation.</p>
-      <div style="margin: 20px 0; padding: 14px 16px; background: #f9fafb; border-radius: 10px; border: 1px solid #e5e7eb;">
-        <p style="margin: 0; font-size: 13px; color: #6b7280;">Reference</p>
-        <p style="margin: 4px 0 0; font-size: 18px; font-weight: 700; color: #111827; letter-spacing: 0.5px;">${options.publicReference}</p>
+      <p style="margin: 0 0 20px;">Nous avons bien re&ccedil;u votre demande de r&eacute;servation. Notre &eacute;quipe l&apos;examine et reviendra vers vous tr&egrave;s prochainement.</p>
+      <div style="margin: 0 0 20px; padding: 6px 16px 12px; background: #f9fafb; border-radius: 10px; border: 1px solid #e5e7eb;">
+        <p style="margin: 10px 0 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">R&eacute;f&eacute;rence</p>
+        <p style="margin: 0 0 12px; font-size: 22px; font-weight: 800; color: #111827; letter-spacing: 1px;">${options.publicReference}</p>
+        ${bookingRows ? `<table style="width: 100%; border-collapse: collapse; border-top: 1px solid #e5e7eb; margin-top: 8px;">${bookingRows}</table>` : ''}
       </div>
-      <p style="margin: 0; font-size: 13px; color: #6b7280;">Notre equipe vous tiendra informe(e) de chaque evolution par e-mail.</p>
+      <p style="margin: 0; font-size: 13px; color: #6b7280;">Vous recevrez un e-mail &agrave; chaque &eacute;tape importante de votre dossier. Pour toute question&nbsp;: <a href="mailto:contact@pariswestdrive.fr" style="color: #111827;">contact@pariswestdrive.fr</a>.</p>
     `;
     const text = [
       `Bonjour ${options.requesterName},`,
       'Nous avons bien recu votre demande de reservation.',
       `Reference : ${options.publicReference}`,
+      options.vehicleName ? `Vehicule : ${options.vehicleName}` : '',
+      options.startAt ? `Debut : ${fmt(options.startAt)}` : '',
+      options.endAt ? `Fin : ${fmt(options.endAt)}` : '',
+      options.pickupCity ? `Ville : ${options.pickupCity}` : '',
+      options.amountTtc !== undefined ? `Montant TTC : ${options.amountTtc.toFixed(2)} EUR` : '',
       'Notre equipe vous tiendra informe(e) de chaque evolution par e-mail.',
-    ].join('\n');
+    ].filter(Boolean).join('\n');
 
     await this.sendEmail({ to: options.to, subject, html, text });
   }
@@ -198,6 +231,7 @@ export class MailService {
     publicReference: string;
     title: string;
     description?: string;
+    photos?: Array<{ filename: string; content: string }>;
   }): Promise<void> {
     const subject = `WestDrive — Nouvel evenement sur votre reservation`;
     const html = `
@@ -216,7 +250,15 @@ export class MailService {
       options.description ?? '',
     ].join('\n');
 
-    await this.sendEmail({ to: options.to, subject, html, text });
+    const attachments = options.photos
+      ?.filter((p) => p.content && p.filename)
+      .map((p) => ({
+        filename: p.filename,
+        content: Buffer.from(p.content, 'base64'),
+        encoding: 'base64' as const,
+      }));
+
+    await this.sendEmail({ to: options.to, subject, html, text, attachments });
   }
 
   async sendReservationAdminNotification(options: {
@@ -224,22 +266,60 @@ export class MailService {
     requesterName: string;
     requesterEmail: string;
     publicReference: string;
+    vehicleName?: string;
+    startAt?: string;
+    endAt?: string;
+    pickupCity?: string;
+    amountTtc?: number;
+    requesterPhone?: string;
+    requesterType?: string;
+    companyName?: string;
+    backofficeUrl?: string;
   }): Promise<void> {
-    const subject = `[Back-office] Nouvelle reservation — ${options.publicReference}`;
+    const fmt = (iso?: string) => {
+      if (!iso) return '';
+      try {
+        return new Date(iso).toLocaleString('fr-FR', {
+          day: '2-digit', month: 'long', year: 'numeric',
+          hour: '2-digit', minute: '2-digit',
+        });
+      } catch { return iso; }
+    };
+
+    const rows = [
+      `<tr><td style="padding:5px 0;color:#6b7280;font-size:13px;width:40%;">R&eacute;f&eacute;rence</td><td style="padding:5px 0;font-weight:700;font-size:13px;"><span style="background:#111827;color:#fff;padding:2px 8px;border-radius:4px;letter-spacing:0.5px;">${options.publicReference}</span></td></tr>`,
+      `<tr><td style="padding:5px 0;color:#6b7280;font-size:13px;">Client</td><td style="padding:5px 0;font-size:13px;">${options.requesterName}</td></tr>`,
+      `<tr><td style="padding:5px 0;color:#6b7280;font-size:13px;">E-mail</td><td style="padding:5px 0;font-size:13px;"><a href="mailto:${options.requesterEmail}" style="color:#111827;">${options.requesterEmail}</a></td></tr>`,
+      options.requesterPhone ? `<tr><td style="padding:5px 0;color:#6b7280;font-size:13px;">T&eacute;l&eacute;phone</td><td style="padding:5px 0;font-size:13px;">${options.requesterPhone}</td></tr>` : '',
+      options.requesterType ? `<tr><td style="padding:5px 0;color:#6b7280;font-size:13px;">Type</td><td style="padding:5px 0;font-size:13px;">${options.requesterType === 'ENTREPRISE' ? 'Entreprise' : 'Particulier'}</td></tr>` : '',
+      options.companyName ? `<tr><td style="padding:5px 0;color:#6b7280;font-size:13px;">Entreprise</td><td style="padding:5px 0;font-size:13px;">${options.companyName}</td></tr>` : '',
+      options.vehicleName ? `<tr><td style="padding:5px 0;color:#6b7280;font-size:13px;">V&eacute;hicule</td><td style="padding:5px 0;font-weight:600;font-size:13px;">${options.vehicleName}</td></tr>` : '',
+      options.startAt ? `<tr><td style="padding:5px 0;color:#6b7280;font-size:13px;">D&eacute;but</td><td style="padding:5px 0;font-size:13px;">${fmt(options.startAt)}</td></tr>` : '',
+      options.endAt ? `<tr><td style="padding:5px 0;color:#6b7280;font-size:13px;">Fin</td><td style="padding:5px 0;font-size:13px;">${fmt(options.endAt)}</td></tr>` : '',
+      options.pickupCity ? `<tr><td style="padding:5px 0;color:#6b7280;font-size:13px;">Ville</td><td style="padding:5px 0;font-size:13px;">${options.pickupCity}</td></tr>` : '',
+      options.amountTtc !== undefined ? `<tr><td style="padding:5px 0;color:#6b7280;font-size:13px;">Montant TTC</td><td style="padding:5px 0;font-weight:700;font-size:14px;color:#111827;">${options.amountTtc.toFixed(2)}&nbsp;&euro;</td></tr>` : '',
+    ].filter(Boolean).join('');
+
+    const subject = `[Back-office] Nouvelle r\u00e9servation \u2014 ${options.publicReference}`;
     const html = `
-      <p style="margin: 0 0 16px; font-weight: 600; color: #111827;">Nouvelle demande de reservation recue</p>
-      <div style="margin: 0 0 16px; padding: 14px 16px; background: #f9fafb; border-radius: 10px; border: 1px solid #e5e7eb; font-size: 14px;">
-        <p style="margin: 0 0 6px;"><span style="color: #6b7280;">Reference&nbsp;:</span> <strong>${options.publicReference}</strong></p>
-        <p style="margin: 0 0 6px;"><span style="color: #6b7280;">Client&nbsp;:</span> ${options.requesterName}</p>
-        <p style="margin: 0;"><span style="color: #6b7280;">E-mail&nbsp;:</span> ${options.requesterEmail}</p>
+      <p style="margin: 0 0 16px; font-weight: 700; font-size: 16px; color: #111827;">Nouvelle demande de r&eacute;servation re&ccedil;ue</p>
+      <div style="margin: 0 0 20px; padding: 14px 16px; background: #f9fafb; border-radius: 10px; border: 1px solid #e5e7eb;">
+        <table style="width: 100%; border-collapse: collapse;">${rows}</table>
       </div>
-      <p style="margin: 0; font-size: 12px; color: #9ca3af;">Rendez-vous dans le back-office pour traiter cette demande.</p>
+      ${options.backofficeUrl ? `<div style="margin: 0 0 16px; text-align: center;"><a href="${options.backofficeUrl}" style="display:inline-block;padding:11px 24px;background:#111827;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:13px;">Voir dans le back-office &rarr;</a></div>` : ''}
+      <p style="margin: 0; font-size: 12px; color: #9ca3af;">Ce message est g&eacute;n&eacute;r&eacute; automatiquement &mdash; WestDrive Back-office.</p>
     `;
     const text = [
       '[Back-office] Nouvelle reservation',
       `Reference : ${options.publicReference}`,
       `Client : ${options.requesterName} (${options.requesterEmail})`,
-    ].join('\n');
+      options.requesterPhone ? `Tel : ${options.requesterPhone}` : '',
+      options.vehicleName ? `Vehicule : ${options.vehicleName}` : '',
+      options.startAt ? `Debut : ${fmt(options.startAt)}` : '',
+      options.endAt ? `Fin : ${fmt(options.endAt)}` : '',
+      options.amountTtc !== undefined ? `Montant : ${options.amountTtc.toFixed(2)} EUR` : '',
+      options.backofficeUrl ? `Lien back-office : ${options.backofficeUrl}` : '',
+    ].filter(Boolean).join('\n');
 
     await this.sendEmail({ to: options.to, subject, html, text });
   }
@@ -328,23 +408,98 @@ export class MailService {
     to: string;
     requesterName: string;
     publicReference: string;
+    vehicleName?: string;
+    startAt?: string;
+    endAt?: string;
+    pickupCity?: string;
+    amountTtc?: number;
+    depositAmount?: number;
+    invoiceId?: string;
+    espaceUrl?: string;
   }): Promise<void> {
-    const subject = `WestDrive — Paiement confirme — ${options.publicReference}`;
+    const fmt = (iso?: string) => {
+      if (!iso) return '';
+      try {
+        return new Date(iso).toLocaleString('fr-FR', {
+          day: '2-digit', month: 'long', year: 'numeric',
+          hour: '2-digit', minute: '2-digit',
+        });
+      } catch { return iso; }
+    };
+
+    const invoiceRows = [
+      options.vehicleName ? `<tr><td style="padding:6px 0;color:#374151;font-size:13px;">${options.vehicleName}</td><td style="padding:6px 0;font-size:13px;text-align:right;">Location</td></tr>` : '',
+      options.startAt ? `<tr><td style="padding:3px 0;color:#6b7280;font-size:12px;">P&eacute;riode</td><td style="padding:3px 0;font-size:12px;text-align:right;">${fmt(options.startAt)} &rarr; ${fmt(options.endAt ?? '')}</td></tr>` : '',
+      options.pickupCity ? `<tr><td style="padding:3px 0;color:#6b7280;font-size:12px;">Ville</td><td style="padding:3px 0;font-size:12px;text-align:right;">${options.pickupCity}</td></tr>` : '',
+    ].filter(Boolean).join('');
+
+    const subject = `WestDrive \u2014 Paiement confirm\u00e9 \u2014 ${options.publicReference}`;
     const html = `
       <p style="margin: 0 0 16px;">Bonjour <strong>${options.requesterName}</strong>,</p>
-      <p style="margin: 0 0 12px;">Nous confirmons la bonne reception de votre paiement pour la reservation <strong>${options.publicReference}</strong>.</p>
-      <div style="margin: 20px 0; padding: 14px 16px; background: #f0fdf4; border-radius: 10px; border: 1px solid #bbf7d0;">
-        <p style="margin: 0; font-size: 14px; color: #166534; font-weight: 600;">Paiement recu avec succes</p>
-        <p style="margin: 6px 0 0; font-size: 13px; color: #15803d;">Votre reservation est desormais confirmee.</p>
+      <p style="margin: 0 0 20px;">Votre paiement pour la r&eacute;servation <strong>${options.publicReference}</strong> a bien &eacute;t&eacute; re&ccedil;u. Votre location est d&eacute;sormais confirm&eacute;e&nbsp;!</p>
+      <div style="margin: 0 0 20px; padding: 14px 16px; background: #f0fdf4; border-radius: 10px; border: 1px solid #bbf7d0;">
+        <p style="margin: 0 0 12px; font-size: 14px; color: #166534; font-weight: 700;">&#10003;&nbsp; Paiement re&ccedil;u avec succ&egrave;s</p>
+        ${invoiceRows ? `<table style="width:100%;border-collapse:collapse;border-top:1px solid #bbf7d0;">${invoiceRows}</table>` : ''}
+        ${options.amountTtc !== undefined ? `<div style="margin-top:12px;padding-top:10px;border-top:2px solid #166534;display:flex;justify-content:space-between;"><span style="font-weight:700;color:#166534;">Total pay&eacute; TTC</span><span style="font-weight:800;font-size:18px;color:#166534;">${options.amountTtc.toFixed(2)}&nbsp;&euro;</span></div>` : ''}
       </div>
-      <p style="margin: 0; font-size: 13px; color: #6b7280;">Notre equipe vous enverra prochainement les details de votre prise en charge.</p>
+      ${options.depositAmount !== undefined && options.depositAmount > 0 ? `<div style="margin: 0 0 20px; padding: 12px 16px; background: #fffbeb; border-radius: 10px; border: 1px solid #fde68a; font-size: 13px; color: #92400e;"><strong>Caution&nbsp;: ${options.depositAmount.toFixed(2)}&nbsp;&euro;</strong> &mdash; Ce montant vous sera restitu&eacute; &agrave; la restitution du v&eacute;hicule en bon &eacute;tat.</div>` : ''}
+      ${options.espaceUrl ? `<p style="margin: 0 0 16px; font-size: 13px;">Retrouvez votre facture et le suivi de votre r&eacute;servation dans <a href="${options.espaceUrl}" style="color:#111827;font-weight:600;">votre espace client</a>.</p>` : ''}
+      <p style="margin: 0; font-size: 13px; color: #6b7280;">Notre &eacute;quipe vous enverra prochainement les d&eacute;tails de votre prise en charge. Merci de votre confiance.</p>
     `;
     const text = [
       `Bonjour ${options.requesterName},`,
       `Paiement confirme pour la reservation ${options.publicReference}.`,
-      'Votre reservation est desormais confirmee.',
-      'Notre equipe vous enverra prochainement les details de votre prise en charge.',
-    ].join('\n');
+      options.vehicleName ? `Vehicule : ${options.vehicleName}` : '',
+      options.startAt ? `Periode : ${fmt(options.startAt)} -> ${fmt(options.endAt ?? '')}` : '',
+      options.amountTtc !== undefined ? `Total paye TTC : ${options.amountTtc.toFixed(2)} EUR` : '',
+      'Votre reservation est desormais confirmee. Merci de votre confiance.',
+    ].filter(Boolean).join('\n');
+
+    await this.sendEmail({ to: options.to, subject, html, text });
+  }
+
+  async sendReservationPaymentAdminNotification(options: {
+    to: string;
+    publicReference: string;
+    requesterName: string;
+    requesterEmail: string;
+    amountTtc: number;
+    vehicleName?: string;
+    startAt?: string;
+    endAt?: string;
+    backofficeUrl?: string;
+  }): Promise<void> {
+    const fmt = (iso?: string) => {
+      if (!iso) return '';
+      try {
+        return new Date(iso).toLocaleString('fr-FR', {
+          day: '2-digit', month: 'long', year: 'numeric',
+          hour: '2-digit', minute: '2-digit',
+        });
+      } catch { return iso; }
+    };
+
+    const subject = `[Back-office] Paiement re\u00e7u \u2014 ${options.publicReference}`;
+    const html = `
+      <p style="margin: 0 0 16px; font-weight: 700; font-size: 16px; color: #111827;">Paiement re&ccedil;u pour une r&eacute;servation</p>
+      <div style="margin: 0 0 20px; padding: 14px 16px; background: #f0fdf4; border-radius: 10px; border: 1px solid #bbf7d0; font-size: 14px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><td style="padding:5px 0;color:#6b7280;font-size:13px;width:40%;">R&eacute;f&eacute;rence</td><td style="padding:5px 0;font-weight:700;"><span style="background:#166534;color:#fff;padding:2px 8px;border-radius:4px;">${options.publicReference}</span></td></tr>
+          <tr><td style="padding:5px 0;color:#6b7280;font-size:13px;">Client</td><td style="padding:5px 0;">${options.requesterName} &lt;${options.requesterEmail}&gt;</td></tr>
+          ${options.vehicleName ? `<tr><td style="padding:5px 0;color:#6b7280;font-size:13px;">V&eacute;hicule</td><td style="padding:5px 0;font-weight:600;">${options.vehicleName}</td></tr>` : ''}
+          ${options.startAt ? `<tr><td style="padding:5px 0;color:#6b7280;font-size:13px;">P&eacute;riode</td><td style="padding:5px 0;">${fmt(options.startAt)} &rarr; ${fmt(options.endAt ?? '')}</td></tr>` : ''}
+          <tr><td style="padding:5px 0;color:#6b7280;font-size:13px;">Montant pay&eacute;</td><td style="padding:5px 0;font-weight:800;font-size:16px;color:#166534;">${options.amountTtc.toFixed(2)}&nbsp;&euro;</td></tr>
+        </table>
+      </div>
+      ${options.backofficeUrl ? `<div style="text-align:center;"><a href="${options.backofficeUrl}" style="display:inline-block;padding:11px 24px;background:#111827;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:13px;">Voir la r&eacute;servation &rarr;</a></div>` : ''}
+    `;
+    const text = [
+      `[Back-office] Paiement recu — ${options.publicReference}`,
+      `Client : ${options.requesterName} (${options.requesterEmail})`,
+      options.vehicleName ? `Vehicule : ${options.vehicleName}` : '',
+      `Montant : ${options.amountTtc.toFixed(2)} EUR`,
+      options.backofficeUrl ? `Voir : ${options.backofficeUrl}` : '',
+    ].filter(Boolean).join('\n');
 
     await this.sendEmail({ to: options.to, subject, html, text });
   }
@@ -618,6 +773,7 @@ export class MailService {
     subject: string;
     html: string;
     text: string;
+    attachments?: Array<{ filename: string; content: Buffer; encoding: string }>;
   }): Promise<void> {
     if (!this.enabled || !this.transporter) {
       this.logger.debug(`Email sending disabled. Message to ${options.to} not sent by SMTP.`);
@@ -635,6 +791,9 @@ export class MailService {
         subject: options.subject,
         text: options.text,
         html: brandedHtml,
+        ...(options.attachments && options.attachments.length > 0
+          ? { attachments: options.attachments }
+          : {}),
       });
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'Unknown SMTP error';

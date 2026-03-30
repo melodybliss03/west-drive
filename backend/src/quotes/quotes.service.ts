@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   InternalServerErrorException,
   Injectable,
   Logger,
@@ -94,6 +95,17 @@ export class QuotesService {
 
     const requesterEmail = dto.requesterEmail.toLowerCase();
     const existingUser = await this.usersService.findByEmail(requesterEmail);
+
+    // Staff/admin accounts cannot submit quote requests.
+    if (existingUser) {
+      const CLIENT_ROLES = new Set(['client', 'customer', 'particulier']);
+      if (!CLIENT_ROLES.has(existingUser.role?.toLowerCase() ?? '')) {
+        throw new ForbiddenException(
+          'Les comptes administrateurs et membres du personnel ne peuvent pas effectuer de demandes de devis sur la plateforme.',
+        );
+      }
+    }
+
     const shouldSendGuestActivationEmail = !existingUser;
 
     if (!existingUser) {

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   InternalServerErrorException,
   Injectable,
   Logger,
@@ -110,9 +111,18 @@ export class ReservationsService {
     const requesterEmail = dto.requesterEmail.toLowerCase();
     let shouldSendGuestSetupEmail = false;
 
+    // ── Staff/admin guard ─────────────────────────────────────────────────────
+    // If the email belongs to an existing non-client account, block creation.
+    const CLIENT_ROLES = new Set(['client', 'customer', 'particulier']);
+
     if (!dto.userId) {
       const existingUser = await this.usersService.findByEmail(requesterEmail);
       if (existingUser) {
+        if (!CLIENT_ROLES.has(existingUser.role?.toLowerCase() ?? '')) {
+          throw new ForbiddenException(
+            'Les comptes administrateurs et membres du personnel ne peuvent pas effectuer de r\u00e9servations sur la plateforme.',
+          );
+        }
         dto.userId = existingUser.id;
       } else {
         const guestUser = await this.usersService.createGuestAccount({
@@ -123,7 +133,16 @@ export class ReservationsService {
         dto.userId = guestUser.id;
         shouldSendGuestSetupEmail = true;
       }
+    } else {
+      // Authenticated user — verify they are not staff/admin.
+      const authenticatedUser = await this.usersService.findById(dto.userId);
+      if (authenticatedUser && !CLIENT_ROLES.has(authenticatedUser.role?.toLowerCase() ?? '')) {
+        throw new ForbiddenException(
+          'Les comptes administrateurs et membres du personnel ne peuvent pas effectuer de r\u00e9servations sur la plateforme.',
+        );
+      }
     }
+    // ─────────────────────────────────────────────────────────────────────────
 
     if (dto.vehicleId) {
       await this.ensureVehicleAssignable(dto.vehicleId);
@@ -174,10 +193,25 @@ export class ReservationsService {
     );
 
     try {
+      // Load vehicle for email enrichment
+      const vehicleForEmail = savedReservation.vehicleId
+        ? await this.vehicleRepository.findOne({ where: { id: savedReservation.vehicleId } })
+        : null;
+
+      const frontendBaseUrl = this.configService.get<string>('FRONTEND_BASE_URL', 'http://localhost:8080');
+
       await this.mailService.sendReservationAcknowledgement({
         to: savedReservation.requesterEmail,
         requesterName: savedReservation.requesterName,
         publicReference: savedReservation.publicReference,
+        vehicleName: vehicleForEmail?.name,
+        startAt: savedReservation.startAt?.toISOString(),
+        endAt: savedReservation.endAt?.toISOString(),
+        pickupCity: savedReservation.pickupCity,
+        amountTtc: Number(savedReservation.amountTtc) || undefined,
+        requesterPhone: savedReservation.requesterPhone,
+        requesterType: savedReservation.requesterType,
+        companyName: savedReservation.companyName ?? undefined,
       });
 
       const adminEmail = this.configService.get<string>('ADMIN_EMAIL');
@@ -187,6 +221,15 @@ export class ReservationsService {
           requesterName: savedReservation.requesterName,
           requesterEmail: savedReservation.requesterEmail,
           publicReference: savedReservation.publicReference,
+          vehicleName: vehicleForEmail?.name,
+          startAt: savedReservation.startAt?.toISOString(),
+          endAt: savedReservation.endAt?.toISOString(),
+          pickupCity: savedReservation.pickupCity,
+          amountTtc: Number(savedReservation.amountTtc) || undefined,
+          requesterPhone: savedReservation.requesterPhone,
+          requesterType: savedReservation.requesterType,
+          companyName: savedReservation.companyName ?? undefined,
+          backofficeUrl: `${frontendBaseUrl.replace(/\/$/, '')}/boss`,
         });
       }
 
@@ -213,8 +256,17 @@ export class ReservationsService {
           },
         });
       }
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'unknown reason';
+      this.logger.warn(
+        `Reservation ${savedReservation.id} created but notification pipeline partially failed: ${reason}`,
+      );
+    }
 
-      if (shouldSendGuestSetupEmail) {
+    // Guest activation email runs in its own isolated block to ensure it is always
+    // attempted regardless of failures in the main notification pipeline above.
+    if (shouldSendGuestSetupEmail) {
+      try {
         const setupUrl = await this.authService.createAccountActivationUrl(
           savedReservation.requesterEmail,
           {
@@ -230,13 +282,18 @@ export class ReservationsService {
             publicReference: savedReservation.publicReference,
             setupUrl,
           });
+        } else {
+          this.logger.warn(
+            `Guest setup URL could not be generated for ${savedReservation.requesterEmail} — user may not exist in DB`,
+          );
         }
+      } catch (guestEmailError) {
+        const reason =
+          guestEmailError instanceof Error ? guestEmailError.message : 'unknown';
+        this.logger.warn(
+          `Guest account setup email failed for ${savedReservation.requesterEmail}: ${reason}`,
+        );
       }
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : 'unknown reason';
-      this.logger.warn(
-        `Reservation ${savedReservation.id} created but notification pipeline partially failed: ${reason}`,
-      );
     }
 
     return this.findOne(savedReservation.id);
@@ -777,7 +834,30 @@ export class ReservationsService {
         to: reservation.requesterEmail,
         requesterName: reservation.requesterName,
         publicReference: reservation.publicReference,
+        vehicleName: reservation.vehicle?.name,
+        startAt: reservation.startAt?.toISOString(),
+        endAt: reservation.endAt?.toISOString(),
+        pickupCity: reservation.pickupCity,
+        amountTtc: Number(reservation.amountTtc) || undefined,
+        depositAmount: Number(reservation.depositAmount) || undefined,
+        espaceUrl: `${this.configService.get<string>('FRONTEND_BASE_URL', 'http://localhost:8080').replace(/\/$/, '')}/espace`,
       });
+
+      // Admin notification: payment received
+      const adminEmailForPayment = this.configService.get<string>('ADMIN_EMAIL');
+      if (adminEmailForPayment) {
+        await this.mailService.sendReservationPaymentAdminNotification({
+          to: adminEmailForPayment,
+          publicReference: reservation.publicReference,
+          requesterName: reservation.requesterName,
+          requesterEmail: reservation.requesterEmail,
+          amountTtc: Number(reservation.amountTtc) || 0,
+          vehicleName: reservation.vehicle?.name,
+          startAt: reservation.startAt?.toISOString(),
+          endAt: reservation.endAt?.toISOString(),
+          backofficeUrl: `${this.configService.get<string>('FRONTEND_BASE_URL', 'http://localhost:8080').replace(/\/$/, '')}/boss`,
+        });
+      }
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'unknown reason';
       this.logger.warn(
@@ -810,6 +890,19 @@ export class ReservationsService {
           status: reservation.status,
         },
       );
+
+      // Update vehicle availability and starting mileage
+      if (reservation.vehicleId) {
+        const kmStart =
+          typeof dto.payload?.kmStart === 'number' ? dto.payload.kmStart : undefined;
+        await this.vehicleRepository.update(
+          { id: reservation.vehicleId },
+          {
+            operationalStatus: VehicleOperationalStatus.INDISPONIBLE,
+            ...(kmStart !== undefined ? { mileage: kmStart } : {}),
+          },
+        );
+      }
     }
 
     if (dto.type === 'reservation_closed') {
@@ -827,6 +920,28 @@ export class ReservationsService {
           status: reservation.status,
         },
       );
+
+      // Restore vehicle availability and update ending mileage
+      if (reservation.vehicleId) {
+        const kmEnd =
+          typeof dto.payload?.kmEnd === 'number' ? dto.payload.kmEnd : undefined;
+        const vehicleToRestore = await this.vehicleRepository.findOne({
+          where: { id: reservation.vehicleId },
+        });
+        if (vehicleToRestore) {
+          const isInMaintenance =
+            vehicleToRestore.operationalStatus === VehicleOperationalStatus.MAINTENANCE;
+          await this.vehicleRepository.update(
+            { id: reservation.vehicleId },
+            {
+              ...(!isInMaintenance
+                ? { operationalStatus: VehicleOperationalStatus.DISPONIBLE }
+                : {}),
+              ...(kmEnd !== undefined ? { mileage: kmEnd } : {}),
+            },
+          );
+        }
+      }
     }
 
     const event = this.reservationEventRepository.create({
@@ -854,6 +969,16 @@ export class ReservationsService {
       const description =
         typeof payload.description === 'string' ? payload.description : undefined;
 
+      const rawPhotos = Array.isArray(payload.photos) ? payload.photos : [];
+      const photos = rawPhotos
+        .filter(
+          (p): p is { filename: string; content: string } =>
+            typeof p === 'object' &&
+            p !== null &&
+            typeof (p as Record<string, unknown>).filename === 'string' &&
+            typeof (p as Record<string, unknown>).content === 'string',
+        );
+
       try {
         await this.mailService.sendReservationEventNotification({
           to: reservation.requesterEmail,
@@ -861,6 +986,7 @@ export class ReservationsService {
           publicReference: reservation.publicReference,
           title,
           description,
+          ...(photos.length > 0 ? { photos } : {}),
         });
       } catch (error) {
         const reason = error instanceof Error ? error.message : 'unknown reason';
@@ -1104,12 +1230,8 @@ export class ReservationsService {
 
   private calculatePaymentDueAmount(reservation: Reservation): number {
     const rentalAmount = Number(reservation.amountTtc);
-    const depositAmount = Number(reservation.depositAmount);
-
-    const normalizedRental = Number.isFinite(rentalAmount) ? rentalAmount : 0;
-    const normalizedDeposit = Number.isFinite(depositAmount) ? depositAmount : 0;
-    const due = normalizedRental + normalizedDeposit;
-
-    return due > 0 ? due : Math.max(normalizedRental, normalizedDeposit, 0);
+    const normalizedRental = Number.isFinite(rentalAmount) && rentalAmount > 0 ? rentalAmount : 0;
+    // The deposit (caution) is collected physically at vehicle handover — never charged via Stripe.
+    return normalizedRental;
   }
 }
