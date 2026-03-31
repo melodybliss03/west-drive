@@ -143,6 +143,7 @@ fi
 ${SUDO} certbot --nginx \
   --non-interactive \
   --agree-tos \
+  --expand \
   --email "${LETSENCRYPT_EMAIL}" \
   --redirect \
   "${CERTBOT_DOMAINS[@]}"
