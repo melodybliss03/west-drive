@@ -65,8 +65,18 @@ export class UsersController {
     },
   })
   @ApiUnauthorizedResponse({ description: 'Token manquant ou invalide.' })
-  getMe(@CurrentUser() user: AuthUser) {
-    return user;
+  async getMe(@CurrentUser() user: AuthUser) {
+    const dbUser = await this.usersService.getById(user.sub);
+    return {
+      sub: user.sub,
+      email: dbUser.email,
+      role: dbUser.role,
+      roles: user.roles,
+      permissions: user.permissions,
+      firstName: dbUser.firstName,
+      lastName: dbUser.lastName,
+      phone: dbUser.phone,
+    };
   }
 
   @Patch('me')

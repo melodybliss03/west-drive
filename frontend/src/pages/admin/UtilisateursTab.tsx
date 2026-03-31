@@ -42,7 +42,17 @@ function extractUsersFromResponse(collection: unknown): Array<Record<string, unk
   return [];
 }
 
-const STAFF_ROLES = new Set(['admin', 'client', 'customer', 'particulier']);
+// Roles that are considered "standard client" types (not custom staff roles)
+const CLIENT_ROLES = new Set(['client', 'customer', 'particulier', 'entreprise']);
+
+function fmtDate(iso: string): string {
+  if (!iso) return "-";
+  try {
+    return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  } catch {
+    return iso;
+  }
+}
 
 interface UtilisateursTabProps {
   users: AdminUser[];
@@ -78,19 +88,27 @@ export default function UtilisateursTab({ users, setUsers, page, setPage, meta, 
     const mappedUsers: AdminUser[] = items.map((item) => {
   const firstName = String(item.firstName || "");
   const lastName = String(item.lastName || "");
+  // Derive display role: prefer IAM roles over the raw DB role column when available
+  const dbRole = String(item.role || "client").toLowerCase();
+  const iamRoles: string[] = Array.isArray((item as any).userRoles)
+    ? (item as any).userRoles
+        .map((ur: any) => String(ur?.role?.name || "").toLowerCase())
+        .filter((r: string) => r && r !== "customer" && r !== "client")
+    : [];
+  const displayRole = iamRoles[0] || dbRole;
   return {
     id: String(item.id),
-    nom: lastName || String(item.companyName || "Client"),
+    nom: lastName || String((item as any).companyName || "Client"),
     prenom: firstName || "-",
     email: String(item.email || ""),
     type: String(item.accountType || "particulier").toLowerCase(),
-    creeLe: String(item.createdAt || ""),
+    creeLe: fmtDate(String(item.createdAt || "")),
     reservations: Number(item.reservationsCount || 0),
     statut: String(item.status || "actif").toLowerCase(),
-    role: String(item.role || "client").toLowerCase(),
-    telephone: item.telephone ? String(item.telephone) : undefined,  // ← ajouté
-    ville: item.ville ? String(item.ville) : undefined,              // ← ajouté
-    adresse: item.adresse ? String(item.adresse) : undefined,        // ← ajouté
+    role: displayRole,
+    telephone: (item as any).telephone ? String((item as any).telephone) : undefined,
+    ville: (item as any).ville ? String((item as any).ville) : undefined,
+    adresse: (item as any).adresse ? String((item as any).adresse) : undefined,
   };
 });
 
@@ -191,7 +209,7 @@ export default function UtilisateursTab({ users, setUsers, page, setPage, meta, 
                         <TableCell className="font-medium">{u.prenom} {u.nom}</TableCell>
                         <TableCell className="text-xs">{u.email}</TableCell>
                         <TableCell className="hidden sm:table-cell">
-                          {!STAFF_ROLES.has(u.role.toLowerCase()) ? (
+                          {!CLIENT_ROLES.has(u.role.toLowerCase()) ? (
                             <Badge variant="outline" className="bg-purple-500/10 text-purple-700 border-purple-200 capitalize">
                               {u.role}
                             </Badge>
@@ -309,10 +327,17 @@ export default function UtilisateursTab({ users, setUsers, page, setPage, meta, 
                     <Badge variant="outline" className={selectedUser.statut === "actif" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200" : "bg-destructive/10 text-destructive border-destructive/20"}>
                       {selectedUser.statut}
                     </Badge>
-                    <Badge variant="outline" className={selectedUser.type === "entreprise" ? "bg-blue-500/10 text-blue-600 border-blue-200" : ""}>
-                      {selectedUser.type === "entreprise" ? <Building2 className="h-3 w-3 mr-1" /> : <User className="h-3 w-3 mr-1" />}
-                      {selectedUser.type}
-                    </Badge>
+                    {!CLIENT_ROLES.has(selectedUser.role.toLowerCase()) ? (
+                      <Badge variant="outline" className="bg-purple-500/10 text-purple-700 border-purple-200 capitalize">
+                        {selectedUser.role}
+                      </Badge>
+                    ) : selectedUser.type === "entreprise" ? (
+                      <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-200">
+                        <Building2 className="h-3 w-3 mr-1" />Entreprise
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline"><User className="h-3 w-3 mr-1" />Particulier</Badge>
+                    )}
                   </div>
                 </div>
               </div>

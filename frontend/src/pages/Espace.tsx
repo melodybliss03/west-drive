@@ -246,7 +246,7 @@ function eventComment(payload?: Record<string, unknown>): string | null {
 export default function Espace() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
 
   const [activeTab, setActiveTab] = useState("reservations");
 
@@ -565,6 +565,7 @@ export default function Espace() {
         email: profileForm.email,
         phone: profileForm.phone,
       });
+      await refreshUser();
       toast({ title: "Profil mis a jour", description: "Vos informations ont ete enregistrees." });
     } catch (error) {
       const message = error instanceof ApiHttpError ? error.message : "Impossible de mettre a jour votre profil.";

@@ -4,4 +4,6 @@ export interface AuthUser {
   role: string;
   roles: string[];
   permissions: string[];
+  firstName?: string;
+  lastName?: string;
 }

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import {
   Car, Eye, Search, Users, CheckCircle, XCircle, Mail, Phone,
-  MapPin, Clock, Plus, ChevronLeft, Play, Flag, Calendar, Filter, Pencil, Trash2
+  MapPin, Clock, Plus, ChevronLeft, Play, Flag, Calendar, Filter, Pencil, Trash2, AlertCircle
 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -1029,7 +1029,12 @@ export default function ReservationsTab({
                 />
               </div>
 
-              {editError && <p className="text-xs text-destructive">{editError}</p>}
+              {editError && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                  <span>{editError}</span>
+                </div>
+              )}
 
               <DialogFooter>
                 <Button variant="outline" onClick={goBack} disabled={isSubmitting}>Annuler</Button>

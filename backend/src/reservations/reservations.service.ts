@@ -484,7 +484,7 @@ export class ReservationsService {
     const nextEndAt = dto.endAt ?? reservation.endAt;
     const nextVehicleId = dto.vehicleId ?? reservation.vehicleId;
 
-    this.ensureDateRange(nextStartAt, nextEndAt);
+    this.ensureDateRange(nextStartAt, nextEndAt, true /* admin update — past dates allowed */);
 
     if (dto.vehicleId !== undefined && dto.vehicleId !== null) {
       await this.ensureVehicleAssignable(dto.vehicleId);
@@ -519,19 +519,60 @@ export class ReservationsService {
 
     await this.reservationRepository.save(reservation);
 
+    const hasDateChange =
+      dto.startAt !== undefined ||
+      dto.endAt !== undefined ||
+      dto.vehicleId !== undefined;
+
     await this.reservationEventRepository.save(
       this.reservationEventRepository.create({
         reservationId: reservation.id,
         type: 'reservation_updated',
         occurredAt: new Date(),
-        payload: {
-          hasDateChange:
-            dto.startAt !== undefined ||
-            dto.endAt !== undefined ||
-            dto.vehicleId !== undefined,
-        },
+        payload: { hasDateChange, updatedBy: 'admin' },
       }),
     );
+
+    // Notify client about the admin update
+    if (reservation.userId) {
+      try {
+        await this.notificationsService.createForUser({
+          type: 'reservation',
+          title: 'Réservation modifiée',
+          message: `Les détails de votre réservation ${reservation.publicReference} ont été mis à jour par notre équipe.`,
+          recipientUserId: reservation.userId,
+          metadata: {
+            reservationId: reservation.id,
+            publicReference: reservation.publicReference,
+          },
+        });
+      } catch (notifError) {
+        const reason =
+          notifError instanceof Error ? notifError.message : 'unknown';
+        this.logger.warn(
+          `Notification failed for reservation update ${reservation.id}: ${reason}`,
+        );
+      }
+    }
+
+    // Send email notification to client
+    try {
+      await this.mailService.sendReservationEventNotification({
+        to: reservation.requesterEmail,
+        requesterName: reservation.requesterName,
+        publicReference: reservation.publicReference,
+        title: 'Votre réservation a été mise à jour',
+        description: hasDateChange
+          ? 'Les dates ou le véhicule de votre réservation ont été modifiés. Connectez-vous à votre espace client pour consulter les nouveaux détails.'
+          : 'Les informations de votre réservation ont été mises à jour. Connectez-vous à votre espace client pour consulter les détails.',
+      });
+    } catch (mailError) {
+      const reason =
+        mailError instanceof Error ? mailError.message : 'unknown';
+      this.logger.warn(
+        `Email notification failed for reservation update ${reservation.id}: ${reason}`,
+      );
+    }
 
     return this.findOne(reservation.id);
   }
@@ -1088,7 +1129,7 @@ export class ReservationsService {
     }
 
     if (!vehicle.isActive) {
-      throw new BadRequestException('Vehicle is inactive');
+      throw new BadRequestException('Ce véhicule est désactivé et ne peut pas être assigné.');
     }
 
     // Maintenance or blocked vehicles cannot be used for new bookings.
@@ -1097,7 +1138,7 @@ export class ReservationsService {
       vehicle.operationalStatus === VehicleOperationalStatus.MAINTENANCE
     ) {
       throw new BadRequestException(
-        'Vehicle is not assignable in current status',
+        'Ce véhicule est actuellement indisponible ou en maintenance.',
       );
     }
   }
@@ -1119,7 +1160,7 @@ export class ReservationsService {
 
     if (blockedSlotCount > 0) {
       throw new ConflictException(
-        'Vehicle is blocked by schedule slot for the selected range',
+        'Ce véhicule est bloqué par un créneau dans la plage de dates sélectionnée.',
       );
     }
 
@@ -1159,18 +1200,22 @@ export class ReservationsService {
 
     if (conflicts > 0) {
       throw new ConflictException(
-        'Vehicle already has an overlapping reservation for this time range',
+        'Ce véhicule a déjà une réservation pour cette plage de dates. Veuillez choisir d\'autres dates ou un autre véhicule.',
       );
     }
   }
 
-  private ensureDateRange(startAt: Date, endAt: Date): void {
+  private ensureDateRange(startAt: Date, endAt: Date, allowPast = false): void {
     if (startAt >= endAt) {
-      throw new BadRequestException('startAt must be before endAt');
+      throw new BadRequestException(
+        'La date de début doit être antérieure à la date de fin.',
+      );
     }
 
-    if (startAt.getTime() < Date.now() - 60_000) {
-      throw new BadRequestException('startAt must be in the future');
+    if (!allowPast && startAt.getTime() < Date.now() - 60_000) {
+      throw new BadRequestException(
+        'La date de début ne peut pas être dans le passé.',
+      );
     }
   }
 

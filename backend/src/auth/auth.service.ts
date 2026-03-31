@@ -429,6 +429,8 @@ export class AuthService {
         role: user.role,
         roles,
         permissions,
+        firstName: user.firstName,
+        lastName: user.lastName,
       },
       {
         secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),

@@ -1,4 +1,48 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
+
+// ── Fuzzy city matching ───────────────────────────────────────────────────────
+const FRENCH_CITIES = [
+  "Paris","Lyon","Marseille","Toulouse","Nice","Nantes","Montpellier","Strasbourg",
+  "Bordeaux","Lille","Rennes","Reims","Le Havre","Saint-Étienne","Toulon","Grenoble",
+  "Dijon","Angers","Nîmes","Villeurbanne","Le Mans","Aix-en-Provence","Clermont-Ferrand",
+  "Brest","Tours","Limoges","Amiens","Annecy","Perpignan","Metz","Besançon","Orléans",
+  "Mulhouse","Rouen","Caen","Boulogne-Billancourt","Nancy","Argenteuil","Saint-Denis",
+  "Roubaix","Tourcoing","Montreuil","Avignon","Asni ères-sur-Seine","Versailles","Poitiers",
+  "Pau","Courbevoie","Vitry-sur-Seine","La Rochelle","Colombes","Fort-de-France",
+  "Aulnay-sous-Bois","Rueil-Malmaison","Champigny-sur-Marne","Antibes","Saint-Paul",
+  "Béziers","Dunkerque","Créteil","Calais","Mérignac","Ajaccio","Cannes",
+];
+
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, (_, i) =>
+    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  );
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
+
+function closestFrenchCity(input: string): string {
+  const normalized = input.trim().toLowerCase();
+  if (!normalized) return input;
+  // Exact match (case-insensitive)
+  const exact = FRENCH_CITIES.find((c) => c.toLowerCase() === normalized);
+  if (exact) return exact;
+  // Find closest by Levenshtein distance (only correct if dist ≤ 4 to avoid false positives)
+  let best = input;
+  let bestDist = 5; // threshold
+  for (const city of FRENCH_CITIES) {
+    const dist = levenshtein(normalized, city.toLowerCase());
+    if (dist < bestDist) { bestDist = dist; best = city; }
+  }
+  return best;
+}
 import { Car, Plus, Edit, Trash2, Search, Eye, Fuel, Users, Gauge, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -641,9 +685,17 @@ export default function VehiculesTab({ vehicles, setVehicles, page, setPage, met
                       setLocationForm((prev) => ({ ...prev, city }));
                       setEditVehicle((prev) => (prev ? { ...prev, villes: city ? [city] : [] } : prev));
                     }}
+                    onBlur={(e) => {
+                      const corrected = closestFrenchCity(e.target.value);
+                      if (corrected !== e.target.value) {
+                        setLocationForm((prev) => ({ ...prev, city: corrected }));
+                        setEditVehicle((prev) => (prev ? { ...prev, villes: [corrected] } : prev));
+                        toast({ title: "Ville corrigée", description: `"${e.target.value}" → "${corrected}"` });
+                      }
+                    }}
                     placeholder="Paris"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">Chaque véhicule ne peut être disponible que dans une seule ville</p>
+                  <p className="text-xs text-muted-foreground mt-1">La ville est automatiquement corrigée vers la ville française la plus proche</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-3">

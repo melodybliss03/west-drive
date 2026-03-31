@@ -30,10 +30,12 @@ interface AuthContextType {
   loginWithCredentials: (email: string, password: string) => Promise<User>;
   loginAdminWithCredentials: (email: string, password: string) => Promise<User>;
   completeAuthWithTokens: (tokens: AuthTokens) => Promise<User>;
+  refreshUser: () => Promise<void>;
   logout: () => void;
 }
 
 const noop = () => {};
+const noopAsync = async () => {};
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -62,6 +64,7 @@ const AuthContext = createContext<AuthContextType>({
     roles: [],
     permissions: [],
   }),
+  refreshUser: noopAsync,
   logout: noop,
 });
 
@@ -241,6 +244,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback((u: User) => setUser(u), []);
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const me = await usersService.me();
+      setUser(mapMeToUser(me));
+    } catch {
+      // silently ignore — user stays as-is
+    }
+  }, []);
+
   const value = useMemo<AuthContextType>(
     () => ({
       user,
@@ -251,6 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loginWithCredentials,
       loginAdminWithCredentials,
       completeAuthWithTokens,
+      refreshUser,
       logout,
     }),
     [
@@ -261,6 +274,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loginWithCredentials,
       loginAdminWithCredentials,
       completeAuthWithTokens,
+      refreshUser,
       logout,
     ]
   );

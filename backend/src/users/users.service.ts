@@ -8,6 +8,7 @@ import {
   resolvePagination,
   type PaginatedResponse,
 } from '../shared/pagination/pagination.util';
+import { Reservation } from '../reservations/entities/reservation.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -18,6 +19,8 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Reservation)
+    private readonly reservationRepository: Repository<Reservation>,
   ) {}
 
   async createUser(payload: {
@@ -67,17 +70,41 @@ export class UsersService {
     });
   }
 
-  async listUsers(page = 1, limit = 20): Promise<PaginatedResponse<User>> {
+  async listUsers(page = 1, limit = 20): Promise<PaginatedResponse<User & { accountType: string; reservationsCount: number }>> {
     const pagination = resolvePagination(page, limit);
     const [items, totalItems] = await this.userRepository.findAndCount({
       order: { createdAt: 'DESC' },
-      relations: { userRoles: { role: true } },
+      relations: { userRoles: { role: true }, companyProfile: true },
       skip: pagination.skip,
       take: pagination.limit,
     });
 
+    // Batch-fetch reservation counts to avoid N+1
+    const userIds = items.map((u) => u.id);
+    const countRows: Array<{ userId: string; cnt: string }> =
+      userIds.length > 0
+        ? await this.reservationRepository
+            .createQueryBuilder('r')
+            .select('r.userId', 'userId')
+            .addSelect('COUNT(*)', 'cnt')
+            .where('r.userId IN (:...userIds)', { userIds })
+            .groupBy('r.userId')
+            .getRawMany()
+        : [];
+
+    const countMap = new Map(
+      countRows.map((row) => [row.userId, parseInt(row.cnt, 10)]),
+    );
+
+    const enriched = items.map((u) =>
+      Object.assign(u, {
+        accountType: u.companyProfile ? 'ENTREPRISE' : 'PARTICULIER',
+        reservationsCount: countMap.get(u.id) ?? 0,
+      }),
+    );
+
     return buildPaginatedResponse(
-      items,
+      enriched,
       pagination.page,
       pagination.limit,
       totalItems,
