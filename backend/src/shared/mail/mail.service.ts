@@ -535,14 +535,27 @@ export class MailService {
     to: string;
     requesterName: string;
     publicReference: string;
+    vehicleType?: string;
+    quantity?: number;
+    startAt?: string;
+    endAt?: string;
+    pickupCity?: string;
+    comment?: string | null;
   }): Promise<void> {
     const subject = `WestDrive — Demande de devis bien recue`;
+    const detailsRows: string[] = [];
+    if (options.vehicleType) detailsRows.push(`<p style="margin: 0 0 6px;"><span style="color: #6b7280;">Vehicule demande&nbsp;:</span> ${options.vehicleType}${options.quantity && options.quantity > 1 ? ` &times; ${options.quantity}` : ''}</p>`);
+    if (options.pickupCity) detailsRows.push(`<p style="margin: 0 0 6px;"><span style="color: #6b7280;">Ville de prise en charge&nbsp;:</span> ${options.pickupCity}</p>`);
+    if (options.startAt) detailsRows.push(`<p style="margin: 0 0 6px;"><span style="color: #6b7280;">Date de debut&nbsp;:</span> ${new Date(options.startAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>`);
+    if (options.endAt) detailsRows.push(`<p style="margin: 0;"><span style="color: #6b7280;">Date de fin&nbsp;:</span> ${new Date(options.endAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>`);
     const html = `
       <p style="margin: 0 0 16px;">Bonjour <strong>${options.requesterName}</strong>,</p>
       <p style="margin: 0 0 12px;">Nous avons bien recu votre demande de devis.</p>
-      <div style="margin: 20px 0; padding: 14px 16px; background: #f9fafb; border-radius: 10px; border: 1px solid #e5e7eb;">
-        <p style="margin: 0; font-size: 13px; color: #6b7280;">Reference devis</p>
-        <p style="margin: 4px 0 0; font-size: 18px; font-weight: 700; color: #111827; letter-spacing: 0.5px;">${options.publicReference}</p>
+      <div style="margin: 20px 0; padding: 14px 16px; background: #f9fafb; border-radius: 10px; border: 1px solid #e5e7eb; font-size: 14px;">
+        <p style="margin: 0 0 8px; font-size: 13px; color: #6b7280;">Reference devis</p>
+        <p style="margin: 0 0 12px; font-size: 18px; font-weight: 700; color: #111827; letter-spacing: 0.5px;">${options.publicReference}</p>
+        ${detailsRows.length > 0 ? `<hr style="margin: 10px 0; border: none; border-top: 1px solid #e5e7eb;">${detailsRows.join('')}` : ''}
+        ${options.comment ? `<hr style="margin: 10px 0; border: none; border-top: 1px solid #e5e7eb;"><p style="margin: 0; font-size: 13px; color: #374151;"><strong>Commentaire&nbsp;:</strong> ${options.comment}</p>` : ''}
       </div>
       <p style="margin: 0; font-size: 13px; color: #6b7280;">Notre equipe commerciale vous contactera rapidement avec une proposition adaptee &agrave; vos besoins.</p>
     `;
@@ -550,8 +563,13 @@ export class MailService {
       `Bonjour ${options.requesterName},`,
       'Nous avons bien recu votre demande de devis.',
       `Reference devis : ${options.publicReference}`,
+      options.vehicleType ? `Vehicule demande : ${options.vehicleType}` : '',
+      options.pickupCity ? `Ville : ${options.pickupCity}` : '',
+      options.startAt ? `Date de debut : ${options.startAt}` : '',
+      options.endAt ? `Date de fin : ${options.endAt}` : '',
+      options.comment ? `Commentaire : ${options.comment}` : '',
       'Notre equipe commerciale vous contactera rapidement.',
-    ].join('\n');
+    ].filter(Boolean).join('\n');
 
     await this.sendEmail({ to: options.to, subject, html, text });
   }
@@ -560,7 +578,17 @@ export class MailService {
     to: string;
     requesterName: string;
     requesterEmail: string;
+    requesterPhone?: string;
     publicReference: string;
+    requesterType?: string;
+    companyName?: string | null;
+    vehicleType?: string;
+    quantity?: number;
+    pickupCity?: string;
+    startAt?: string;
+    endAt?: string;
+    comment?: string | null;
+    backofficeUrl?: string;
   }): Promise<void> {
     const subject = `[Back-office] Nouveau devis — ${options.publicReference}`;
     const html = `
@@ -568,15 +596,31 @@ export class MailService {
       <div style="margin: 0 0 16px; padding: 14px 16px; background: #f9fafb; border-radius: 10px; border: 1px solid #e5e7eb; font-size: 14px;">
         <p style="margin: 0 0 6px;"><span style="color: #6b7280;">Reference&nbsp;:</span> <strong>${options.publicReference}</strong></p>
         <p style="margin: 0 0 6px;"><span style="color: #6b7280;">Client&nbsp;:</span> ${options.requesterName}</p>
-        <p style="margin: 0;"><span style="color: #6b7280;">E-mail&nbsp;:</span> ${options.requesterEmail}</p>
+        <p style="margin: 0 0 6px;"><span style="color: #6b7280;">E-mail&nbsp;:</span> ${options.requesterEmail}</p>
+        ${options.requesterPhone ? `<p style="margin: 0 0 6px;"><span style="color: #6b7280;">T&eacute;l&eacute;phone&nbsp;:</span> ${options.requesterPhone}</p>` : ''}
+        ${options.companyName ? `<p style="margin: 0 0 6px;"><span style="color: #6b7280;">Entreprise&nbsp;:</span> ${options.companyName}</p>` : ''}
+        <hr style="margin: 10px 0; border: none; border-top: 1px solid #e5e7eb;">
+        ${options.vehicleType ? `<p style="margin: 0 0 6px;"><span style="color: #6b7280;">Vehicule&nbsp;:</span> ${options.vehicleType}${options.quantity && options.quantity > 1 ? ` &times; ${options.quantity}` : ''}</p>` : ''}
+        ${options.pickupCity ? `<p style="margin: 0 0 6px;"><span style="color: #6b7280;">Ville&nbsp;:</span> ${options.pickupCity}</p>` : ''}
+        ${options.startAt ? `<p style="margin: 0 0 6px;"><span style="color: #6b7280;">Du&nbsp;:</span> ${new Date(options.startAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>` : ''}
+        ${options.endAt ? `<p style="margin: 0 0 6px;"><span style="color: #6b7280;">Au&nbsp;:</span> ${new Date(options.endAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>` : ''}
+        ${options.comment ? `<hr style="margin: 10px 0; border: none; border-top: 1px solid #e5e7eb;"><p style="margin: 0; font-size: 13px; color: #374151;"><strong>Commentaire client&nbsp;:</strong> ${options.comment}</p>` : ''}
       </div>
-      <p style="margin: 0; font-size: 12px; color: #9ca3af;">Rendez-vous dans le back-office pour traiter cette demande.</p>
+      ${options.backofficeUrl ? `<div style="margin: 0 0 16px; text-align: center;"><a href="${options.backofficeUrl}" style="display: inline-block; padding: 11px 24px; background: #111111; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 13px;">Traiter dans le back-office</a></div>` : '<p style="margin: 0; font-size: 12px; color: #9ca3af;">Rendez-vous dans le back-office pour traiter cette demande.</p>'}
     `;
     const text = [
       '[Back-office] Nouveau devis',
       `Reference : ${options.publicReference}`,
       `Client : ${options.requesterName} (${options.requesterEmail})`,
-    ].join('\n');
+      options.requesterPhone ? `Telephone : ${options.requesterPhone}` : '',
+      options.companyName ? `Entreprise : ${options.companyName}` : '',
+      options.vehicleType ? `Vehicule : ${options.vehicleType}` : '',
+      options.pickupCity ? `Ville : ${options.pickupCity}` : '',
+      options.startAt ? `Du : ${options.startAt}` : '',
+      options.endAt ? `Au : ${options.endAt}` : '',
+      options.comment ? `Commentaire : ${options.comment}` : '',
+      options.backofficeUrl ? `Lien : ${options.backofficeUrl}` : '',
+    ].filter(Boolean).join('\n');
 
     await this.sendEmail({ to: options.to, subject, html, text });
   }
@@ -587,20 +631,77 @@ export class MailService {
     publicReference: string;
     amountTtc: number;
     currency: string;
-    paymentUrl: string;
     message?: string;
   }): Promise<void> {
     const formattedAmount = `${options.amountTtc.toFixed(2)} ${options.currency}`;
-    const subject = `WestDrive — Votre devis ${options.publicReference} est pret`;
+    const subject = `WestDrive — Proposition de devis ${options.publicReference}`;
     const html = `
       <p style="margin: 0 0 16px;">Bonjour <strong>${options.requesterName}</strong>,</p>
-      <p style="margin: 0 0 12px;">Votre devis <strong>${options.publicReference}</strong> est pret.</p>
+      <p style="margin: 0 0 12px;">Nous avons prepare une proposition pour votre devis <strong>${options.publicReference}</strong>.</p>
       <div style="margin: 20px 0; padding: 14px 16px; background: #f9fafb; border-radius: 10px; border: 1px solid #e5e7eb;">
         <p style="margin: 0; font-size: 13px; color: #6b7280;">Montant TTC propose</p>
         <p style="margin: 4px 0 0; font-size: 22px; font-weight: 800; color: #111827;">${formattedAmount}</p>
         ${options.message ? `<hr style="margin: 10px 0; border: none; border-top: 1px solid #e5e7eb;"><p style="margin: 0; font-size: 13px; color: #374151;">${options.message}</p>` : ''}
       </div>
-      <p style="margin: 0 0 20px; font-size: 14px;">Pour valider votre devis, reglez en ligne via le lien securise suivant&nbsp;:</p>
+      <p style="margin: 0 0 20px; font-size: 14px;">Connectez-vous &agrave; votre espace client pour consulter les details, accepter la proposition, proposer un contre-devis ou la refuser.</p>
+      <p style="margin: 0; font-size: 13px; color: #6b7280;">Pour toute question, notre equipe est disponible &agrave; contact@pariswestdrive.fr.</p>
+    `;
+    const text = [
+      `Bonjour ${options.requesterName},`,
+      `Votre proposition de devis ${options.publicReference} est prete.`,
+      `Montant TTC propose : ${formattedAmount}`,
+      options.message ?? '',
+      'Connectez-vous a votre espace client pour accepter, contrer ou refuser la proposition.',
+    ].filter(Boolean).join('\n');
+
+    await this.sendEmail({ to: options.to, subject, html, text });
+  }
+
+  async sendQuoteCounterProposalEmail(options: {
+    to: string;
+    requesterName: string;
+    publicReference: string;
+    comment: string;
+  }): Promise<void> {
+    const subject = `[Back-office] Contre-proposition client — ${options.publicReference}`;
+    const html = `
+      <p style="margin: 0 0 16px; font-weight: 600; color: #111827;">Le client a envoye une contre-proposition</p>
+      <div style="margin: 0 0 16px; padding: 14px 16px; background: #fefce8; border-radius: 10px; border: 1px solid #fef08a; font-size: 14px;">
+        <p style="margin: 0 0 6px;"><span style="color: #6b7280;">Reference&nbsp;:</span> <strong>${options.publicReference}</strong></p>
+        <p style="margin: 0 0 6px;"><span style="color: #6b7280;">Client&nbsp;:</span> ${options.requesterName}</p>
+        <hr style="margin: 10px 0; border: none; border-top: 1px solid #fef08a;">
+        <p style="margin: 0 0 4px; font-size: 13px; color: #713f12; font-weight: 600;">Commentaire du client&nbsp;:</p>
+        <p style="margin: 0; font-size: 14px; color: #1f2937;">${options.comment}</p>
+      </div>
+      <p style="margin: 0; font-size: 12px; color: #9ca3af;">Rendez-vous dans le back-office pour traiter cette contre-proposition.</p>
+    `;
+    const text = [
+      '[Back-office] Contre-proposition client',
+      `Reference : ${options.publicReference}`,
+      `Client : ${options.requesterName}`,
+      `Commentaire : ${options.comment}`,
+    ].join('\n');
+
+    await this.sendEmail({ to: options.to, subject, html, text });
+  }
+
+  async sendQuotePaymentReadyEmail(options: {
+    to: string;
+    requesterName: string;
+    publicReference: string;
+    amountTtc: number;
+    currency: string;
+    paymentUrl: string;
+  }): Promise<void> {
+    const formattedAmount = `${options.amountTtc.toFixed(2)} ${options.currency}`;
+    const subject = `WestDrive — Votre devis ${options.publicReference} est pret au paiement`;
+    const html = `
+      <p style="margin: 0 0 16px;">Bonjour <strong>${options.requesterName}</strong>,</p>
+      <p style="margin: 0 0 12px;">Vous avez accepte la proposition du devis <strong>${options.publicReference}</strong>. Voici le lien securise pour finaliser votre paiement.</p>
+      <div style="margin: 20px 0; padding: 14px 16px; background: #f0fdf4; border-radius: 10px; border: 1px solid #bbf7d0;">
+        <p style="margin: 0; font-size: 13px; color: #166534;">Montant a regler</p>
+        <p style="margin: 4px 0 0; font-size: 22px; font-weight: 800; color: #15803d;">${formattedAmount}</p>
+      </div>
       <div style="margin: 0 0 20px; text-align: center;">
         <a href="${options.paymentUrl}" style="display: inline-block; padding: 13px 28px; background: #111111; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 14px; letter-spacing: 0.3px;">Payer mon devis</a>
       </div>
@@ -609,11 +710,9 @@ export class MailService {
     `;
     const text = [
       `Bonjour ${options.requesterName},`,
-      `Votre devis ${options.publicReference} est pret.`,
-      `Montant TTC propose : ${formattedAmount}`,
-      options.message ?? '',
-      'Payer le devis :',
-      options.paymentUrl,
+      `Votre devis ${options.publicReference} est pret au paiement.`,
+      `Montant a regler : ${formattedAmount}`,
+      `Lien de paiement : ${options.paymentUrl}`,
     ].join('\n');
 
     await this.sendEmail({ to: options.to, subject, html, text });

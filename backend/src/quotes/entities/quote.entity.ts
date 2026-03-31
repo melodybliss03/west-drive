@@ -98,6 +98,9 @@ export class Quote {
   @Column({ type: 'text', name: 'proposal_message', nullable: true })
   proposalMessage!: string | null;
 
+  @Column({ type: 'uuid', name: 'user_id', nullable: true })
+  userId!: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 

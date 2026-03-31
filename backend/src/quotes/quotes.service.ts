@@ -138,6 +138,7 @@ export class QuotesService {
       paymentPaidAt: null,
       proposalDetails: null,
       proposalMessage: null,
+      userId: existingUser?.id ?? null,
       archivedAt: null,
     });
 
@@ -155,6 +156,12 @@ export class QuotesService {
         to: savedQuote.requesterEmail,
         requesterName: savedQuote.requesterName,
         publicReference: savedQuote.publicReference,
+        vehicleType: savedQuote.requestedVehicleType,
+        quantity: savedQuote.requestedQuantity,
+        startAt: savedQuote.startAt.toISOString(),
+        endAt: savedQuote.endAt.toISOString(),
+        pickupCity: savedQuote.pickupCity,
+        comment: savedQuote.comment,
       });
 
       await this.appendSystemEvent(savedQuote.id, 'quote_ack_email_sent', {});
@@ -165,7 +172,17 @@ export class QuotesService {
           to: adminEmail,
           requesterName: savedQuote.requesterName,
           requesterEmail: savedQuote.requesterEmail,
+          requesterPhone: savedQuote.requesterPhone,
           publicReference: savedQuote.publicReference,
+          requesterType: savedQuote.requesterType,
+          companyName: savedQuote.companyName,
+          vehicleType: savedQuote.requestedVehicleType,
+          quantity: savedQuote.requestedQuantity,
+          pickupCity: savedQuote.pickupCity,
+          startAt: savedQuote.startAt.toISOString(),
+          endAt: savedQuote.endAt.toISOString(),
+          comment: savedQuote.comment,
+          backofficeUrl: this.configService.get<string>('FRONTEND_BASE_URL', 'http://localhost:8080') + '/boss',
         });
 
         await this.appendSystemEvent(savedQuote.id, 'quote_admin_notified', {
@@ -183,6 +200,20 @@ export class QuotesService {
           status: savedQuote.status,
         },
       });
+
+      if (savedQuote.userId) {
+        await this.notificationsService.createForUser({
+          type: 'devis',
+          title: 'Demande de devis enregistree',
+          message: `Votre demande de devis ${savedQuote.publicReference} a bien ete recue. Notre equipe vous recontacte rapidement.`,
+          recipientUserId: savedQuote.userId,
+          metadata: {
+            quoteId: savedQuote.id,
+            publicReference: savedQuote.publicReference,
+            status: savedQuote.status,
+          },
+        });
+      }
 
       if (shouldSendGuestActivationEmail) {
         const activationUrl = await this.authService.createAccountActivationUrl(
@@ -432,7 +463,7 @@ export class QuotesService {
   async sendProposal(
     id: string,
     dto: SendQuoteProposalDto,
-  ): Promise<{ quote: Quote; checkoutUrl: string; sessionId: string }> {
+  ): Promise<{ quote: Quote }> {
     const quote = await this.findOne(id);
 
     if (
@@ -447,28 +478,16 @@ export class QuotesService {
       );
     }
 
-    const session = await this.createQuoteCheckoutSession(quote, dto.amountTtc, dto.currency);
-
     quote.amountTtc = dto.amountTtc.toFixed(2);
     quote.currency = (dto.currency ?? 'EUR').toUpperCase();
-    this.ensureTransition(quote.status, QuoteStatus.PROPOSITION_ENVOYEE);
+    if (quote.status !== QuoteStatus.PROPOSITION_ENVOYEE) {
+      this.ensureTransition(quote.status, QuoteStatus.PROPOSITION_ENVOYEE);
+    }
     quote.status = QuoteStatus.PROPOSITION_ENVOYEE;
-    this.ensureTransition(quote.status, QuoteStatus.EN_ATTENTE_PAIEMENT);
-    quote.status = QuoteStatus.EN_ATTENTE_PAIEMENT;
-    quote.paymentSessionId = session.id;
-    quote.paymentIntentId =
-      typeof session.payment_intent === 'string'
-        ? session.payment_intent
-        : session.payment_intent?.id ?? null;
     quote.proposalDetails = dto.proposalDetails ?? null;
     quote.proposalMessage = dto.message ?? null;
 
     const savedQuote = await this.quoteRepository.save(quote);
-    const checkoutUrl = session.url;
-
-    if (!checkoutUrl) {
-      throw new BadRequestException('Unable to create Stripe checkout URL');
-    }
 
     try {
       await this.mailService.sendQuoteProposalEmail({
@@ -477,7 +496,6 @@ export class QuotesService {
         publicReference: savedQuote.publicReference,
         amountTtc: dto.amountTtc,
         currency: savedQuote.currency,
-        paymentUrl: checkoutUrl,
         message: dto.message,
       });
 
@@ -486,16 +504,32 @@ export class QuotesService {
         currency: savedQuote.currency,
         message: dto.message ?? null,
       });
-
-      await this.appendSystemEvent(savedQuote.id, 'quote_payment_link_created', {
-        checkoutUrl,
-        sessionId: session.id,
-      });
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'unknown reason';
       this.logger.warn(
         `Quote proposal email failed for quote ${savedQuote.id}: ${reason}`,
       );
+    }
+
+    if (savedQuote.userId) {
+      try {
+        await this.notificationsService.createForUser({
+          type: 'devis',
+          title: 'Proposition de devis',
+          message: `West Drive vous a envoye une proposition pour le devis ${savedQuote.publicReference}.`,
+          recipientUserId: savedQuote.userId,
+          metadata: {
+            quoteId: savedQuote.id,
+            publicReference: savedQuote.publicReference,
+            status: savedQuote.status,
+          },
+        });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : 'unknown reason';
+        this.logger.warn(
+          `Quote proposal user notification failed for quote ${savedQuote.id}: ${reason}`,
+        );
+      }
     }
 
     await this.notifyAdmin(
@@ -504,11 +538,7 @@ export class QuotesService {
       savedQuote,
     );
 
-    return {
-      quote: savedQuote,
-      checkoutUrl,
-      sessionId: session.id,
-    };
+    return { quote: savedQuote };
   }
 
   async createPaymentSession(
@@ -638,6 +668,18 @@ export class QuotesService {
       `Le devis ${saved.publicReference} a ete regle.`,
       saved,
     );
+
+    try {
+      await this.convertToReservation(saved.id, {
+        amountTtc: Number(saved.amountTtc),
+        depositAmount: 0,
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'unknown reason';
+      this.logger.warn(
+        `Auto-conversion to reservation failed for quote ${saved.id}: ${reason}`,
+      );
+    }
 
     return saved;
   }
@@ -774,6 +816,43 @@ export class QuotesService {
         await this.createPaymentLink(savedQuote.id)
       ).paymentLinkUrl;
 
+      try {
+        await this.mailService.sendQuotePaymentReadyEmail({
+          to: savedQuote.requesterEmail,
+          requesterName: savedQuote.requesterName,
+          publicReference: savedQuote.publicReference,
+          amountTtc: Number(savedQuote.amountTtc),
+          currency: savedQuote.currency,
+          paymentUrl: paymentLinkUrl,
+        });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : 'unknown reason';
+        this.logger.warn(
+          `Quote payment-ready email failed for quote ${savedQuote.id}: ${reason}`,
+        );
+      }
+
+      if (savedQuote.userId) {
+        try {
+          await this.notificationsService.createForUser({
+            type: 'devis',
+            title: 'Lien de paiement disponible',
+            message: `Votre devis ${savedQuote.publicReference} est pret au paiement.`,
+            recipientUserId: savedQuote.userId,
+            metadata: {
+              quoteId: savedQuote.id,
+              publicReference: savedQuote.publicReference,
+              status: savedQuote.status,
+            },
+          });
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : 'unknown reason';
+          this.logger.warn(
+            `Quote payment-ready user notification failed for quote ${savedQuote.id}: ${reason}`,
+          );
+        }
+      }
+
       await this.notifyAdmin(
         'Devis accepte par le client',
         `Le client a accepte le devis ${savedQuote.publicReference}.`,
@@ -827,6 +906,23 @@ export class QuotesService {
     await this.appendSystemEvent(savedQuote.id, 'quote_customer_counter_proposal', {
       comment,
     });
+
+    try {
+      const adminEmail = this.configService.get<string>('ADMIN_EMAIL');
+      if (adminEmail) {
+        await this.mailService.sendQuoteCounterProposalEmail({
+          to: adminEmail,
+          requesterName: savedQuote.requesterName,
+          publicReference: savedQuote.publicReference,
+          comment,
+        });
+      }
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'unknown reason';
+      this.logger.warn(
+        `Quote counter-proposal admin email failed for quote ${savedQuote.id}: ${reason}`,
+      );
+    }
 
     await this.notifyAdmin(
       'Contre-proposition client',
