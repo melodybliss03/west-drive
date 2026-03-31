@@ -64,7 +64,7 @@ export default function Footer() {
       {/* Main footer */}
       <div className="bg-foreground text-background">
         <div className="max-w-6xl mx-auto px-4 py-12">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
             {/* Brand */}
             <div>
               <Link
@@ -74,16 +74,13 @@ export default function Footer() {
               >
                 <img
                   src="/logo_west_drive.png"
-                  alt="WEST DRIVE"
-                  className="h-6 w-auto sm:h-4 md:h-8 lg:h-8 xl:h-8 object-contain"
+                  alt="PARIS WEST DRIVE"
+                  className="h-4 w-auto sm:h-2 md:h-8 lg:h-8 xl:h-6 object-contain"
                 />
               </Link>
               <p className="text-sm text-background/60 leading-relaxed">
                 Location de véhicules en Île-de-France. Qualité, transparence et
                 proximité.
-              </p>
-              <p className="text-xs text-background/40 mt-4">
-                WEST DRIVE, 2026.
               </p>
             </div>
 
@@ -159,7 +156,7 @@ export default function Footer() {
             </div>
 
             {/* Réseaux sociaux */}
-            <div>
+            {/* <div>
               <h4 className="font-display font-semibold mb-4 text-background/80 text-sm uppercase tracking-wider">
                 Réseaux sociaux
               </h4>
@@ -204,7 +201,7 @@ export default function Footer() {
                   </a>
                 </li>
               </ul>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
@@ -213,7 +210,7 @@ export default function Footer() {
       <div className="bg-primary">
         <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="text-sm text-primary-foreground font-medium">
-            &copy; {new Date().getFullYear()} WEST DRIVE. Tous droits réservés.
+            &copy; {new Date().getFullYear()} PARIS WEST DRIVE. Tous droits réservés.
           </p>
           <div className="flex items-center gap-6 text-sm text-primary-foreground/80">
             <a

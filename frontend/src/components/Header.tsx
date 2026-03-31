@@ -83,8 +83,8 @@ export default function Header() {
         >
           <img 
             src="/logo_westdrive.png" 
-            alt="WEST DRIVE" 
-            className="h-6 w-auto sm:h-4 md:h-8 lg:h-8 xl:h-8 object-contain"
+            alt="PARIS WEST DRIVE" 
+            className="h-4 w-auto sm:h-2 md:h-8 lg:h-8 xl:h-6 object-contain"
           />
         </Link>
 

@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { format } from "date-fns";
 import DevisDialog from "@/components/DevisDialog";
 import { motion } from "framer-motion";
 import { Star, ChevronRight, Check, Phone, Car } from "lucide-react";
@@ -25,6 +27,7 @@ import TopBar from "@/components/TopBar";
 import ScrollToTop from "@/components/ScrollToTop";
 import { useVehiclesCatalogPage } from "@/hooks/useVehiclesCatalog";
 import VehicleCoverageMap from "@/components/VehicleCoverageMap";
+import { reviewsService, ReviewsListResponse } from "@/lib/api/services";
 
 
 const categories: { value: Categorie; label: string }[] = [
@@ -33,6 +36,25 @@ const categories: { value: Categorie; label: string }[] = [
   { value: "BERLINE", label: "Berline" },
   { value: "SUV", label: "SUV" },
 ];
+
+const SOURCE_BADGE: Record<string, { label: string; dotClass: string; textClass: string }> = {
+  getaround: { label: "Getaround", dotClass: "bg-violet-500", textClass: "text-violet-600" },
+  turo: { label: "Turo", dotClass: "bg-gray-800", textClass: "text-gray-700" },
+  google: { label: "Google", dotClass: "bg-blue-500", textClass: "text-blue-600" },
+  direct: { label: "Direct", dotClass: "bg-emerald-500", textClass: "text-emerald-600" },
+};
+
+function sourceBadge(source?: string | null) {
+  if (!source) return null;
+  const key = source.toLowerCase();
+  const cfg = SOURCE_BADGE[key] ?? { label: source, dotClass: "bg-muted-foreground", textClass: "text-muted-foreground" };
+  return (
+    <span className={`inline-flex items-center gap-2 text-xs font-semibold ${cfg.textClass}`}>
+      <span className={`h-2 w-2 rounded-full ${cfg.dotClass}`} />
+      {cfg.label}
+    </span>
+  );
+}
 
 const pourquoiCards = [
   {
@@ -70,6 +92,14 @@ const pourquoiCards = [
 export default function Index() {
   const { vehicles: showcaseVehicles, cities } = useVehiclesCatalogPage(1, 12);
   const [activeCategory, setActiveCategory] = useState<Categorie>("MICRO");
+
+  const { data: reviewsData } = useQuery<ReviewsListResponse>({
+    queryKey: ["reviews-preview"],
+    queryFn: () => reviewsService.list({ page: 1, limit: 6 }),
+    refetchOnWindowFocus: false,
+  });
+
+  const reviews = reviewsData?.items ?? [];
 
   const getVehiculesByCategorie = (cat: Categorie) =>
     showcaseVehicles.filter((vehicle) => vehicle.actif && vehicle.categorie === cat);
@@ -153,7 +183,7 @@ export default function Index() {
             <div className="flex items-center gap-2">
               <Star className="h-4 w-4 text-primary fill-primary" />
               <span className="font-semibold text-background">4.9</span>
-              <span>Depuis 2024</span>
+              <span>Depuis 2014</span>
             </div>
             <div className="flex items-center gap-2">
               <Phone className="h-4 w-4 text-background/70" />
@@ -457,41 +487,73 @@ export default function Index() {
         </div>
       </section>
 
-      {/* Témoignages */}
-      <section className="py-20 bg-secondary">
+
+      {/* Avis Clients */}
+      <section className="py-20 bg-background">
         <div className="max-w-5xl mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">
-              Ce que disent nos clients
+              Avis <span className="text-primary">Vérifiés</span>
             </h2>
+            <p className="text-muted-foreground">
+              Découvrez ce que pensent nos clients de leurs expériences de location
+            </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {temoignages.map((t, i) => (
-              <motion.div
-                key={t.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.15 }}
-                className="bg-card p-6 rounded-2xl border border-border"
-              >
-                <div className="flex gap-0.5 mb-3">
-                  {Array.from({ length: t.note }).map((_, j) => (
-                    <Star
-                      key={j}
-                      className="h-4 w-4 fill-primary text-primary"
-                    />
-                  ))}
-                </div>
-                <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-                  "{t.commentaire}"
-                </p>
-                <div>
-                  <p className="font-semibold text-sm">{t.nom}</p>
-                  <p className="text-xs text-muted-foreground">{t.vehicule}</p>
-                </div>
-              </motion.div>
-            ))}
+
+          {reviews.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              {reviews.map((review, i) => (
+                <motion.article
+                  key={review.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.1 }}
+                  className="border border-border rounded-2xl p-6 bg-card hover:shadow-lg transition-shadow duration-200"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    {sourceBadge(review.source)}
+                    <span className="text-xs text-muted-foreground font-medium">
+                      {format(new Date(review.createdAt), "dd MMM yyyy")}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 mb-3">
+                    {Array.from({ length: 5 }).map((_, j) => (
+                      <Star
+                        key={j}
+                        className={`h-4 w-4 ${
+                          j < review.rating
+                            ? "fill-primary text-primary"
+                            : "text-muted-foreground/30"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  {review.title && (
+                    <h3 className="font-semibold text-sm mb-2">{review.title}</h3>
+                  )}
+                  <p className="text-sm text-muted-foreground leading-relaxed mb-4 line-clamp-3">
+                    {review.content}
+                  </p>
+                  <p className="text-sm font-medium text-foreground">
+                    — {review.authorName}
+                  </p>
+                </motion.article>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">Aucun avis disponible pour le moment.</p>
+            </div>
+          )}
+
+          <div className="text-center">
+            <Link to="/reviews">
+              <Button variant="outline" size="lg" className="gap-2">
+                Voir tous les avis
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
