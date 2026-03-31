@@ -599,6 +599,13 @@ export class ReservationsService {
     return this.findOne(reservation.id);
   }
 
+  async confirmFromQuoteConversion(id: string): Promise<void> {
+    await this.reservationRepository.update({ id }, { status: ReservationStatus.CONFIRMEE });
+    await this.appendSystemEvent(id, 'reservation_confirmed_from_quote', {
+      source: 'quote_auto_conversion',
+    });
+  }
+
   async createStripePreauth(
     reservationId: string,
     dto: CreateStripePreauthDto,

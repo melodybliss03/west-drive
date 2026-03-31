@@ -116,6 +116,7 @@ export function mapQuoteDtoToDevisRow(dto: QuoteDto): DevisRow {
     dateFin: dto.endAt,
     typeVehicule: dto.requestedVehicleType,
     nombreVehicules: dto.requestedQuantity,
+    proposalDetails: dto.proposalDetails ?? null,
     statut: mapQuoteStatusToLegacy(dto.status),
     creeLe: dto.createdAt,
   };

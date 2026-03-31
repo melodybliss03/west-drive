@@ -119,6 +119,7 @@ export interface DevisRow {
   dateFin: string;
   typeVehicule: string;
   nombreVehicules: number;
+  proposalDetails?: Record<string, unknown> | null;
   statut:
     | "en attente"
     | "en analyse"

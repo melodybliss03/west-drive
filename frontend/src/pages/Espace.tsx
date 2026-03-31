@@ -139,20 +139,21 @@ const devisStatutLabels: Record<string, string> = {
 };
 
 const quoteEventLabels: Record<string, string> = {
-  quote_created: "Demande creee",
-  quote_ack_email_sent: "Accuse de reception envoye",
-  quote_admin_notified: "Equipe admin notifiee",
-  quote_status_changed: "Statut mis a jour",
+  quote_created: "Demande créée",
+  quote_ack_email_sent: "Accusé de réception envoyé",
+  quote_admin_notified: "Équipe admin notifiée",
+  quote_status_changed: "Statut mis à jour",
   quote_in_analysis: "Devis en analyse",
-  quote_negotiation_updated: "Negociation mise a jour",
-  quote_proposal_sent: "Proposition envoyee",
-  quote_payment_link_created: "Lien de paiement genere",
-  quote_payment_confirmed: "Paiement confirme",
-  quote_accepted: "Proposition acceptee",
-  quote_refused: "Devis refuse",
-  quote_customer_accepted: "Vous avez accepte la proposition",
-  quote_customer_rejected: "Vous avez refuse la proposition",
-  quote_customer_counter_proposal: "Vous avez envoye une contre-proposition",
+  quote_negotiation_updated: "Négociation mise à jour",
+  quote_proposal_sent: "Proposition envoyée",
+  quote_payment_link_created: "Lien de paiement généré",
+  quote_payment_confirmed: "Paiement confirmé",
+  quote_accepted: "Proposition acceptée",
+  quote_refused: "Devis refusé",
+  quote_converted_to_reservation: "Converti en réservation",
+  quote_customer_accepted: "Vous avez accepté la proposition",
+  quote_customer_rejected: "Vous avez refusé la proposition",
+  quote_customer_counter_proposal: "Vous avez envoyé une contre-proposition",
 };
 
 const reservationEventLabels: Record<string, string> = {
@@ -345,17 +346,36 @@ export default function Espace() {
     try {
       const response = await quotesService.listMine({ page, limit: 8 });
       const mapped = toItems(response).map((q) => {
-        const nbJours = daysBetween(q.startAt, q.endAt);
-        const perDay = Math.max(0, Number(q.amountTtc || 0) / nbJours);
-        return {
-          id: q.id,
-          publicReference: q.publicReference,
-          type: q.requesterType === "ENTREPRISE" ? "entreprise" : "particulier",
-          nomEntreprise: q.companyName ?? undefined,
-          dateEmission: q.createdAt,
-          statut: mapQuoteStatus(q.status),
-          commentaireAdmin: q.proposalMessage ?? undefined,
-          vehicules: [
+        const propositions = (q.proposalDetails as { propositions?: Array<{
+          typeVehicule: string;
+          dateDebut: string;
+          heureDebut: string;
+          dateFin: string;
+          heureFin: string;
+          kmInclus: string | number;
+          prixJour: string | number;
+          autreFrais?: number;
+        }> } | null)?.propositions;
+
+        let vehicules: UiDevis["vehicules"];
+
+        if (propositions && propositions.length > 0) {
+          vehicules = propositions.map((p) => ({
+            type: p.typeVehicule,
+            dateDebut: p.dateDebut,
+            dateFin: p.dateFin,
+            heureDebut: p.heureDebut,
+            heureFin: p.heureFin,
+            nbJours: daysBetween(p.dateDebut, p.dateFin),
+            prixJour: Number(p.prixJour) || 0,
+            kmInclus: Number(p.kmInclus) || 0,
+            autreFrais: Number(p.autreFrais) || 0,
+            ville: q.pickupCity,
+          }));
+        } else {
+          const nbJours = daysBetween(q.startAt, q.endAt);
+          const perDay = Math.max(0, Number(q.amountTtc || 0) / nbJours);
+          vehicules = [
             {
               type: q.requestedVehicleType,
               dateDebut: q.startAt,
@@ -368,7 +388,18 @@ export default function Espace() {
               autreFrais: 0,
               ville: q.pickupCity,
             },
-          ],
+          ];
+        }
+
+        return {
+          id: q.id,
+          publicReference: q.publicReference,
+          type: q.requesterType === "ENTREPRISE" ? "entreprise" : "particulier",
+          nomEntreprise: q.companyName ?? undefined,
+          dateEmission: q.createdAt,
+          statut: mapQuoteStatus(q.status),
+          commentaireAdmin: q.proposalMessage ?? undefined,
+          vehicules,
           source: q,
         } as UiDevis;
       });
@@ -1025,7 +1056,15 @@ export default function Espace() {
           <DialogHeader>
             <DialogTitle>Devis {selectedDevis?.publicReference}</DialogTitle>
           </DialogHeader>
-          {selectedDevis && (
+          {selectedDevis && (() => {
+            const rawStatus = selectedDevis.source.status;
+            const isPending = rawStatus === "NOUVELLE_DEMANDE" || rawStatus === "EN_ANALYSE";
+            const isProposal = rawStatus === "PROPOSITION_ENVOYEE" || rawStatus === "EN_NEGOCIATION";
+            const isAwaitingPayment = rawStatus === "EN_ATTENTE_PAIEMENT";
+            const isPaid = rawStatus === "PAYEE" || rawStatus === "CONVERTI_RESERVATION";
+            const isRefused = rawStatus === "REFUSEE" || rawStatus === "ANNULEE";
+
+            return (
             <div className="space-y-5">
               <div className="flex items-center justify-between p-4 rounded-xl bg-muted/40">
                 <div>
@@ -1042,51 +1081,128 @@ export default function Espace() {
                 </Badge>
               </div>
 
-              {selectedDevis.commentaireAdmin && (
-                <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 space-y-1">
-                  <p className="text-xs font-medium text-primary">Message de West Drive</p>
+              {/* --- Demande initiale (avant proposition) --- */}
+              {(isPending || isRefused) && (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-muted-foreground">Vehicule(s) demande(s)</p>
+                  <div className="border border-border rounded-xl p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Car className="h-4 w-4 text-primary" />
+                      <p className="font-semibold text-sm">{selectedDevis.source.requestedVehicleType}{selectedDevis.source.requestedQuantity > 1 ? ` × ${selectedDevis.source.requestedQuantity}` : ""}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1"><Calendar className="h-3 w-3" />Du {fmtDate(selectedDevis.source.startAt)}</div>
+                      <div className="flex items-center gap-1"><Calendar className="h-3 w-3" />Au {fmtDate(selectedDevis.source.endAt)}</div>
+                      <div className="flex items-center gap-1"><MapPin className="h-3 w-3" />{selectedDevis.source.pickupCity}</div>
+                    </div>
+                    {selectedDevis.source.comment && (
+                      <p className="text-xs text-muted-foreground border-t border-border pt-2 mt-1">{selectedDevis.source.comment}</p>
+                    )}
+                  </div>
+                  {isPending && (
+                    <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg p-3">Notre equipe analyse votre demande et vous enverra une proposition sous peu.</p>
+                  )}
+                </div>
+              )}
+
+              {/* --- Proposition admin (PROPOSITION_ENVOYEE / EN_NEGOCIATION) --- */}
+              {(isProposal) && (
+                <div className="space-y-3">
+                  {selectedDevis.commentaireAdmin && (
+                    <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 space-y-1">
+                      <p className="text-xs font-medium text-primary">Message de West Drive</p>
+                      <p className="text-sm text-muted-foreground">{selectedDevis.commentaireAdmin}</p>
+                    </div>
+                  )}
+                  <p className="text-sm font-medium text-muted-foreground">Vehicule(s) propose(s)</p>
+                  {selectedDevis.vehicules.map((v, i) => {
+                    const total = v.nbJours * v.prixJour + v.autreFrais;
+                    return (
+                      <div key={i} className="border border-border rounded-xl p-4 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Car className="h-4 w-4 text-primary" />
+                          <p className="font-semibold text-sm">{v.type}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1"><Calendar className="h-3 w-3" />Du {fmtDate(v.dateDebut)}</div>
+                          <div className="flex items-center gap-1"><Calendar className="h-3 w-3" />Au {fmtDate(v.dateFin)}</div>
+                          <div className="flex items-center gap-1"><Clock className="h-3 w-3" />Prise a {v.heureDebut}</div>
+                          <div className="flex items-center gap-1"><Clock className="h-3 w-3" />Retour a {v.heureFin}</div>
+                          <div className="flex items-center gap-1"><MapPin className="h-3 w-3" />{v.ville}</div>
+                        </div>
+                        <div className="bg-muted/40 rounded-lg p-3 space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">{v.nbJours} jour(s) × {v.prixJour.toFixed(2)} EUR/jour</span>
+                            <span>{(v.nbJours * v.prixJour).toFixed(2)} EUR</span>
+                          </div>
+                          {v.autreFrais > 0 && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Autres frais</span>
+                              <span>{v.autreFrais.toFixed(2)} EUR</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between font-semibold border-t border-border pt-1 mt-1">
+                            <span>Sous-total</span>
+                            <span className="text-primary">{total.toFixed(2)} EUR</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-primary/5 border border-primary/20">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-primary" />
+                      <span className="font-semibold">Total estime</span>
+                    </div>
+                    <span className="text-2xl font-display font-bold text-primary">{totalDevis(selectedDevis.vehicules).toLocaleString("fr-FR")} EUR</span>
+                  </div>
+                </div>
+              )}
+
+              {/* --- En attente de paiement --- */}
+              {isAwaitingPayment && (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 space-y-2">
+                    <p className="font-semibold text-emerald-700">Proposition acceptee</p>
+                    <p className="text-sm text-emerald-600">Vous avez accepte la proposition. Un lien de paiement securise vous a ete envoye par email.</p>
+                    <p className="text-lg font-bold text-emerald-800">{Number(selectedDevis.source.amountTtc).toLocaleString("fr-FR")} EUR</p>
+                  </div>
+                  <Button
+                    className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={() => respondQuote("ACCEPTER")}
+                    disabled={quoteResponseLoading}
+                  >
+                    {quoteResponseLoading ? <Spinner className="mr-1" /> : <CheckCircle className="h-4 w-4" />}
+                    Proceder au paiement
+                  </Button>
+                </div>
+              )}
+
+              {/* --- Paye / Converti --- */}
+              {isPaid && (
+                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-emerald-600" />
+                    <p className="font-semibold text-emerald-700">{rawStatus === "CONVERTI_RESERVATION" ? "Reservation creee" : "Paiement confirme"}</p>
+                  </div>
+                  <p className="text-sm text-emerald-600">
+                    {rawStatus === "CONVERTI_RESERVATION"
+                      ? "Votre paiement a ete confirme et votre reservation a ete creee. Consultez l'onglet Reservations pour les details."
+                      : "Votre paiement a ete bien recu. Votre reservation sera finalisee tres prochainement."}
+                  </p>
+                  <p className="text-lg font-bold text-emerald-800">{Number(selectedDevis.source.amountTtc).toLocaleString("fr-FR")} EUR</p>
+                </div>
+              )}
+
+              {/* --- Refuse --- */}
+              {isRefused && selectedDevis.commentaireAdmin && (
+                <div className="p-3 rounded-xl bg-destructive/5 border border-destructive/20 space-y-1">
+                  <p className="text-xs font-medium text-destructive">Motif</p>
                   <p className="text-sm text-muted-foreground">{selectedDevis.commentaireAdmin}</p>
                 </div>
               )}
 
-              <div className="space-y-3">
-                <p className="text-sm font-medium text-muted-foreground">Vehicule(s) propose(s)</p>
-                {selectedDevis.vehicules.map((v, i) => {
-                  const total = v.nbJours * v.prixJour + v.autreFrais;
-                  return (
-                    <div key={i} className="border border-border rounded-xl p-4 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Car className="h-4 w-4 text-primary" />
-                        <p className="font-semibold text-sm">{v.type}</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1"><Calendar className="h-3 w-3" />Du {fmtDate(v.dateDebut)}</div>
-                        <div className="flex items-center gap-1"><Calendar className="h-3 w-3" />Au {fmtDate(v.dateFin)}</div>
-                        <div className="flex items-center gap-1"><Clock className="h-3 w-3" />Prise a {v.heureDebut}</div>
-                        <div className="flex items-center gap-1"><Clock className="h-3 w-3" />Retour a {v.heureFin}</div>
-                        <div className="flex items-center gap-1"><MapPin className="h-3 w-3" />{v.ville}</div>
-                      </div>
-                      <div className="bg-muted/40 rounded-lg p-3 space-y-1 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">{v.nbJours} jour(s) x {v.prixJour.toFixed(2)} EUR/jour</span>
-                          <span>{(v.nbJours * v.prixJour).toFixed(2)} EUR</span>
-                        </div>
-                        {v.autreFrais > 0 && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Autres frais</span>
-                            <span>{v.autreFrais.toFixed(2)} EUR</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between font-semibold border-t border-border pt-1 mt-1">
-                          <span>Sous-total</span>
-                          <span className="text-primary">{total.toFixed(2)} EUR</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
+              {/* --- Chronologie --- */}
               <div className="space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">Chronologie</p>
                 {quoteEventsLoading && <p className="text-xs text-muted-foreground">Chargement de la timeline...</p>}
@@ -1106,20 +1222,13 @@ export default function Espace() {
                 )}
               </div>
 
-              <div className="flex items-center justify-between p-4 rounded-xl bg-primary/5 border border-primary/20">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  <span className="font-semibold">Total estime</span>
-                </div>
-                <span className="text-2xl font-display font-bold text-primary">{totalDevis(selectedDevis.vehicules).toLocaleString("fr-FR")} EUR</span>
-              </div>
-
-              {selectedDevis.statut === "en_attente" || selectedDevis.statut === "contre_proposition" ? (
+              {/* --- Actions client (proposition en cours) --- */}
+              {isProposal && (
                 <>
                   <div className="space-y-1">
                     <label className="text-sm font-medium flex items-center gap-1.5">
                       <MessageSquare className="h-4 w-4" />
-                      Votre commentaire
+                      Votre commentaire {rawStatus === "EN_NEGOCIATION" ? "(requis pour contre-proposition ou refus)" : "(optionnel pour accepter)"}
                     </label>
                     <textarea
                       value={commentaireClient}
@@ -1157,9 +1266,10 @@ export default function Espace() {
                     </Button>
                   </DialogFooter>
                 </>
-              ) : null}
+              )}
             </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

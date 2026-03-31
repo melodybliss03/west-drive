@@ -53,7 +53,7 @@ type PropositionVehicule = {
   autreFraisLibelle: { label: string; amount: string }[];
 };
 
-type ActionType = "analyse" | "valider" | "negocier" | "refuser" | "convertir" | null;
+type ActionType = "analyse" | "valider" | "negocier" | "refuser" | null;
 
 const vehicleTypes = ["Micro", "Compacte", "Berline", "SUV"];
 
@@ -77,18 +77,21 @@ function toItems<T>(collection: PaginatedCollection<T> | T[]): T[] {
 
 function formatEventLabel(type: string): string {
   const map: Record<string, string> = {
-    quote_created: "Demande creee",
-    quote_ack_email_sent: "Accuse de reception envoye",
-    quote_admin_notified: "Admin notifie",
+    quote_created: "Demande créée",
+    quote_ack_email_sent: "Accusé de réception envoyé",
+    quote_admin_notified: "Admin notifié",
     quote_in_analysis: "Devis en analyse",
-    quote_negotiation_updated: "Negociation mise a jour",
-    quote_proposal_sent: "Proposition envoyee",
-    quote_payment_link_created: "Lien de paiement genere",
-    quote_payment_confirmed: "Paiement confirme",
-    quote_accepted: "Devis accepte",
-    quote_refused: "Devis refuse",
-    quote_status_changed: "Statut modifie",
-    quote_converted_to_reservation: "Converti en reservation",
+    quote_negotiation_updated: "Négociation mise à jour",
+    quote_proposal_sent: "Proposition envoyée",
+    quote_payment_link_created: "Lien de paiement généré",
+    quote_payment_confirmed: "Paiement confirmé",
+    quote_accepted: "Devis accepté",
+    quote_refused: "Devis refusé",
+    quote_status_changed: "Statut modifié",
+    quote_converted_to_reservation: "Converti en réservation",
+    quote_customer_accepted: "Client a accepté la proposition",
+    quote_customer_rejected: "Client a refusé la proposition",
+    quote_customer_counter_proposal: "Client a envoyé une contre-proposition",
   };
 
   return map[type] ?? type;
@@ -110,7 +113,11 @@ function formatEventDetails(event: QuoteEventDto): string | null {
   }
 
   if (event.type === "quote_converted_to_reservation" && typeof payload.reservationPublicReference === "string") {
-    return `Reservation creee: ${payload.reservationPublicReference}`;
+    return `Réservation créée : ${payload.reservationPublicReference}`;
+  }
+
+  if ((event.type === "quote_customer_accepted" || event.type === "quote_customer_rejected" || event.type === "quote_customer_counter_proposal") && typeof payload.comment === "string" && payload.comment.trim()) {
+    return payload.comment;
   }
 
   return null;
@@ -138,10 +145,6 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
   const [commentaireRefus, setCommentaireRefus] = useState("");
   const [refusError, setRefusError] = useState("");
 
-  const [convertVehicleId, setConvertVehicleId] = useState("");
-  const [convertAmount, setConvertAmount] = useState("");
-  const [convertDeposit, setConvertDeposit] = useState("");
-
   const [timeline, setTimeline] = useState<QuoteEventDto[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -157,7 +160,6 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
   const canSendProposal = ["EN_ANALYSE", "EN_NEGOCIATION", "PROPOSITION_ENVOYEE"].includes(selectedDevis?.backendStatus ?? "");
   const canNegotiate = ["EN_ANALYSE", "PROPOSITION_ENVOYEE", "EN_ATTENTE_PAIEMENT"].includes(selectedDevis?.backendStatus ?? "");
   const canRefuse = ["REFUSEE", "ANNULEE", "CONVERTI_RESERVATION"].every((status) => status !== selectedDevis?.backendStatus);
-  const canConvert = selectedDevis?.backendStatus === "PAYEE";
 
   const applyQuoteUpdate = (quote: QuoteDto) => {
     const mapped = mapQuoteDtoToDevisRow(quote);
@@ -184,9 +186,6 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
     setMessageNegociation("");
     setCommentaireRefus("");
     setRefusError("");
-    setConvertVehicleId("");
-    setConvertAmount("");
-    setConvertDeposit("");
     setPropositions(Array.from({ length: d.nombreVehicules }, () => emptyProposition()));
     void loadEvents(d.id);
   };
@@ -267,7 +266,7 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
       applyQuoteUpdate(response.quote);
       await loadEvents(selectedDevis.id);
       setAction(null);
-      toast({ title: "Proposition envoyee", description: `Lien genere pour ${selectedDevis.email}.` });
+      toast({ title: "Proposition envoyee", description: `${selectedDevis.client} sera notifie par email.` });
     } catch (error) {
       const message = error instanceof ApiHttpError ? error.message : "Envoi de la proposition impossible.";
       toast({ title: "Erreur", description: message, variant: "destructive" });
@@ -310,32 +309,6 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
       toast({ title: "Devis refuse", description: `${selectedDevis.client} a ete notifie par email.` });
     } catch (error) {
       const message = error instanceof ApiHttpError ? error.message : "Refus du devis impossible.";
-      toast({ title: "Erreur", description: message, variant: "destructive" });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleConvert = async () => {
-    if (!selectedDevis) return;
-
-    setIsSubmitting(true);
-    try {
-      const response = await quotesService.convertToReservation(selectedDevis.id, {
-        vehicleId: convertVehicleId || undefined,
-        amountTtc: convertAmount ? Number(convertAmount) : undefined,
-        depositAmount: convertDeposit ? Number(convertDeposit) : undefined,
-      });
-
-      applyQuoteUpdate(response.quote);
-      await loadEvents(selectedDevis.id);
-      setAction(null);
-      toast({
-        title: "Devis converti",
-        description: `Reservation creee: ${response.reservationPublicReference}`,
-      });
-    } catch (error) {
-      const message = error instanceof ApiHttpError ? error.message : "Conversion en reservation impossible.";
       toast({ title: "Erreur", description: message, variant: "destructive" });
     } finally {
       setIsSubmitting(false);
@@ -440,7 +413,6 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
                 {action === "valider" && "Envoyer une proposition"}
                 {action === "negocier" && "Demarrer une negociation"}
                 {action === "refuser" && "Motif de refus"}
-                {action === "convertir" && "Convertir en reservation"}
                 {!action && `Dossier ${selectedDevis?.publicReference ?? selectedDevis?.id}`}
               </DialogTitle>
             </div>
@@ -478,8 +450,28 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
                 </div>
               </div>
 
-              {selectedDevis.commentaireRefus && (
-                <div className="p-3 rounded-xl bg-destructive/5 border border-destructive/20 space-y-1">
+              {(() => {
+                const propositions = (selectedDevis.proposalDetails as { propositions?: PropositionVehicule[] } | null | undefined)?.propositions;
+                if (!propositions || propositions.length === 0) return null;
+                return (
+                  <div className="space-y-3 p-4 rounded-xl border border-border bg-muted/20">
+                    <p className="text-sm font-medium text-muted-foreground">Proposition envoyee</p>
+                    {propositions.map((p, i) => (
+                      <div key={i} className="text-sm space-y-1 border-l-2 border-emerald-500 pl-3">
+                        <p className="font-semibold">{p.typeVehicule || "Type non defini"}</p>
+                        <p className="text-muted-foreground">{p.dateDebut} {p.heureDebut} &rarr; {p.dateFin} {p.heureFin}</p>
+                        <div className="flex gap-4 text-muted-foreground">
+                          <span>{p.prixJour} €/jour</span>
+                          {p.prixHeure && Number(p.prixHeure) > 0 && <span>{p.prixHeure} €/h</span>}
+                          <span>{p.kmInclus} km/j inclus</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {selectedDevis.commentaireRefus && (                <div className="p-3 rounded-xl bg-destructive/5 border border-destructive/20 space-y-1">
                   <p className="text-xs font-medium text-destructive">Motif du refus</p>
                   <p className="text-sm text-muted-foreground">{selectedDevis.commentaireRefus}</p>
                 </div>
@@ -537,11 +529,6 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
                   <Button variant="destructive" className="gap-2" onClick={() => setAction("refuser")} disabled={isSubmitting}>
                     <XCircle className="h-4 w-4" />
                     Refuser
-                  </Button>
-                )}
-                {hasPermission('quotes.manage') && canConvert && (
-                  <Button variant="outline" className="gap-2 border-teal-400 text-teal-700 hover:bg-teal-50" onClick={() => setAction("convertir")} disabled={isSubmitting}>
-                    Convertir en reservation
                   </Button>
                 )}
               </div>
@@ -671,29 +658,6 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
             </div>
           )}
 
-          {action === "convertir" && selectedDevis && (
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">Le devis est paye. Vous pouvez maintenant creer la reservation finale.</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">Vehicle ID (optionnel)</Label>
-                  <Input value={convertVehicleId} onChange={(e) => setConvertVehicleId(e.target.value)} className="mt-1" placeholder="UUID vehicule" />
-                </div>
-                <div>
-                  <Label className="text-xs">Montant TTC (optionnel)</Label>
-                  <Input type="number" value={convertAmount} onChange={(e) => setConvertAmount(e.target.value)} className="mt-1" placeholder="1490" />
-                </div>
-                <div>
-                  <Label className="text-xs">Depot (optionnel)</Label>
-                  <Input type="number" value={convertDeposit} onChange={(e) => setConvertDeposit(e.target.value)} className="mt-1" placeholder="500" />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setAction(null)} disabled={isSubmitting}>Annuler</Button>
-                <Button onClick={handleConvert} disabled={isSubmitting}>{isSubmitting ? <><Spinner className="mr-2" />Conversion...</> : "Convertir"}</Button>
-              </DialogFooter>
-            </div>
-          )}
         </DialogContent>
       </Dialog>
 

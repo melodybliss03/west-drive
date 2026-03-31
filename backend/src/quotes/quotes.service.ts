@@ -497,6 +497,16 @@ export class QuotesService {
         amountTtc: dto.amountTtc,
         currency: savedQuote.currency,
         message: dto.message,
+        propositions: (dto.proposalDetails as { propositions?: Array<{
+          typeVehicule: string;
+          dateDebut: string;
+          heureDebut: string;
+          dateFin: string;
+          heureFin: string;
+          kmInclus: string | number;
+          prixJour: string | number;
+          prixHeure?: string | number;
+        }> } | null)?.propositions,
       });
 
       await this.appendSystemEvent(savedQuote.id, 'quote_proposal_sent', {
@@ -669,6 +679,27 @@ export class QuotesService {
       saved,
     );
 
+    if (saved.userId) {
+      try {
+        await this.notificationsService.createForUser({
+          type: 'devis',
+          title: 'Paiement confirme',
+          message: `Votre paiement pour le devis ${saved.publicReference} a ete confirme. Une reservation a ete creee automatiquement.`,
+          recipientUserId: saved.userId,
+          metadata: {
+            quoteId: saved.id,
+            publicReference: saved.publicReference,
+            status: saved.status,
+          },
+        });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : 'unknown reason';
+        this.logger.warn(
+          `Quote payment confirmed user notification failed for quote ${saved.id}: ${reason}`,
+        );
+      }
+    }
+
     try {
       await this.convertToReservation(saved.id, {
         amountTtc: Number(saved.amountTtc),
@@ -713,6 +744,15 @@ export class QuotesService {
     };
 
     const reservation = await this.reservationsService.create(reservationPayload);
+
+    try {
+      await this.reservationsService.confirmFromQuoteConversion(reservation.id);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'unknown reason';
+      this.logger.warn(
+        `Could not auto-confirm reservation ${reservation.id} from quote ${quoteId}: ${reason}`,
+      );
+    }
 
     this.ensureTransition(quote.status, QuoteStatus.CONVERTI_RESERVATION);
     quote.status = QuoteStatus.CONVERTI_RESERVATION;
@@ -813,8 +853,8 @@ export class QuotesService {
       });
 
       paymentLinkUrl = (
-        await this.createPaymentLink(savedQuote.id)
-      ).paymentLinkUrl;
+        await this.createPaymentSession(savedQuote.id)
+      ).checkoutUrl;
 
       try {
         await this.mailService.sendQuotePaymentReadyEmail({

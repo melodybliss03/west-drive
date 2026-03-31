@@ -131,8 +131,8 @@ export default function Checkout() {
     try {
       let response;
       if (flow === "quote") {
-        response = await quotesService.createPaymentLink(String(quoteIdFromQuery));
-        window.location.assign(response.paymentLinkUrl);
+        response = await quotesService.createPaymentSession(String(quoteIdFromQuery));
+        window.location.assign(response.checkoutUrl);
       } else {
         response = await reservationsService.createPaymentSession(String(effectiveReservationId));
         window.location.assign(response.checkoutUrl);

@@ -632,14 +632,39 @@ export class MailService {
     amountTtc: number;
     currency: string;
     message?: string;
+    propositions?: Array<{
+      typeVehicule: string;
+      dateDebut: string;
+      heureDebut: string;
+      dateFin: string;
+      heureFin: string;
+      kmInclus: string | number;
+      prixJour: string | number;
+      prixHeure?: string | number;
+    }>;
   }): Promise<void> {
     const formattedAmount = `${options.amountTtc.toFixed(2)} ${options.currency}`;
     const subject = `WestDrive — Proposition de devis ${options.publicReference}`;
+
+    const propositionsHtml = options.propositions && options.propositions.length > 0
+      ? `<div style="margin: 16px 0;">
+          <p style="margin: 0 0 8px; font-size: 13px; font-weight: 600; color: #374151;">Detail de la proposition :</p>
+          ${options.propositions.map((p, i) => `
+            <div style="margin-bottom: 10px; padding: 12px; background: #f0fdf4; border-radius: 8px; border: 1px solid #bbf7d0;">
+              ${options.propositions!.length > 1 ? `<p style="margin: 0 0 6px; font-size: 13px; font-weight: 700; color: #065f46;">Vehicule ${i + 1}</p>` : ''}
+              <p style="margin: 0 0 4px; font-size: 13px; color: #374151;"><strong>${p.typeVehicule}</strong></p>
+              <p style="margin: 0 0 4px; font-size: 12px; color: #6b7280;">Du ${p.dateDebut} ${p.heureDebut} au ${p.dateFin} ${p.heureFin}</p>
+              <p style="margin: 0 0 4px; font-size: 12px; color: #6b7280;">${p.prixJour} € / jour · ${p.kmInclus} km inclus / jour${Number(p.prixHeure) > 0 ? ` · ${p.prixHeure} € / heure` : ''}</p>
+            </div>`).join('')}
+        </div>`
+      : '';
+
     const html = `
       <p style="margin: 0 0 16px;">Bonjour <strong>${options.requesterName}</strong>,</p>
       <p style="margin: 0 0 12px;">Nous avons prepare une proposition pour votre devis <strong>${options.publicReference}</strong>.</p>
+      ${propositionsHtml}
       <div style="margin: 20px 0; padding: 14px 16px; background: #f9fafb; border-radius: 10px; border: 1px solid #e5e7eb;">
-        <p style="margin: 0; font-size: 13px; color: #6b7280;">Montant TTC propose</p>
+        <p style="margin: 0; font-size: 13px; color: #6b7280;">Montant TTC total propose</p>
         <p style="margin: 4px 0 0; font-size: 22px; font-weight: 800; color: #111827;">${formattedAmount}</p>
         ${options.message ? `<hr style="margin: 10px 0; border: none; border-top: 1px solid #e5e7eb;"><p style="margin: 0; font-size: 13px; color: #374151;">${options.message}</p>` : ''}
       </div>
@@ -649,6 +674,9 @@ export class MailService {
     const text = [
       `Bonjour ${options.requesterName},`,
       `Votre proposition de devis ${options.publicReference} est prete.`,
+      ...(options.propositions ?? []).map((p, i) =>
+        `${options.propositions!.length > 1 ? `Vehicule ${i + 1}: ` : ''}${p.typeVehicule} — du ${p.dateDebut} ${p.heureDebut} au ${p.dateFin} ${p.heureFin} — ${p.prixJour} EUR/jour, ${p.kmInclus} km inclus/j`,
+      ),
       `Montant TTC propose : ${formattedAmount}`,
       options.message ?? '',
       'Connectez-vous a votre espace client pour accepter, contrer ou refuser la proposition.',

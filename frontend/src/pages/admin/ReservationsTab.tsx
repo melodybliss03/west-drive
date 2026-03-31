@@ -767,39 +767,47 @@ export default function ReservationsTab({
 
                 {/* Details vehicule importants */}
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Vehicule loue</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="p-3 rounded-xl bg-muted/40">
-                      <p className="text-xs text-muted-foreground">Type demande</p>
-                      <p className="text-sm font-medium">{selectedReservation.requestedVehicleType || "-"}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Véhicule loué</p>
+                  {selectedReservation.vehicleDetails ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="p-3 rounded-xl bg-muted/40">
+                        <p className="text-xs text-muted-foreground">Type demandé</p>
+                        <p className="text-sm font-medium">{selectedReservation.requestedVehicleType || "-"}</p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-muted/40">
+                        <p className="text-xs text-muted-foreground">Immatriculation</p>
+                        <p className="text-sm font-medium">{selectedReservation.vehicleDetails.immatriculation || "-"}</p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-muted/40">
+                        <p className="text-xs text-muted-foreground">Modèle</p>
+                        <p className="text-sm font-medium">
+                          {selectedReservation.vehicleDetails.marque || ""} {selectedReservation.vehicleDetails.modele || ""}
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-muted/40">
+                        <p className="text-xs text-muted-foreground">Catégorie</p>
+                        <p className="text-sm font-medium">{selectedReservation.vehicleDetails.categorie || "-"}</p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-muted/40">
+                        <p className="text-xs text-muted-foreground">Transmission / Énergie</p>
+                        <p className="text-sm font-medium">
+                          {selectedReservation.vehicleDetails.transmission || "-"} / {selectedReservation.vehicleDetails.energie || "-"}
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-muted/40">
+                        <p className="text-xs text-muted-foreground">Année / Places</p>
+                        <p className="text-sm font-medium">
+                          {selectedReservation.vehicleDetails.annee || "-"} / {selectedReservation.vehicleDetails.places || "-"}
+                        </p>
+                      </div>
                     </div>
-                    <div className="p-3 rounded-xl bg-muted/40">
-                      <p className="text-xs text-muted-foreground">Immatriculation</p>
-                      <p className="text-sm font-medium">{selectedReservation.vehicleDetails?.immatriculation || "-"}</p>
+                  ) : (
+                    <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 space-y-1">
+                      <p className="text-sm font-medium text-amber-800">Aucun véhicule assigné</p>
+                      <p className="text-xs text-amber-700">Type demandé : <span className="font-medium">{selectedReservation.requestedVehicleType || "-"}</span></p>
+                      <p className="text-xs text-amber-600">Un véhicule doit encore être affecté à cette réservation.</p>
                     </div>
-                    <div className="p-3 rounded-xl bg-muted/40">
-                      <p className="text-xs text-muted-foreground">Modele</p>
-                      <p className="text-sm font-medium">
-                        {selectedReservation.vehicleDetails?.marque || ""} {selectedReservation.vehicleDetails?.modele || ""}
-                      </p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-muted/40">
-                      <p className="text-xs text-muted-foreground">Categorie</p>
-                      <p className="text-sm font-medium">{selectedReservation.vehicleDetails?.categorie || "-"}</p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-muted/40">
-                      <p className="text-xs text-muted-foreground">Transmission / Energie</p>
-                      <p className="text-sm font-medium">
-                        {(selectedReservation.vehicleDetails?.transmission || "-")} / {(selectedReservation.vehicleDetails?.energie || "-")}
-                      </p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-muted/40">
-                      <p className="text-xs text-muted-foreground">Annee / Places</p>
-                      <p className="text-sm font-medium">
-                        {(selectedReservation.vehicleDetails?.annee || "-")} / {(selectedReservation.vehicleDetails?.places || "-")}
-                      </p>
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Client */}

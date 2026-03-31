@@ -675,7 +675,7 @@ export const quotesService = {
       message?: string;
     },
   ) =>
-    apiRequest<{ quote: QuoteDto; checkoutUrl: string; sessionId: string }>(
+    apiRequest<{ quote: QuoteDto }>(
       `/quotes/${id}/proposal`,
       {
         method: "POST",
