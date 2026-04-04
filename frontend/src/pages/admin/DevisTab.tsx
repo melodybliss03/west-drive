@@ -40,9 +40,12 @@ import { ApiHttpError, PaginatedCollection, PaginationMeta } from "@/lib/api/typ
 import { QuoteDto, QuoteEventDto, quotesService } from "@/lib/api/services";
 import type { DevisRow } from "./data";
 import { devisStatColors } from "./data";
+import { vehicules } from "@/data/mock";
+import type { Categorie, Vehicule } from "@/data/mock";
 
 type PropositionVehicule = {
   typeVehicule: string;
+  vehiculesSelectionnes: string[];
   dateDebut: string;
   heureDebut: string;
   dateFin: string;
@@ -60,6 +63,7 @@ const vehicleTypes = ["Micro", "Compacte", "Berline", "SUV"];
 function emptyProposition(): PropositionVehicule {
   return {
     typeVehicule: "",
+    vehiculesSelectionnes: [],
     dateDebut: "",
     heureDebut: "",
     dateFin: "",
@@ -211,7 +215,7 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
     }
   };
 
-  const updateProposition = (index: number, key: keyof PropositionVehicule, value: string) => {
+  const updateProposition = (index: number, key: keyof PropositionVehicule, value: string | string[]) => {
     setPropositions((prev) => prev.map((p, i) => (i === index ? { ...p, [key]: value } : p)));
   };
 
@@ -570,6 +574,74 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
                       {vehicleTypes.map((t) => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
+
+                  {p.typeVehicule && (
+                    <div className="space-y-3 pt-3 border-t border-border">
+                      <p className="text-xs font-semibold">Véhicules disponibles pour {p.typeVehicule}</p>
+                      {(() => {
+                        const vehiculesParType = vehicules.filter(
+                          (v) => v.categorie === p.typeVehicule.toUpperCase() && v.actif && v.disponible
+                        );
+
+                        if (vehiculesParType.length === 0) {
+                          return (
+                            <div className="p-4 rounded-lg bg-muted/50 border border-border text-center text-sm text-muted-foreground">
+                              Aucun véhicule disponible pour l'instant dans cette catégorie
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto p-1">
+                            {vehiculesParType.map((vehicule) => (
+                              <div
+                                key={vehicule.id}
+                                className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                                  p.vehiculesSelectionnes.includes(vehicule.id)
+                                    ? "border-primary bg-primary/5"
+                                    : "border-border hover:border-primary/50 bg-card"
+                                }`}
+                                onClick={() => {
+                                  const isSelected = p.vehiculesSelectionnes.includes(vehicule.id);
+                                  const updatedVehicules = isSelected
+                                    ? p.vehiculesSelectionnes.filter((id) => id !== vehicule.id)
+                                    : [...p.vehiculesSelectionnes, vehicule.id];
+                                  updateProposition(index, "vehiculesSelectionnes", updatedVehicules);
+                                }}
+                              >
+                                {/* Checkbox */}
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                                    p.vehiculesSelectionnes.includes(vehicule.id)
+                                      ? "border-primary bg-primary"
+                                      : "border-border"
+                                  }`}>
+                                    {p.vehiculesSelectionnes.includes(vehicule.id) && (
+                                      <span className="text-background text-xs font-bold">✓</span>
+                                    )}
+                                  </div>
+                                  <span className="text-xs font-semibold text-primary">{vehicule.prixJour}€/jour</span>
+                                </div>
+
+                                {/* Info du véhicule */}
+                                <div className="space-y-1">
+                                  <p className="text-xs font-semibold truncate">{vehicule.nom}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {vehicule.modele} • {vehicule.annee}
+                                  </p>
+                                  <div className="pt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                                    <span>{vehicule.transmission.charAt(0) + vehicule.transmission.slice(1).toLowerCase()}</span>
+                                    <span>•</span>
+                                    <span>{vehicule.energie}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>

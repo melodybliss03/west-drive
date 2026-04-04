@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,6 +16,7 @@ import ScrollToTop from "@/components/ScrollToTop";
 import { useVehiclesCatalog } from "@/hooks/useVehiclesCatalog";
 
 export default function Resultats() {
+  const { t } = useTranslation();
   const { vehicles, cities, isLoading } = useVehiclesCatalog();
   const [searchParams] = useSearchParams();
   const ville = searchParams.get("ville") || "";
@@ -59,17 +61,17 @@ export default function Resultats() {
           {/* Recap */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
             <div>
-              <h1 className="font-display text-2xl md:text-3xl font-bold">Résultats de recherche</h1>
+              <h1 className="font-display text-2xl md:text-3xl font-bold">{t('resultats.title')}</h1>
               <p className="text-muted-foreground text-sm mt-1">
-                {ville && `Ville : ${ville}`}
-                {type && ` · Type : ${type}`}
-                {debut && ` · Du ${new Date(debut).toLocaleDateString("fr-FR")}`}
-                {fin && ` au ${new Date(fin).toLocaleDateString("fr-FR")}`}
+                {ville && `${t('resultats.cityLabel')} ${ville}`}
+                {type && ` · ${t('resultats.typeLabel')} ${type}`}
+                {debut && ` · ${t('resultats.from')} ${new Date(debut).toLocaleDateString("fr-FR")}`}
+                {fin && ` ${t('resultats.to')} ${new Date(fin).toLocaleDateString("fr-FR")}`}
               </p>
             </div>
             <Button variant="outline" className="gap-2" onClick={() => setShowForm(!showForm)}>
               <ArrowLeft className="h-4 w-4" />
-              Modifier ma recherche
+              {t('resultats.editSearch')}
             </Button>
           </div>
 
@@ -79,7 +81,7 @@ export default function Resultats() {
             </div>
           )}
 
-          {isLoading && <p className="text-sm text-muted-foreground mb-4">Chargement des résultats...</p>}
+          {isLoading && <p className="text-sm text-muted-foreground mb-4">{t('resultats.loading')}</p>}
 
           {/* Results */}
           {results.length > 0 ? (
@@ -91,10 +93,10 @@ export default function Resultats() {
           ) : (
             <div className="text-center py-12">
               <p className="text-lg font-semibold mb-2">
-                Aucun véhicule disponible{ville ? ` à ${ville}` : ""} pour ces critères
+                {t('resultats.noVehicles')}{ville ? ` à ${ville}` : ""}{t('resultats.noCriteria')}
               </p>
               <p className="text-muted-foreground mb-8">
-                Voici les véhicules disponibles à proximité.
+                {t('resultats.nearbyVehicles')}
               </p>
 
               {nearbyResults.map((nr) => (
@@ -102,7 +104,7 @@ export default function Resultats() {
                   <h3 className="font-display text-xl font-semibold mb-4 text-left">
                     {nr.ville.nom}{" "}
                     <span className="text-sm font-normal text-muted-foreground">
-                      à {nr.distance} km de {ville}
+                      {t('resultats.kmFrom', { distance: nr.distance, city: ville })}
                     </span>
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

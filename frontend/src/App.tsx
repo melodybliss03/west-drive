@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 import Index from "./pages/Index";
 import Vehicules from "./pages/Vehicules";
 import VehiculeDetail from "./pages/VehiculeDetail";
@@ -46,12 +47,13 @@ function BackendHealthProbe() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <AuthProvider>
-        <BackendHealthProbe />
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-        <AutoScrollToTop/>
+      <LanguageProvider>
+        <AuthProvider>
+          <BackendHealthProbe />
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AutoScrollToTop />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/vehicules" element={<Vehicules />} />
@@ -82,9 +84,10 @@ const App = () => (
             <Route path="/boss" element={<Boss />} />
             <Route path="/boss/mot-de-passe-oublie" element={<AdminMotDePasseOublie />} />
             <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </LanguageProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

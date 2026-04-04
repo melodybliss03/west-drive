@@ -378,32 +378,6 @@ export const vehicules: Vehicule[] = [
   },
 ];
 
-export const temoignages = [
-  {
-    id: "t1",
-    nom: "Sophie Martin",
-    note: 5,
-    commentaire: "Service impeccable ! Véhicule propre, livré à l'heure. Je recommande WEST DRIVE sans hésitation pour la location en région parisienne.",
-    vehicule: "Renault Clio V",
-    date: "2024-02-15",
-  },
-  {
-    id: "t2",
-    nom: "Thomas Dubois",
-    note: 5,
-    commentaire: "Rapport qualité-prix imbattable. La BMW était en parfait état. Processus de réservation simple et rapide.",
-    vehicule: "BMW Série 3",
-    date: "2024-01-28",
-  },
-  {
-    id: "t3",
-    nom: "Marie Laurent",
-    note: 4,
-    commentaire: "Très satisfaite de mon expérience. L'équipe est réactive et les véhicules sont bien entretenus. Je reviendrai !",
-    vehicule: "Peugeot 3008",
-    date: "2024-03-02",
-  },
-];
 
 export const faqData = [
   {

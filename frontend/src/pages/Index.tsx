@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
 import DevisDialog from "@/components/DevisDialog";
 import { motion } from "framer-motion";
@@ -18,7 +19,6 @@ import Footer from "@/components/Footer";
 import SearchForm from "@/components/SearchForm";
 import VehiculeCard from "@/components/VehiculeCard";
 import {
-  temoignages,
   faqData,
 } from "@/data/mock";
 import type { Categorie } from "@/data/mock";
@@ -58,38 +58,39 @@ function sourceBadge(source?: string | null) {
 
 const pourquoiCards = [
   {
-    titre: "Tarifs B2B compétitifs",
-    desc: "Tarifs transparents pour location courte durée, journée ou semaine. Moins cher que les agences traditionnelles, sans frais cachés.",
+    titre: "competitivePricing",
+    desc: "competitivePricingDesc",
     highlight: false,
   },
   {
-    titre: "Réservation ultra-rapide",
-    desc: "Réservation en ligne en 2 minutes. Service rapide 24h/24 pour vos besoins urgents (panne, déménagement, remplacement).",
+    titre: "fastBooking",
+    desc: "fastBookingDesc",
     highlight: false,
   },
   {
-    titre: "Flotte moderne",
-    desc: "43+ véhicules entretenus régulièrement",
+    titre: "modernFleet",
+    desc: "modernFleetDesc",
     highlight: false,
   },
   {
-    titre: "Support direct",
-    desc: "Assistance 24h/24 par téléphone. Une vraie personne vous répond, pas un chatbot.",
+    titre: "directSupport",
+    desc: "directSupportDesc",
     highlight: false,
   },
   {
-    titre: "Facturation simple",
-    desc: "Paiement fin de mois possible",
+    titre: "simpleBilling",
+    desc: "simpleBillingDesc",
     highlight: false,
   },
   {
-    titre: "Assurance incluse",
-    desc: "Tous risques, zéro franchise",
+    titre: "insurance",
+    desc: "insuranceDesc",
     highlight: false,
   },
 ];
 
 export default function Index() {
+  const { t } = useTranslation();
   const { vehicles: showcaseVehicles, cities } = useVehiclesCatalogPage(1, 12);
   const [activeCategory, setActiveCategory] = useState<Categorie>("MICRO");
 
@@ -101,13 +102,17 @@ export default function Index() {
 
   const reviews = reviewsData?.items ?? [];
 
-  const getVehiculesByCategorie = (cat: Categorie) =>
-    showcaseVehicles.filter((vehicle) => vehicle.actif && vehicle.categorie === cat);
+  const getPreviewVehiculesByCategorie = useCallback(
+    (cat: Categorie) => 
+      showcaseVehicles.filter((vehicle) => vehicle.actif && vehicle.categorie === cat).slice(0, 3),
+    [showcaseVehicles]
+  );
 
-  const getPreviewVehiculesByCategorie = (cat: Categorie) =>
-    getVehiculesByCategorie(cat).slice(0, 3);
-
-  const getCategorieCount = (cat: Categorie) => getVehiculesByCategorie(cat).length;
+  const getCategorieCount = useCallback(
+    (cat: Categorie) => 
+      showcaseVehicles.filter((vehicle) => vehicle.actif && vehicle.categorie === cat).length,
+    [showcaseVehicles]
+  );
 
   useEffect(() => {
     const nextCategory = categories.find((cat) => getCategorieCount(cat.value) > 0)?.value || "MICRO";
@@ -115,7 +120,7 @@ export default function Index() {
     if (getCategorieCount(activeCategory) === 0 && nextCategory !== activeCategory) {
       setActiveCategory(nextCategory);
     }
-  }, [activeCategory, getCategorieCount, showcaseVehicles]);
+  }, [activeCategory, getCategorieCount]);
 
   return (
     <div className="min-h-screen">
@@ -148,17 +153,15 @@ export default function Index() {
             className="max-w-3xl"
           >
             <h1 className="font-display text-4xl md:text-6xl font-bold text-background leading-tight mb-4">
-              Location voiture pas cher{" "}
-              <span className="text-primary">Paris Ouest</span>
+              {t('index.heroTitle')}{" "}
+              <span className="text-primary">{t('index.heroTitleHighlight')}</span>
             </h1>
             <p className="text-lg text-background/70 mb-8 max-w-4xl mx-auto">
-              Location flexible à Puteaux, La Défense, Neuilly, Levallois,
-              Boulogne et Hauts-de-Seine. Weekend, vacances ou remplacement :
-              réservez en ligne en 2 minutes.
+              {t('index.heroSubtitle')}
             </p>
             <DevisDialog>
               <Button size="lg" className="gap-2 text-base px-8">
-                Demander un devis
+                {t('index.getQuote')}
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </DevisDialog>
@@ -182,17 +185,17 @@ export default function Index() {
           >
             <div className="flex items-center gap-2">
               <Star className="h-4 w-4 text-primary fill-primary" />
-              <span className="font-semibold text-background">4.9</span>
-              <span>Depuis 2014</span>
+              <span className="font-semibold text-background">{t('index.rating')}</span>
+              <span>{t('index.since')}</span>
             </div>
             <div className="flex items-center gap-2">
               <Phone className="h-4 w-4 text-background/70" />
-              <span>Support direct</span>
+              <span>{t('index.directSupport')}</span>
             </div>
             <div className="flex items-center gap-2">
               <Car className="h-4 w-4 text-background/70" />
               <span className="font-semibold text-background">2,000+</span>
-              <span>locations pros</span>
+              <span>{t('index.proLocations')}</span>
             </div>
           </motion.div>
         </div>
@@ -203,10 +206,10 @@ export default function Index() {
         <div className="max-w-5xl mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">
-              Nos Véhicules
+              {t('index.vehicles')}
             </h2>
             <p className="text-muted-foreground max-w-lg mx-auto">
-              Une flotte variée pour répondre à tous vos besoins de mobilité.
+              {t('index.vehiclesSubtitle')}
             </p>
           </div>
 
@@ -236,7 +239,7 @@ export default function Index() {
 
                 {getPreviewVehiculesByCategorie(cat.value).length === 0 && (
                   <p className="text-center text-sm text-muted-foreground py-6">
-                    Aucun véhicule disponible dans cette catégorie pour le moment.
+                    {t('index.noCategoryVehicles')}
                   </p>
                 )}
               </TabsContent>
@@ -246,7 +249,7 @@ export default function Index() {
           <div className="text-center mt-10">
             <Link to="/vehicules">
               <Button variant="outline" size="lg" className="gap-2">
-                Voir tout le catalogue
+                {t('index.viewAllCatalog')}
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </Link>
@@ -259,10 +262,10 @@ export default function Index() {
         <div className="max-w-5xl mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">
-              Tarification Transparente
+              {t('index.pricing')}
             </h2>
             <p className="text-background/60">
-              Tout est inclus. Aucune surprise
+              {t('index.pricingSubtitle')}
             </p>
           </div>
 
@@ -273,20 +276,20 @@ export default function Index() {
                 <Star className="h-5 w-5 text-background fill-background" />
               </div>
               <h3 className="font-display font-bold text-lg mb-5">
-                Inclus dans TOUS les tarifs
+                {t('index.includedAll')}
               </h3>
               <ul className="space-y-3 text-sm">
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-foreground" />
-                  Assistance 24/7
+                  {t('index.support24_7')}
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-foreground" />
-                  Assurance tous risques
+                  {t('index.allRiskInsurance')}
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-foreground" />
-                  Entretien/révisions
+                  {t('index.maintenanceIncluded')}
                 </li>
               </ul>
             </div>
@@ -297,20 +300,20 @@ export default function Index() {
                 <Star className="h-5 w-5 text-background fill-background" />
               </div>
               <h3 className="font-display font-bold text-lg mb-5">
-                Inclus dans TOUS les tarifs
+                {t('index.includedAll')}
               </h3>
               <ul className="space-y-3 text-sm">
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-foreground" />
-                  Assistance 24/7
+                  {t('index.support24_7')}
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-foreground" />
-                  Assurance tous risques
+                  {t('index.allRiskInsurance')}
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-foreground" />
-                  Entretien/révisions
+                  {t('index.maintenanceIncluded')}
                 </li>
               </ul>
             </div>
@@ -321,7 +324,7 @@ export default function Index() {
                 <Star className="h-5 w-5 text-primary-foreground fill-primary-foreground" />
               </div>
               <h3 className="font-display font-bold text-lg mb-3">
-                Tarifs sur mesure selon vos besoins
+                {t('index.customPricing')}
               </h3>
               <div className="mt-auto pt-4">
                 <DevisDialog>
@@ -329,7 +332,7 @@ export default function Index() {
                     variant="ghost"
                     className="text-primary-foreground underline underline-offset-4 hover:text-primary-foreground/80 px-0 font-semibold"
                   >
-                    Demander un devis personnalisé
+                    {t('index.customQuote')}
                   </Button>
                 </DevisDialog>
               </div>
@@ -343,7 +346,7 @@ export default function Index() {
         <div className="max-w-5xl mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">
-              Pourquoi WESTDRIVE ?
+              {t('index.why')}
             </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
@@ -361,12 +364,12 @@ export default function Index() {
                 }`}
               >
                 <h3 className="font-display font-bold text-base mb-3">
-                  {card.titre}
+                  {t(`index.${card.titre}`)}
                 </h3>
                 <p
                   className={`text-sm leading-relaxed ${card.highlight ? "text-primary-foreground/80" : "text-muted-foreground"}`}
                 >
-                  {card.desc}
+                  {t(`index.${card.desc}`)}
                 </p>
               </motion.div>
             ))}
@@ -379,10 +382,10 @@ export default function Index() {
         <div className="max-w-5xl mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">
-              Zone de Couverture
+              {t('index.coverage')}
             </h2>
             <p className="text-muted-foreground">
-              Nous opérons dans un rayon de 20 km autour de Puteaux.
+              {t('index.coverageSubtitle')}
             </p>
           </div>
           <VehicleCoverageMap vehicles={showcaseVehicles} />
@@ -390,33 +393,33 @@ export default function Index() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[
               {
-                title: "Zone 1 : Hauts-de-Seine (92)",
-                subtitle: "Cœur de marché — 0 à 15 km",
+                title: t('index.zone1'),
+                subtitle: t('index.zone1Subtitle'),
                 groups: [
-                  { label: "Proximité immédiate (0-5 km)", cities: ["Courbevoie", "Nanterre", "Neuilly-sur-Seine", "Levallois-Perret", "Suresnes", "Rueil-Malmaison", "La Défense"] },
-                  { label: "Distance moyenne (5-10 km)", cities: ["Colombes", "Asnières-sur-Seine", "Bois-Colombes", "Clichy", "Gennevilliers", "Villeneuve-la-Garenne", "Boulogne-Billancourt", "Issy-les-Moulineaux", "Saint-Cloud", "Garches", "Vaucresson"] },
-                  { label: "Zone étendue (10-15 km)", cities: ["Argenteuil", "Bezons", "Houilles", "Sartrouville", "Chatou", "Croissy-sur-Seine", "Le Vésinet", "Clamart", "Meudon", "Sèvres", "Chaville", "Ville-d'Avray"] },
+                  { label: t('index.immediate'), cities: ["Courbevoie", "Nanterre", "Neuilly-sur-Seine", "Levallois-Perret", "Suresnes", "Rueil-Malmaison", "La Défense"] },
+                  { label: t('index.medium'), cities: ["Colombes", "Asnières-sur-Seine", "Bois-Colombes", "Clichy", "Gennevilliers", "Villeneuve-la-Garenne", "Boulogne-Billancourt", "Issy-les-Moulineaux", "Saint-Cloud", "Garches", "Vaucresson"] },
+                  { label: t('index.extended'), cities: ["Argenteuil", "Bezons", "Houilles", "Sartrouville", "Chatou", "Croissy-sur-Seine", "Le Vésinet", "Clamart", "Meudon", "Sèvres", "Chaville", "Ville-d'Avray"] },
                 ],
               },
               {
-                title: "Zone 2 : Paris Ouest (75)",
-                subtitle: "Arrondissements Ouest",
+                title: t('index.zone2'),
+                subtitle: t('index.zone2Subtitle'),
                 groups: [
-                  { label: "Arrondissements couverts", cities: ["16e arr. (Trocadéro, Passy, Auteuil)", "17e arr. (Batignolles, Ternes)", "8e arr. (Champs-Élysées, Madeleine)", "15e arr. (Grenelle, Javel)", "7e arr. (Invalides, Tour Eiffel)"] },
+                  { label: t('index.arrs'), cities: ["16e arr. (Trocadéro, Passy, Auteuil)", "17e arr. (Batignolles, Ternes)", "8e arr. (Champs-Élysées, Madeleine)", "15e arr. (Grenelle, Javel)", "7e arr. (Invalides, Tour Eiffel)"] },
                 ],
               },
               {
-                title: "Zone 3 : Val-d'Oise (95)",
-                subtitle: "Nord — 10 à 20 km",
+                title: t('index.zone3'),
+                subtitle: t('index.zone3Subtitle'),
                 groups: [
-                  { label: "Communes desservies", cities: ["Cormeilles-en-Parisis", "La Frette-sur-Seine", "Herblay", "Montigny-lès-Cormeilles", "Franconville"] },
+                  { label: t('index.commServed'), cities: ["Cormeilles-en-Parisis", "La Frette-sur-Seine", "Herblay", "Montigny-lès-Cormeilles", "Franconville"] },
                 ],
               },
               {
-                title: "Zone 4 : Yvelines (78)",
-                subtitle: "Ouest — 10 à 20 km",
+                title: t('index.zone4'),
+                subtitle: t('index.zone4Subtitle'),
                 groups: [
-                  { label: "Communes desservies", cities: ["Le Pecq", "Montesson", "Carrières-sur-Seine", "Maisons-Laffitte", "Poissy", "Saint-Germain-en-Laye"] },
+                  { label: t('index.commServed'), cities: ["Le Pecq", "Montesson", "Carrières-sur-Seine", "Maisons-Laffitte", "Poissy", "Saint-Germain-en-Laye"] },
                 ],
               },
             ].map((zone, zi) => (
@@ -459,44 +462,52 @@ export default function Index() {
         <div className="max-w-4xl mx-auto px-4 ">
           <div className="text-center mb-12">
             <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">
-              Questions Fréquentes
+              {t('index.faqTitle')}
             </h2>
             <p className="text-muted-foreground">
-              Retrouvez les réponses aux questions les plus fréquentes.
+              {t('index.faqSubtitle')}
             </p>
           </div>
-          {faqData.map((cat) => (
-            <div key={cat.categorie} className="mb-8">
-              <h3 className="font-display text-xl font-semibold mb-4">
-                {cat.categorie}
-              </h3>
-              <Accordion type="single" collapsible>
-                {cat.questions.map((q, i) => (
-                  <AccordionItem className="border px-4 my-2 rounded-sm " key={i} value={`${cat.categorie}-${i}`}>
-                    <AccordionTrigger className="text-left">
-                      {q.q}
-                    </AccordionTrigger>
-                    <AccordionContent className="text-muted-foreground">
-                      {q.a}
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            </div>
-          ))}
+          {faqData.map((cat) => {
+            const categoryKey = 
+              cat.categorie === "Réservation" ? "reservation" :
+              cat.categorie === "Paiement" ? "paiement" :
+              cat.categorie === "Documents" ? "documents" :
+              "livraison";
+            
+            return (
+              <div key={cat.categorie} className="mb-8">
+                <h3 className="font-display text-xl font-semibold mb-4">
+                  {t(`faq.${categoryKey}.title`)}
+                </h3>
+                <Accordion type="single" collapsible>
+                  {cat.questions.map((q, i) => (
+                    <AccordionItem className="border px-4 my-2 rounded-sm " key={i} value={`${cat.categorie}-${i}`}>
+                      <AccordionTrigger className="text-left">
+                        {t(`faq.${categoryKey}.q${i}`)}
+                      </AccordionTrigger>
+                      <AccordionContent className="text-muted-foreground">
+                        {t(`faq.${categoryKey}.a${i}`)}
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </div>
+            );
+          })}
         </div>
       </section>
 
 
       {/* Avis Clients */}
-      <section className="py-20 bg-background">
+      <section className="py-20 bg-secondary">
         <div className="max-w-5xl mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">
-              Avis <span className="text-primary">Vérifiés</span>
+              {t('index.reviews')} <span className="text-primary">{t('index.reviewsHighlight')}</span>
             </h2>
             <p className="text-muted-foreground">
-              Découvrez ce que pensent nos clients de leurs expériences de location
+              {t('index.reviewsSubtitle')}
             </p>
           </div>
 
@@ -543,14 +554,14 @@ export default function Index() {
             </div>
           ) : (
             <div className="text-center py-8">
-              <p className="text-muted-foreground">Aucun avis disponible pour le moment.</p>
+              <p className="text-muted-foreground">{t('index.noReviews')}</p>
             </div>
           )}
 
           <div className="text-center">
             <Link to="/reviews">
               <Button variant="outline" size="lg" className="gap-2">
-                Voir tous les avis
+                {t('index.viewAllReviews')}
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </Link>
