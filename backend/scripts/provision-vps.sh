@@ -131,21 +131,32 @@ ${SUDO} rm -f /etc/nginx/sites-enabled/default
 ${SUDO} nginx -t
 ${SUDO} systemctl reload nginx
 
-echo "[provision] Requesting/renewing Let's Encrypt certificate..."
-CERTBOT_DOMAINS=(-d "${API_DOMAIN}")
-if [[ -n "${WEB_DOMAIN}" ]]; then
-  CERTBOT_DOMAINS+=(-d "${WEB_DOMAIN}")
-fi
-if [[ -n "${WWW_DOMAIN}" ]]; then
-  CERTBOT_DOMAINS+=(-d "${WWW_DOMAIN}")
-fi
-
+echo "[provision] Requesting/renewing Let's Encrypt certificate for API domain..."
 ${SUDO} certbot --nginx \
   --non-interactive \
   --agree-tos \
   --email "${LETSENCRYPT_EMAIL}" \
   --redirect \
-  "${CERTBOT_DOMAINS[@]}"
+  -d "${API_DOMAIN}"
+
+if [[ -n "${WEB_DOMAIN}" ]]; then
+  echo "[provision] Requesting Let's Encrypt certificate for web domain(s)..."
+  WEB_CERTBOT_DOMAINS=(-d "${WEB_DOMAIN}")
+  if [[ -n "${WWW_DOMAIN}" ]]; then
+    WEB_CERTBOT_DOMAINS+=(-d "${WWW_DOMAIN}")
+  fi
+  if ${SUDO} certbot --nginx \
+    --non-interactive \
+    --agree-tos \
+    --email "${LETSENCRYPT_EMAIL}" \
+    --redirect \
+    "${WEB_CERTBOT_DOMAINS[@]}"; then
+    echo "[provision] Web domain certificate obtained successfully."
+  else
+    echo "[provision] WARNING: Web domain certificate failed (DNS may not point to this server yet)." \
+         "Re-run provision after DNS cutover to obtain the certificate." >&2
+  fi
+fi
 
 ${SUDO} nginx -t
 ${SUDO} systemctl reload nginx
