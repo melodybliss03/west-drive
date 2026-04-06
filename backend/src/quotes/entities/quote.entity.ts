@@ -92,6 +92,9 @@ export class Quote {
   @Column({ type: 'timestamptz', name: 'payment_paid_at', nullable: true })
   paymentPaidAt!: Date | null;
 
+  @Column({ type: 'jsonb', name: 'requested_vehicles_detail', nullable: true })
+  requestedVehiclesDetail!: Array<{ vehicleType: string; startAt: string; endAt: string }> | null;
+
   @Column({ type: 'jsonb', name: 'proposal_details', nullable: true })
   proposalDetails!: Record<string, unknown> | null;
 

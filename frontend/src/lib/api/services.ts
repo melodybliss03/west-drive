@@ -171,6 +171,7 @@ export type QuoteDto = {
   pickupCity: string;
   requestedVehicleType: string;
   requestedQuantity: number;
+  requestedVehiclesDetail?: Array<{ vehicleType: string; startAt: string; endAt: string }> | null;
   startAt: string;
   endAt: string;
   comment?: string | null;
@@ -660,6 +661,7 @@ export const quotesService = {
     requestedQuantity: number;
     startAt: string;
     endAt: string;
+    vehiclesDetail?: Array<{ vehicleType: string; startAt: string; endAt: string }>;
     comment?: string;
   }) =>
     apiRequest<QuoteDto>("/quotes", {

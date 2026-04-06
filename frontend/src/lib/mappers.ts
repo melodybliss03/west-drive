@@ -78,8 +78,8 @@ export function mapReservationDtoToAdminReservation(dto: ReservationDto): Reserv
     debut: dto.startAt,
     fin: dto.endAt,
     statut: mapReservationStatusToLegacy(dto.status),
-    montant: dto.amountTtc,
-    caution: dto.depositAmount,
+    montant: Number(dto.amountTtc ?? 0),
+    caution: Number(dto.depositAmount ?? 0),
     ville: dto.pickupCity,
   };
 }
@@ -116,6 +116,7 @@ export function mapQuoteDtoToDevisRow(dto: QuoteDto): DevisRow {
     dateFin: dto.endAt,
     typeVehicule: dto.requestedVehicleType,
     nombreVehicules: dto.requestedQuantity,
+    requestedVehiclesDetail: dto.requestedVehiclesDetail ?? null,
     proposalDetails: dto.proposalDetails ?? null,
     statut: mapQuoteStatusToLegacy(dto.status),
     creeLe: dto.createdAt,

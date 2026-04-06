@@ -85,6 +85,7 @@ type UiDevis = {
   dateEmission: string;
   statut: "en_attente" | "accepte" | "refuse" | "contre_proposition";
   vehicules: DevisVehicule[];
+  requestedVehiclesDetail?: Array<{ vehicleType: string; startAt: string; endAt: string }> | null;
   commentaireAdmin?: string;
   commentaireClient?: string;
   source: QuoteDto;
@@ -400,6 +401,7 @@ export default function Espace() {
           statut: mapQuoteStatus(q.status),
           commentaireAdmin: q.proposalMessage ?? undefined,
           vehicules,
+          requestedVehiclesDetail: q.requestedVehiclesDetail ?? null,
           source: q,
         } as UiDevis;
       });
@@ -1086,20 +1088,41 @@ export default function Espace() {
               {(isPending || isRefused) && (
                 <div className="space-y-3">
                   <p className="text-sm font-medium text-muted-foreground">Vehicule(s) demande(s)</p>
-                  <div className="border border-border rounded-xl p-4 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Car className="h-4 w-4 text-primary" />
-                      <p className="font-semibold text-sm">{selectedDevis.source.requestedVehicleType}{selectedDevis.source.requestedQuantity > 1 ? ` × ${selectedDevis.source.requestedQuantity}` : ""}</p>
+                  {selectedDevis.requestedVehiclesDetail && selectedDevis.requestedVehiclesDetail.length > 0 ? (
+                    selectedDevis.requestedVehiclesDetail.map((v, i) => (
+                      <div key={i} className="border border-border rounded-xl p-4 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Car className="h-4 w-4 text-primary" />
+                          <p className="font-semibold text-sm">
+                            {v.vehicleType}
+                            {selectedDevis.requestedVehiclesDetail!.length > 1 && (
+                              <span className="text-muted-foreground font-normal ml-1">#{i + 1}</span>
+                            )}
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1"><Calendar className="h-3 w-3" />Du {fmtDate(v.startAt)}</div>
+                          <div className="flex items-center gap-1"><Calendar className="h-3 w-3" />Au {fmtDate(v.endAt)}</div>
+                          {i === 0 && <div className="flex items-center gap-1"><MapPin className="h-3 w-3" />{selectedDevis.source.pickupCity}</div>}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="border border-border rounded-xl p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Car className="h-4 w-4 text-primary" />
+                        <p className="font-semibold text-sm">{selectedDevis.source.requestedVehicleType}{selectedDevis.source.requestedQuantity > 1 ? ` × ${selectedDevis.source.requestedQuantity}` : ""}</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1"><Calendar className="h-3 w-3" />Du {fmtDate(selectedDevis.source.startAt)}</div>
+                        <div className="flex items-center gap-1"><Calendar className="h-3 w-3" />Au {fmtDate(selectedDevis.source.endAt)}</div>
+                        <div className="flex items-center gap-1"><MapPin className="h-3 w-3" />{selectedDevis.source.pickupCity}</div>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1"><Calendar className="h-3 w-3" />Du {fmtDate(selectedDevis.source.startAt)}</div>
-                      <div className="flex items-center gap-1"><Calendar className="h-3 w-3" />Au {fmtDate(selectedDevis.source.endAt)}</div>
-                      <div className="flex items-center gap-1"><MapPin className="h-3 w-3" />{selectedDevis.source.pickupCity}</div>
-                    </div>
-                    {selectedDevis.source.comment && (
-                      <p className="text-xs text-muted-foreground border-t border-border pt-2 mt-1">{selectedDevis.source.comment}</p>
-                    )}
-                  </div>
+                  )}
+                  {selectedDevis.source.comment && (
+                    <p className="text-xs text-muted-foreground border border-border rounded-lg p-3">{selectedDevis.source.comment}</p>
+                  )}
                   {isPending && (
                     <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg p-3">Notre equipe analyse votre demande et vous enverra une proposition sous peu.</p>
                   )}

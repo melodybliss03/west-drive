@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  IsArray,
   IsDate,
   IsEmail,
   IsInt,
@@ -8,7 +9,21 @@ import {
   IsString,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
+
+export class QuoteVehicleDetailDto {
+  @IsString()
+  vehicleType!: string;
+
+  @Type(() => Date)
+  @IsDate()
+  startAt!: Date;
+
+  @Type(() => Date)
+  @IsDate()
+  endAt!: Date;
+}
 
 export class CreateQuoteDto {
   @ApiProperty({ example: 'PARTICULIER' })
@@ -66,4 +81,11 @@ export class CreateQuoteDto {
   @IsString()
   @MaxLength(4000)
   comment?: string;
+
+  @ApiPropertyOptional({ type: () => [QuoteVehicleDetailDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => QuoteVehicleDetailDto)
+  vehiclesDetail?: QuoteVehicleDetailDto[];
 }

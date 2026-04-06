@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { formatDateTime } from "@/lib/format";
 import type { TabKey, Reservation, TeamMember } from "./data";
 import { statColors, roleColors } from "./data";
 import type { Vehicule } from "@/data/mock";
@@ -16,9 +17,48 @@ interface DashboardTabProps {
 }
 
 export default function DashboardTab({ reservations, vehicles, usersCount, teamMembers, setTab }: DashboardTabProps) {
-  const totalCA = reservations.filter(r => r.statut !== "annulée").reduce((s, r) => s + r.montant, 0);
-  const activeRes = reservations.filter(r => ["confirmée", "en cours"].includes(r.statut)).length;
+  const now = new Date();
+  const thisMonth = now.getMonth();
+  const thisYear = now.getFullYear();
+  const lastMonth = thisMonth === 0 ? 11 : thisMonth - 1;
+  const lastMonthYear = thisMonth === 0 ? thisYear - 1 : thisYear;
+
+  const validRes = reservations.filter(r => r.statut !== "annulée");
+
+  const resThisMonth = validRes.filter(r => {
+    const d = new Date(r.debut);
+    return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+  });
+  const resLastMonth = validRes.filter(r => {
+    const d = new Date(r.debut);
+    return d.getMonth() === lastMonth && d.getFullYear() === lastMonthYear;
+  });
+
+  const totalCA = validRes.reduce((s, r) => s + r.montant, 0);
+  const caThisMonth = resThisMonth.reduce((s, r) => s + r.montant, 0);
+  const caLastMonth = resLastMonth.reduce((s, r) => s + r.montant, 0);
+  const caTrend = caLastMonth > 0
+    ? `${caThisMonth >= caLastMonth ? "+" : ""}${Math.round(((caThisMonth - caLastMonth) / caLastMonth) * 100)}%`
+    : caThisMonth > 0 ? "+100%" : "";
+
+  const activeResCount = reservations.filter(r => ["confirmée", "en cours"].includes(r.statut)).length;
+  const activeResLastMonth = reservations.filter(r => {
+    if (!["confirmée", "en cours"].includes(r.statut)) return false;
+    const d = new Date(r.debut);
+    return d.getMonth() === lastMonth && d.getFullYear() === lastMonthYear;
+  }).length;
+  const activeResThisMonthCount = reservations.filter(r => {
+    if (!["confirmée", "en cours"].includes(r.statut)) return false;
+    const d = new Date(r.debut);
+    return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+  }).length;
+  const resTrend = activeResLastMonth > 0
+    ? `${activeResThisMonthCount >= activeResLastMonth ? "+" : ""}${activeResThisMonthCount - activeResLastMonth}`
+    : activeResThisMonthCount > 0 ? `+${activeResThisMonthCount}` : "";
+
   const availableVehicles = vehicles.filter(v => v.disponible && v.actif).length;
+
+  const fmtCA = totalCA.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -31,10 +71,10 @@ export default function DashboardTab({ reservations, vehicles, usersCount, teamM
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Chiffre d'affaires", value: `${totalCA.toLocaleString()} €`, icon: DollarSign, trend: "+12%", up: true },
-          { label: "Réservations actives", value: activeRes, icon: CalendarCheck, trend: "+3", up: true },
+          { label: "Chiffre d'affaires", value: fmtCA, icon: DollarSign, trend: caTrend, up: caThisMonth >= caLastMonth },
+          { label: "Réservations actives", value: activeResCount, icon: CalendarCheck, trend: resTrend, up: activeResThisMonthCount >= activeResLastMonth },
           { label: "Véhicules dispo.", value: `${availableVehicles}/${vehicles.length}`, icon: Car, trend: "", up: true },
-          { label: "Utilisateurs", value: usersCount, icon: Users, trend: "+2", up: true },
+          { label: "Utilisateurs", value: usersCount, icon: Users, trend: "", up: true },
         ].map((kpi, i) => (
           <Card key={i} className="border border-border">
             <CardContent className="p-4 md:p-5">
@@ -49,9 +89,9 @@ export default function DashboardTab({ reservations, vehicles, usersCount, teamM
               </div>
               {kpi.trend && (
                 <div className="flex items-center gap-1 mt-3 text-xs">
-                  <TrendingUp className="h-3 w-3 text-emerald-500" />
-                  <span className="text-emerald-600">{kpi.trend}</span>
-                  <span className="text-muted-foreground">ce mois</span>
+                  <TrendingUp className={`h-3 w-3 ${kpi.up ? "text-emerald-500" : "text-red-500"}`} />
+                  <span className={kpi.up ? "text-emerald-600" : "text-red-600"}>{kpi.trend}</span>
+                  <span className="text-muted-foreground">vs mois dernier</span>
                 </div>
               )}
             </CardContent>
@@ -87,7 +127,7 @@ export default function DashboardTab({ reservations, vehicles, usersCount, teamM
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{r.client}</p>
-                      <p className="text-xs text-muted-foreground">{r.vehicule} · {r.debut}</p>
+                      <p className="text-xs text-muted-foreground">{r.vehicule} · {formatDateTime(r.debut)}</p>
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="text-sm font-bold">{r.montant} €</p>

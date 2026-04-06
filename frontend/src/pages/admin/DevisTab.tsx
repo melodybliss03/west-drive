@@ -37,11 +37,12 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { mapQuoteDtoToDevisRow } from "@/lib/mappers";
 import { ApiHttpError, PaginatedCollection, PaginationMeta } from "@/lib/api/types";
-import { QuoteDto, QuoteEventDto, quotesService } from "@/lib/api/services";
+import { QuoteDto, QuoteEventDto, VehicleDto, quotesService, vehiclesService } from "@/lib/api/services";
 import type { DevisRow } from "./data";
 import { devisStatColors } from "./data";
 
 type PropositionVehicule = {
+  vehicleId?: string;
   typeVehicule: string;
   dateDebut: string;
   heureDebut: string;
@@ -59,6 +60,7 @@ const vehicleTypes = ["Micro", "Compacte", "Berline", "SUV"];
 
 function emptyProposition(): PropositionVehicule {
   return {
+    vehicleId: undefined,
     typeVehicule: "",
     dateDebut: "",
     heureDebut: "",
@@ -145,9 +147,19 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
   const [commentaireRefus, setCommentaireRefus] = useState("");
   const [refusError, setRefusError] = useState("");
 
+  const [availableVehicles, setAvailableVehicles] = useState<VehicleDto[]>([]);
+
   const [timeline, setTimeline] = useState<QuoteEventDto[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Load all active vehicles once on mount for the proposal vehicle dropdown
+  useEffect(() => {
+    vehiclesService.list({ page: 1, limit: 100 }, false).then((res) => {
+      const items = Array.isArray(res) ? res : res.items;
+      setAvailableVehicles(items.filter((v) => v.isActive && v.operationalStatus === "DISPONIBLE"));
+    }).catch(() => { /* silent — dropdown just stays empty */ });
+  }, []);
 
   const filtered = devis.filter((d) =>
     d.client.toLowerCase().includes(search.toLowerCase()) ||
@@ -186,7 +198,36 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
     setMessageNegociation("");
     setCommentaireRefus("");
     setRefusError("");
-    setPropositions(Array.from({ length: d.nombreVehicules }, () => emptyProposition()));
+
+    // Pre-fill propositions: per-vehicle slots when available, else fallback to quote-level dates
+    if (d.requestedVehiclesDetail && d.requestedVehiclesDetail.length > 0) {
+      setPropositions(
+        d.requestedVehiclesDetail.map((v) => ({
+          ...emptyProposition(),
+          typeVehicule: v.vehicleType,
+          dateDebut: v.startAt.split("T")[0] ?? "",
+          heureDebut: v.startAt.split("T")[1]?.substring(0, 5) ?? "",
+          dateFin: v.endAt.split("T")[0] ?? "",
+          heureFin: v.endAt.split("T")[1]?.substring(0, 5) ?? "",
+        })),
+      );
+    } else {
+      const dateDebut = d.dateDebut ? d.dateDebut.split("T")[0] ?? "" : "";
+      const heureDebut = d.dateDebut ? (d.dateDebut.split("T")[1]?.substring(0, 5) ?? "") : "";
+      const dateFin = d.dateFin ? d.dateFin.split("T")[0] ?? "" : "";
+      const heureFin = d.dateFin ? (d.dateFin.split("T")[1]?.substring(0, 5) ?? "") : "";
+      setPropositions(
+        Array.from({ length: d.nombreVehicules }, () => ({
+          ...emptyProposition(),
+          typeVehicule: d.typeVehicule,
+          dateDebut,
+          heureDebut,
+          dateFin,
+          heureFin,
+        })),
+      );
+    }
+
     void loadEvents(d.id);
   };
 
@@ -211,7 +252,7 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
     }
   };
 
-  const updateProposition = (index: number, key: keyof PropositionVehicule, value: string) => {
+  const updateProposition = (index: number, key: keyof PropositionVehicule, value: string | undefined) => {
     setPropositions((prev) => prev.map((p, i) => (i === index ? { ...p, [key]: value } : p)));
   };
 
@@ -250,9 +291,20 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
     const amountTtc = propositions.reduce((total, p) => {
       const start = new Date(`${p.dateDebut}T${p.heureDebut}:00`);
       const end = new Date(`${p.dateFin}T${p.heureFin}:00`);
-      const diff = Math.max(end.getTime() - start.getTime(), 0);
-      const days = Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-      return total + Number(p.prixJour || 0) * days;
+      const diffMs = Math.max(end.getTime() - start.getTime(), 0);
+      const diffHours = diffMs / (1000 * 60 * 60);
+      const diffDays = diffMs / (1000 * 60 * 60 * 24);
+      const prixJour = Number(p.prixJour || 0);
+      const prixHeure = Number(p.prixHeure || 0);
+
+      // Use hourly pricing only when cheaper AND duration < 1 day
+      if (prixHeure > 0 && diffHours < 24) {
+        const totalHourly = prixHeure * Math.max(1, Math.ceil(diffHours));
+        const totalDaily = prixJour * 1;
+        return total + (totalHourly < totalDaily ? totalHourly : totalDaily);
+      }
+      const days = Math.max(1, Math.ceil(diffDays));
+      return total + prixJour * days;
     }, 0);
 
     setIsSubmitting(true);
@@ -441,8 +493,28 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
 
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">Demande</p>
-                  <div className="flex items-center gap-2"><Car className="h-4 w-4 text-muted-foreground" /><span>{selectedDevis.nombreVehicules}x {selectedDevis.typeVehicule}</span></div>
-                  <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-muted-foreground" /><span>{formatDate(selectedDevis.dateDebut)} {"-> "} {formatDate(selectedDevis.dateFin)}</span></div>
+                  {selectedDevis.requestedVehiclesDetail && selectedDevis.requestedVehiclesDetail.length > 0 ? (
+                    selectedDevis.requestedVehiclesDetail.map((v, i) => (
+                      <div key={i} className="border-l-2 border-primary/40 pl-2 space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <Car className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium">{v.vehicleType}</span>
+                          {selectedDevis.requestedVehiclesDetail!.length > 1 && (
+                            <span className="text-xs text-muted-foreground">#{i + 1}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Calendar className="h-3 w-3" />
+                          <span>{formatDate(v.startAt)} → {formatDate(v.endAt)}</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2"><Car className="h-4 w-4 text-muted-foreground" /><span>{selectedDevis.nombreVehicules}x {selectedDevis.typeVehicule}</span></div>
+                      <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-muted-foreground" /><span>{formatDate(selectedDevis.dateDebut)} {"-> "} {formatDate(selectedDevis.dateFin)}</span></div>
+                    </>
+                  )}
                   <div className="flex items-center gap-2">
                     {selectedDevis.type === "entreprise" ? <Building2 className="h-4 w-4 text-muted-foreground" /> : <User className="h-4 w-4 text-muted-foreground" />}
                     <span>{selectedDevis.type}</span>
@@ -456,17 +528,27 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
                 return (
                   <div className="space-y-3 p-4 rounded-xl border border-border bg-muted/20">
                     <p className="text-sm font-medium text-muted-foreground">Proposition envoyee</p>
-                    {propositions.map((p, i) => (
-                      <div key={i} className="text-sm space-y-1 border-l-2 border-emerald-500 pl-3">
-                        <p className="font-semibold">{p.typeVehicule || "Type non defini"}</p>
-                        <p className="text-muted-foreground">{p.dateDebut} {p.heureDebut} &rarr; {p.dateFin} {p.heureFin}</p>
-                        <div className="flex gap-4 text-muted-foreground">
-                          <span>{p.prixJour} €/jour</span>
-                          {p.prixHeure && Number(p.prixHeure) > 0 && <span>{p.prixHeure} €/h</span>}
-                          <span>{p.kmInclus} km/j inclus</span>
+                    {propositions.map((p, i) => {
+                      const assignedVehicle = p.vehicleId ? availableVehicles.find((v) => v.id === p.vehicleId) : undefined;
+                      return (
+                        <div key={i} className="text-sm space-y-1 border-l-2 border-emerald-500 pl-3">
+                          <div className="flex items-center justify-between">
+                            <p className="font-semibold">{p.typeVehicule || "Type non defini"}</p>
+                            {assignedVehicle && (
+                              <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 rounded px-1.5 py-0.5">
+                                {assignedVehicle.name}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-muted-foreground">{p.dateDebut} {p.heureDebut} &rarr; {p.dateFin} {p.heureFin}</p>
+                          <div className="flex gap-4 text-muted-foreground">
+                            <span>{p.prixJour} €/jour</span>
+                            {p.prixHeure && Number(p.prixHeure) > 0 && <span>{p.prixHeure} €/h</span>}
+                            <span>{p.kmInclus} km/j inclus</span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 );
               })()}
@@ -555,43 +637,84 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
             <div className="space-y-5">
               <p className="text-sm text-muted-foreground">Remplissez les details pour {selectedDevis.client}.</p>
 
-              {propositions.map((p, index) => (
-                <div key={index} className="space-y-3 p-4 rounded-xl border border-border">
-                  <p className="text-sm font-semibold">Vehicule {index + 1}{selectedDevis.nombreVehicules > 1 ? ` / ${selectedDevis.nombreVehicules}` : ""}</p>
+              {propositions.map((p, index) => {
+                const totalSlots = propositions.length;
+                // Filter available vehicles by category matching the selected typeVehicule
+                const filteredVehicles = p.typeVehicule
+                  ? availableVehicles.filter((v) => v.category.toUpperCase() === p.typeVehicule.toUpperCase())
+                  : availableVehicles;
 
-                  <div>
-                    <Label className="text-xs">Type de vehicule *</Label>
-                    <select
-                      value={p.typeVehicule}
-                      onChange={(e) => updateProposition(index, "typeVehicule", e.target.value)}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
-                    >
-                      <option value="">Selectionner</option>
-                      {vehicleTypes.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
+                return (
+                  <div key={index} className="space-y-3 p-4 rounded-xl border border-border">
+                    <p className="text-sm font-semibold">Vehicule {index + 1}{totalSlots > 1 ? ` / ${totalSlots}` : ""}</p>
 
-                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs">Date de prise *</Label>
-                      <Input type="date" value={p.dateDebut} onChange={(e) => updateProposition(index, "dateDebut", e.target.value)} className="mt-1" />
+                      <Label className="text-xs">Type de vehicule *</Label>
+                      <select
+                        value={p.typeVehicule}
+                        onChange={(e) => {
+                          updateProposition(index, "typeVehicule", e.target.value);
+                          updateProposition(index, "vehicleId", undefined);
+                        }}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
+                      >
+                        <option value="">Selectionner</option>
+                        {vehicleTypes.map((t) => <option key={t} value={t}>{t}</option>)}
+                      </select>
                     </div>
-                    <div>
-                      <Label className="text-xs">Heure de prise *</Label>
-                      <Input type="time" value={p.heureDebut} onChange={(e) => updateProposition(index, "heureDebut", e.target.value)} className="mt-1" />
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                    {/* Vehicle assignment dropdown */}
                     <div>
-                      <Label className="text-xs">Date de retour *</Label>
-                      <Input type="date" value={p.dateFin} min={p.dateDebut || undefined} onChange={(e) => updateProposition(index, "dateFin", e.target.value)} className="mt-1" />
+                      <Label className="text-xs">Vehicule assigne (optionnel)</Label>
+                      <select
+                        value={p.vehicleId ?? ""}
+                        onChange={(e) => {
+                          const vid = e.target.value || undefined;
+                          updateProposition(index, "vehicleId", vid);
+                          if (vid) {
+                            const v = availableVehicles.find((av) => av.id === vid);
+                            if (v) {
+                              updateProposition(index, "prixJour", String(v.pricePerDay ?? ""));
+                              updateProposition(index, "prixHeure", String(v.pricePerHour ?? ""));
+                              updateProposition(index, "kmInclus", String(v.includedKmPerDay ?? "200"));
+                            }
+                          }
+                        }}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
+                      >
+                        <option value="">— Aucun vehicule specifique —</option>
+                        {filteredVehicles.map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.name} ({v.city || v.availableCities?.[0] || "—"}) · {v.pricePerDay} €/j
+                          </option>
+                        ))}
+                        {filteredVehicles.length === 0 && p.typeVehicule && (
+                          <option disabled value="">Aucun vehicule disponible pour ce type</option>
+                        )}
+                      </select>
                     </div>
-                    <div>
-                      <Label className="text-xs">Heure de retour *</Label>
-                      <Input type="time" value={p.heureFin} onChange={(e) => updateProposition(index, "heureFin", e.target.value)} className="mt-1" />
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">Date de prise *</Label>
+                        <Input type="date" value={p.dateDebut} onChange={(e) => updateProposition(index, "dateDebut", e.target.value)} className="mt-1" />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Heure de prise *</Label>
+                        <Input type="time" value={p.heureDebut} onChange={(e) => updateProposition(index, "heureDebut", e.target.value)} className="mt-1" />
+                      </div>
                     </div>
-                  </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">Date de retour *</Label>
+                        <Input type="date" value={p.dateFin} min={p.dateDebut || undefined} onChange={(e) => updateProposition(index, "dateFin", e.target.value)} className="mt-1" />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Heure de retour *</Label>
+                        <Input type="time" value={p.heureFin} onChange={(e) => updateProposition(index, "heureFin", e.target.value)} className="mt-1" />
+                      </div>
+                    </div>
 
                   <div className="grid grid-cols-3 gap-3">
                     <div>
@@ -608,7 +731,8 @@ export default function DevisTab({ devis, setDevis, page, setPage, meta, hasPerm
                     </div>
                   </div>
                 </div>
-              ))}
+              );
+              })}
 
               <DialogFooter>
                 <Button variant="outline" onClick={() => setAction(null)} disabled={isSubmitting}>Annuler</Button>

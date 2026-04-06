@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, Building2, Send } from "lucide-react";
+import { User, Building2, Send, Plus, Trash2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,18 @@ import {
 } from "@/components/ui/dialog";
 
 type DevisType = "particulier" | "entreprise";
+
+type VehicleSlot = {
+  typeVehicule: string;
+  dateDebut: string;
+  heureDebut: string;
+  dateFin: string;
+  heureFin: string;
+};
+
+function emptySlot(): VehicleSlot {
+  return { typeVehicule: "", dateDebut: "", heureDebut: "", dateFin: "", heureFin: "" };
+}
 
 const vehicleTypes = ["Micro", "Compacte", "Berline", "SUV"];
 const villes = [
@@ -83,6 +95,7 @@ export default function DevisDialog({
   const [type, setType] = useState<DevisType>(defaultType);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [slotErrors, setSlotErrors] = useState<Record<string, string>[]>([{}]);
   const [success, setSuccess] = useState(false);
   const [createdReference, setCreatedReference] = useState<string>("");
 
@@ -90,21 +103,32 @@ export default function DevisDialog({
     nom: "",
     email: "",
     telephone: "",
-    nombreVehicules: "1",
     nomEntreprise: "",
     siret: "",
     ville: "",
-    dateDebut: "",
-    heureDebut: "",
-    dateFin: "",
-    heureFin: "",
-    typeVehicule: "",
     commentaire: "",
   });
+
+  const [vehicleSlots, setVehicleSlots] = useState<VehicleSlot[]>([emptySlot()]);
 
   const set = (key: string, val: string) => {
     setForm((p) => ({ ...p, [key]: val }));
     setErrors((p) => ({ ...p, [key]: "" }));
+  };
+
+  const setSlot = (index: number, key: keyof VehicleSlot, val: string) => {
+    setVehicleSlots((prev) => prev.map((s, i) => (i === index ? { ...s, [key]: val } : s)));
+    setSlotErrors((prev) => prev.map((e, i) => (i === index ? { ...e, [key]: "" } : e)));
+  };
+
+  const addSlot = () => {
+    setVehicleSlots((prev) => [...prev, emptySlot()]);
+    setSlotErrors((prev) => [...prev, {}]);
+  };
+
+  const removeSlot = (index: number) => {
+    setVehicleSlots((prev) => prev.filter((_, i) => i !== index));
+    setSlotErrors((prev) => prev.filter((_, i) => i !== index));
   };
 
   useEffect(() => {
@@ -133,59 +157,58 @@ export default function DevisDialog({
     }
     if (!form.ville) errs.ville = "La ville est requise.";
 
-    // Date de prise
-    if (!form.dateDebut) {
-      errs.dateDebut = "La date de prise est requise.";
-    } else if (isDateInPast(form.dateDebut)) {
-      // Détection de saisie manuelle d'une date passée
-      errs.dateDebut = "La date de prise ne peut pas être dans le passé.";
-    }
-
-    // Heure de prise
-    if (!form.heureDebut) {
-      errs.heureDebut = "L'heure de prise est requise.";
-    } else if (isTimeInPast(form.dateDebut, form.heureDebut)) {
-      // Détection de saisie manuelle d'une heure passée (si date = aujourd'hui)
-      errs.heureDebut = "L'heure de prise ne peut pas être dans le passé.";
-    }
-
-    // Date de retour
-    if (!form.dateFin) {
-      errs.dateFin = "La date de retour est requise.";
-    } else if (isDateInPast(form.dateFin)) {
-      errs.dateFin = "La date de retour ne peut pas être dans le passé.";
-    } else if (form.dateDebut && form.dateFin < form.dateDebut) {
-      errs.dateFin = "La date de retour doit être après la date de prise.";
-    }
-
-    // Heure de retour
-    if (!form.heureFin) {
-      errs.heureFin = "L'heure de retour est requise.";
-    } else if (isTimeInPast(form.dateFin, form.heureFin)) {
-      errs.heureFin = "L'heure de retour ne peut pas être dans le passé.";
-    } else if (
-      form.dateDebut === form.dateFin &&
-      form.heureDebut &&
-      form.heureFin &&
-      form.heureFin <= form.heureDebut
-    ) {
-      // Si même jour → l'heure de retour doit être après l'heure de prise
-      errs.heureFin = "L'heure de retour doit être après l'heure de prise.";
-    }
-
-    if (!form.typeVehicule)
-      errs.typeVehicule = "Le type de véhicule est requis.";
-    if (!form.nombreVehicules || parseInt(form.nombreVehicules) < 1)
-      errs.nombreVehicules = "Minimum 1 véhicule.";
-
     if (type === "entreprise") {
       if (!form.nomEntreprise.trim())
         errs.nomEntreprise = "Le nom de l'entreprise est requis.";
       if (!form.siret.trim()) errs.siret = "Le SIRET est requis.";
     }
 
+    // Per-vehicle slots validation
+    const newSlotErrors: Record<string, string>[] = vehicleSlots.map((s) => {
+      const se: Record<string, string> = {};
+      if (!s.typeVehicule) se.typeVehicule = "Le type de véhicule est requis.";
+
+      if (!s.dateDebut) {
+        se.dateDebut = "La date de prise est requise.";
+      } else if (isDateInPast(s.dateDebut)) {
+        se.dateDebut = "La date de prise ne peut pas être dans le passé.";
+      }
+
+      if (!s.heureDebut) {
+        se.heureDebut = "L'heure de prise est requise.";
+      } else if (isTimeInPast(s.dateDebut, s.heureDebut)) {
+        se.heureDebut = "L'heure de prise ne peut pas être dans le passé.";
+      }
+
+      if (!s.dateFin) {
+        se.dateFin = "La date de retour est requise.";
+      } else if (isDateInPast(s.dateFin)) {
+        se.dateFin = "La date de retour ne peut pas être dans le passé.";
+      } else if (s.dateDebut && s.dateFin < s.dateDebut) {
+        se.dateFin = "La date de retour doit être après la date de prise.";
+      }
+
+      if (!s.heureFin) {
+        se.heureFin = "L'heure de retour est requise.";
+      } else if (isTimeInPast(s.dateFin, s.heureFin)) {
+        se.heureFin = "L'heure de retour ne peut pas être dans le passé.";
+      } else if (
+        s.dateDebut === s.dateFin &&
+        s.heureDebut &&
+        s.heureFin &&
+        s.heureFin <= s.heureDebut
+      ) {
+        se.heureFin = "L'heure de retour doit être après l'heure de prise.";
+      }
+
+      return se;
+    });
+
     setErrors(errs);
-    return Object.keys(errs).length === 0;
+    setSlotErrors(newSlotErrors);
+
+    const slotHasErrors = newSlotErrors.some((se) => Object.keys(se).length > 0);
+    return Object.keys(errs).length === 0 && !slotHasErrors;
   };
   // ────────────────────────────────────────────────────────────────────────────
 
@@ -203,6 +226,20 @@ export default function DevisDialog({
     setLoading(true);
 
     try {
+      const vehiclesDetail = vehicleSlots.map((s) => ({
+        vehicleType: s.typeVehicule,
+        startAt: new Date(`${s.dateDebut}T${s.heureDebut}:00`).toISOString(),
+        endAt: new Date(`${s.dateFin}T${s.heureFin}:00`).toISOString(),
+      }));
+
+      const allStartAts = vehiclesDetail.map((v) => new Date(v.startAt).getTime());
+      const allEndAts = vehiclesDetail.map((v) => new Date(v.endAt).getTime());
+      const globalStartAt = new Date(Math.min(...allStartAts)).toISOString();
+      const globalEndAt = new Date(Math.max(...allEndAts)).toISOString();
+
+      const uniqueTypes = [...new Set(vehicleSlots.map((s) => s.typeVehicule))];
+      const requestedVehicleType = uniqueTypes.length === 1 ? uniqueTypes[0] : "MULTIPLE";
+
       const createdQuote = await quotesService.create({
         requesterType: type === "entreprise" ? "ENTREPRISE" : "PARTICULIER",
         requesterName: form.nom,
@@ -211,10 +248,11 @@ export default function DevisDialog({
         companyName: type === "entreprise" ? form.nomEntreprise : undefined,
         companySiret: type === "entreprise" ? form.siret : undefined,
         pickupCity: form.ville,
-        requestedVehicleType: form.typeVehicule,
-        requestedQuantity: Number(form.nombreVehicules),
-        startAt: new Date(`${form.dateDebut}T${form.heureDebut}:00`).toISOString(),
-        endAt: new Date(`${form.dateFin}T${form.heureFin}:00`).toISOString(),
+        requestedVehicleType,
+        requestedQuantity: vehicleSlots.length,
+        startAt: globalStartAt,
+        endAt: globalEndAt,
+        vehiclesDetail,
         comment: form.commentaire || undefined,
       });
 
@@ -242,17 +280,13 @@ export default function DevisDialog({
       nom: "",
       email: "",
       telephone: "",
-      nombreVehicules: "1",
       nomEntreprise: "",
       siret: "",
       ville: "",
-      dateDebut: "",
-      heureDebut: "",
-      dateFin: "",
-      heureFin: "",
-      typeVehicule: "",
       commentaire: "",
     });
+    setVehicleSlots([emptySlot()]);
+    setSlotErrors([{}]);
     setErrors({});
   };
 
@@ -318,165 +352,153 @@ export default function DevisDialog({
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+              {/* Per-vehicle slots */}
               <div className="space-y-3">
                 <p className="text-sm font-semibold text-foreground">
-                  Détails de la location
+                  Véhicule(s) souhaité(s)
                 </p>
 
-                {/* Dates de prise */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">
-                      Date de prise <span className="text-primary">*</span>
-                    </label>
-                    <Input
-                      type="date"
-                      value={form.dateDebut}
-                      min={today} // ← bloque le date picker avant aujourd'hui
-                      onChange={(e) => set("dateDebut", e.target.value)}
-                      className={errors.dateDebut ? "border-destructive" : ""}
-                    />
-                    {/* Message affiché si saisie manuelle d'une date passée */}
-                    {errors.dateDebut && (
-                      <p className="text-xs text-destructive">
-                        {errors.dateDebut}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">
-                      Heure de prise <span className="text-primary">*</span>
-                    </label>
-                    <Input
-                      type="time"
-                      value={form.heureDebut}
-                      // Si la date choisie est aujourd'hui, on bloque les heures passées dans le picker
-                      min={
-                        form.dateDebut === today
-                          ? getCurrentTimeString()
-                          : undefined
-                      }
-                      onChange={(e) => set("heureDebut", e.target.value)}
-                      className={errors.heureDebut ? "border-destructive" : ""}
-                    />
-                    {/* Message affiché si saisie manuelle d'une heure passée */}
-                    {errors.heureDebut && (
-                      <p className="text-xs text-destructive">
-                        {errors.heureDebut}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                {vehicleSlots.map((slot, index) => {
+                  const se = slotErrors[index] ?? {};
+                  return (
+                    <div key={index} className="space-y-3 p-4 rounded-xl border border-border">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold text-muted-foreground">
+                          Véhicule {index + 1}
+                        </p>
+                        {vehicleSlots.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeSlot(index)}
+                            className="text-destructive hover:text-destructive/80 transition-colors"
+                            aria-label="Supprimer ce véhicule"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
 
-                {/* Dates de retour */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">
-                      Date de retour <span className="text-primary">*</span>
-                    </label>
-                    <Input
-                      type="date"
-                      value={form.dateFin}
-                      // La date de retour ne peut pas être avant la date de prise (ni avant aujourd'hui)
-                      min={form.dateDebut || today}
-                      onChange={(e) => set("dateFin", e.target.value)}
-                      className={errors.dateFin ? "border-destructive" : ""}
-                    />
-                    {errors.dateFin && (
-                      <p className="text-xs text-destructive">
-                        {errors.dateFin}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">
-                      Heure de retour <span className="text-primary">*</span>
-                    </label>
-                    <Input
-                      type="time"
-                      value={form.heureFin}
-                      // Si retour = aujourd'hui, on bloque les heures passées
-                      min={
-                        form.dateFin === today
-                          ? getCurrentTimeString()
-                          : undefined
-                      }
-                      onChange={(e) => set("heureFin", e.target.value)}
-                      className={errors.heureFin ? "border-destructive" : ""}
-                    />
-                    {errors.heureFin && (
-                      <p className="text-xs text-destructive">
-                        {errors.heureFin}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                      {/* Type de véhicule */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium">
+                          Type de véhicule <span className="text-primary">*</span>
+                        </label>
+                        <select
+                          value={slot.typeVehicule}
+                          onChange={(e) => setSlot(index, "typeVehicule", e.target.value)}
+                          className={inputClass(se.typeVehicule ? "slot_typeVehicule_err" : "")}
+                          style={se.typeVehicule ? { borderColor: "hsl(var(--destructive))" } : undefined}
+                        >
+                          <option value="">Sélectionner</option>
+                          {vehicleTypes.map((t) => (
+                            <option key={t} value={t}>{t}</option>
+                          ))}
+                        </select>
+                        {se.typeVehicule && (
+                          <p className="text-xs text-destructive">{se.typeVehicule}</p>
+                        )}
+                      </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">
-                    Ville <span className="text-primary">*</span>
-                  </label>
-                  <select
-                    value={form.ville}
-                    onChange={(e) => set("ville", e.target.value)}
-                    className={inputClass("ville")}
-                  >
-                    <option value="">Sélectionner une ville</option>
-                    {villes.map((v) => (
-                      <option key={v} value={v}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.ville && (
-                    <p className="text-xs text-destructive">{errors.ville}</p>
-                  )}
-                </div>
+                      {/* Dates de prise */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium">
+                            Date de prise <span className="text-primary">*</span>
+                          </label>
+                          <Input
+                            type="date"
+                            value={slot.dateDebut}
+                            min={today}
+                            onChange={(e) => setSlot(index, "dateDebut", e.target.value)}
+                            className={se.dateDebut ? "border-destructive" : ""}
+                          />
+                          {se.dateDebut && (
+                            <p className="text-xs text-destructive">{se.dateDebut}</p>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium">
+                            Heure de prise <span className="text-primary">*</span>
+                          </label>
+                          <Input
+                            type="time"
+                            value={slot.heureDebut}
+                            min={slot.dateDebut === today ? getCurrentTimeString() : undefined}
+                            onChange={(e) => setSlot(index, "heureDebut", e.target.value)}
+                            className={se.heureDebut ? "border-destructive" : ""}
+                          />
+                          {se.heureDebut && (
+                            <p className="text-xs text-destructive">{se.heureDebut}</p>
+                          )}
+                        </div>
+                      </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">
-                      Type de véhicule <span className="text-primary">*</span>
-                    </label>
-                    <select
-                      value={form.typeVehicule}
-                      onChange={(e) => set("typeVehicule", e.target.value)}
-                      className={inputClass("typeVehicule")}
-                    >
-                      <option value="">Sélectionner</option>
-                      {vehicleTypes.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.typeVehicule && (
-                      <p className="text-xs text-destructive">
-                        {errors.typeVehicule}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">
-                      Nombre de véhicules{" "}
-                      <span className="text-primary">*</span>
-                    </label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={form.nombreVehicules}
-                      onChange={(e) => set("nombreVehicules", e.target.value)}
-                      className={
-                        errors.nombreVehicules ? "border-destructive" : ""
-                      }
-                    />
-                    {errors.nombreVehicules && (
-                      <p className="text-xs text-destructive">
-                        {errors.nombreVehicules}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                      {/* Dates de retour */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium">
+                            Date de retour <span className="text-primary">*</span>
+                          </label>
+                          <Input
+                            type="date"
+                            value={slot.dateFin}
+                            min={slot.dateDebut || today}
+                            onChange={(e) => setSlot(index, "dateFin", e.target.value)}
+                            className={se.dateFin ? "border-destructive" : ""}
+                          />
+                          {se.dateFin && (
+                            <p className="text-xs text-destructive">{se.dateFin}</p>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium">
+                            Heure de retour <span className="text-primary">*</span>
+                          </label>
+                          <Input
+                            type="time"
+                            value={slot.heureFin}
+                            min={slot.dateFin === today ? getCurrentTimeString() : undefined}
+                            onChange={(e) => setSlot(index, "heureFin", e.target.value)}
+                            className={se.heureFin ? "border-destructive" : ""}
+                          />
+                          {se.heureFin && (
+                            <p className="text-xs text-destructive">{se.heureFin}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Add vehicle button */}
+                <button
+                  type="button"
+                  onClick={addSlot}
+                  className="flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors font-medium"
+                >
+                  <Plus className="h-4 w-4" />
+                  Ajouter un véhicule
+                </button>
+              </div>
+
+              {/* Ville */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium">
+                  Ville de prise en charge <span className="text-primary">*</span>
+                </label>
+                <select
+                  value={form.ville}
+                  onChange={(e) => set("ville", e.target.value)}
+                  className={inputClass("ville")}
+                >
+                  <option value="">Sélectionner une ville</option>
+                  {villes.map((v) => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+                {errors.ville && (
+                  <p className="text-xs text-destructive">{errors.ville}</p>
+                )}
               </div>
 
               {/* Informations personnelles */}

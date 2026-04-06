@@ -140,6 +140,13 @@ export class QuotesService {
       proposalMessage: null,
       userId: existingUser?.id ?? null,
       archivedAt: null,
+      requestedVehiclesDetail: dto.vehiclesDetail
+        ? dto.vehiclesDetail.map((v) => ({
+            vehicleType: v.vehicleType,
+            startAt: v.startAt instanceof Date ? v.startAt.toISOString() : String(v.startAt),
+            endAt: v.endAt instanceof Date ? v.endAt.toISOString() : String(v.endAt),
+          }))
+        : null,
     });
 
     const savedQuote = await this.quoteRepository.save(quote);
