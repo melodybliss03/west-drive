@@ -40,10 +40,13 @@ import { ApiHttpError, PaginatedCollection, PaginationMeta } from "@/lib/api/typ
 import { QuoteDto, QuoteEventDto, VehicleDto, quotesService, vehiclesService } from "@/lib/api/services";
 import type { DevisRow } from "./data";
 import { devisStatColors } from "./data";
+import { vehicules } from "@/data/mock";
+import type { Categorie, Vehicule } from "@/data/mock";
 
 type PropositionVehicule = {
   vehicleId?: string;
   typeVehicule: string;
+  vehiculesSelectionnes: string[];
   dateDebut: string;
   heureDebut: string;
   dateFin: string;
@@ -62,6 +65,7 @@ function emptyProposition(): PropositionVehicule {
   return {
     vehicleId: undefined,
     typeVehicule: "",
+    vehiculesSelectionnes: [],
     dateDebut: "",
     heureDebut: "",
     dateFin: "",

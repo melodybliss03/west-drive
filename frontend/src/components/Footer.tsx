@@ -1,7 +1,10 @@
 import { Link } from "react-router-dom";
 import { MapPin, Phone, Mail, User, Instagram, Facebook } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export default function Footer() {
+  const { t } = useTranslation();
+
   return (
     <footer>
       {/* Contact info bar — like reference image */}
@@ -15,7 +18,7 @@ export default function Footer() {
               </div>
               <div>
                 <h4 className="font-display font-semibold text-background text-sm">
-                  Support & Email
+                  {t("footer.support")}
                 </h4>
                 <p className="text-background/60 text-sm">
                   contact@westdrive.fr
@@ -30,7 +33,7 @@ export default function Footer() {
               </div>
               <div>
                 <h4 className="font-display font-semibold text-background text-sm">
-                  Support Client
+                  {t("footer.customer")}
                 </h4>
                 <p className="text-background/60 text-sm">06 43 66 08 09</p>
               </div>
@@ -43,7 +46,7 @@ export default function Footer() {
               </div>
               <div>
                 <h4 className="font-display font-semibold text-background text-sm">
-                  Notre Adresse
+                  {t("footer.location")}
                 </h4>
                 <p className="text-background/60 text-sm">
                   12 Rue de la République, 92800 Puteaux
@@ -79,20 +82,19 @@ export default function Footer() {
                 />
               </Link>
               <p className="text-sm text-background/60 leading-relaxed">
-                Location de véhicules en Île-de-France. Qualité, transparence et
-                proximité.
+                {t("footer.description")}
               </p>
             </div>
 
             {/* Navigation */}
             <div>
               <h4 className="font-display font-semibold mb-4 text-background/80 text-sm uppercase tracking-wider">
-                Navigation
+                {t("footer.navigation")}
               </h4>
               <ul className="space-y-2.5 text-sm text-background/60">
                 <li>
                   <Link to="/" className="hover:text-primary transition-colors">
-                    Accueil
+                    {t("nav.home")}
                   </Link>
                 </li>
                 <li>
@@ -100,7 +102,7 @@ export default function Footer() {
                     to="/vehicules"
                     className="hover:text-primary transition-colors"
                   >
-                    Nos Véhicules
+                    {t("nav.vehicles")}
                   </Link>
                 </li>
                 <li>
@@ -116,7 +118,7 @@ export default function Footer() {
                     to="/contact"
                     className="hover:text-primary transition-colors"
                   >
-                    Contact
+                    {t("nav.contact")}
                   </Link>
                 </li>
               </ul>
@@ -133,7 +135,7 @@ export default function Footer() {
                     to="/particulier"
                     className="hover:text-primary transition-colors"
                   >
-                    Particulier
+                    {t("nav.particulier")}
                   </Link>
                 </li>
                 <li>
@@ -141,7 +143,7 @@ export default function Footer() {
                     to="/entreprise"
                     className="hover:text-primary transition-colors"
                   >
-                    Entreprise
+                    {t("nav.entreprise")}
                   </Link>
                 </li>
                 <li>
@@ -210,26 +212,26 @@ export default function Footer() {
       <div className="bg-primary">
         <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="text-sm text-primary-foreground font-medium">
-            &copy; {new Date().getFullYear()} PARIS WEST DRIVE. Tous droits réservés.
+            &copy; {new Date().getFullYear()} PARIS WEST DRIVE. {t("footer.followUs")}
           </p>
           <div className="flex items-center gap-6 text-sm text-primary-foreground/80">
             <a
               href="#"
               className="hover:text-primary-foreground transition-colors"
             >
-              Mentions légales
+              {t("footer.legal")}
             </a>
             <a
               href="#"
               className="hover:text-primary-foreground transition-colors"
             >
-              CGV
+              {t("footer.terms")}
             </a>
             <a
               href="#"
               className="hover:text-primary-foreground transition-colors"
             >
-              Confidentialité
+              {t("footer.privacy")}
             </a>
           </div>
         </div>

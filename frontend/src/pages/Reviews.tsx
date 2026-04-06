@@ -1,6 +1,7 @@
 ﻿import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { format } from "date-fns";
+import { useTranslation } from "react-i18next";
 import { reviewsService, ReviewsListResponse } from "@/lib/api/services";
 import { Link } from "react-router-dom";
 import { ChevronRight, Star } from "lucide-react";
@@ -31,6 +32,7 @@ function sourceBadge(source?: string | null) {
 }
 
 export default function Reviews() {
+  const { t } = useTranslation();
   const [page, setPage] = useState(1);
 
   const { data, isLoading, isError } = useQuery<ReviewsListResponse>({
@@ -54,15 +56,15 @@ export default function Reviews() {
         <div className="max-w-5xl mx-auto px-4 text-center">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
             <h1 className="font-display text-4xl md:text-5xl font-bold mb-4">
-              Avis de nos <span className="text-primary">Clients</span>
+              {t('reviews.title')} <span className="text-primary">{t('reviews.titleHighlight')}</span>
             </h1>
             <p className="text-background/70 text-lg max-w-2xl mx-auto mb-8">
-              Plus de confiance pour vos reservations grace aux retours clients 100% verifies.
+              {t('reviews.subtitle')}
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link to="/vehicules">
                 <Button size="lg" className="gap-2 text-base px-8">
-                  Voir nos vehicules <ChevronRight className="h-4 w-4" />
+                  {t('reviews.viewVehicles')} <ChevronRight className="h-4 w-4" />
                 </Button>
               </Link>
             </div>
@@ -75,27 +77,27 @@ export default function Reviews() {
 
         {/* Status */}
         {isLoading && (
-          <p className="text-sm text-muted-foreground mb-6">Chargement des avis...</p>
+          <p className="text-sm text-muted-foreground mb-6">{t('reviews.loading')}</p>
         )}
         {isError && (
-          <p className="text-sm text-destructive mb-6">Impossible de recuperer les avis pour le moment.</p>
+          <p className="text-sm text-destructive mb-6">{t('reviews.error')}</p>
         )}
         {!isLoading && !isError && reviews.length === 0 && (
-          <p className="text-sm text-muted-foreground mb-6">Aucun avis disponible pour le moment.</p>
+          <p className="text-sm text-muted-foreground mb-6">{t('reviews.noReviews')}</p>
         )}
 
         {/* Pagination haut */}
         {meta && meta.totalPages > 1 && (
           <div className="flex items-center justify-between mb-6 gap-4">
             <p className="text-sm text-muted-foreground">
-              Page {meta.page} / {meta.totalPages} · {meta.totalItems} avis
+              {t('reviews.pageInfo', { page: meta.page, totalPages: meta.totalPages, total: meta.totalItems })}
             </p>
             <div className="flex items-center gap-2">
               <Button size="sm" variant="outline" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={!meta.hasPreviousPage || isLoading}>
-                Precedent
+                {t('reviews.previous')}
               </Button>
               <Button size="sm" onClick={() => setPage(p => meta.hasNextPage ? p + 1 : p)} disabled={!meta.hasNextPage || isLoading}>
-                Suivant
+                {t('reviews.next')}
               </Button>
             </div>
           </div>
@@ -132,11 +134,11 @@ export default function Reviews() {
         {meta && meta.totalPages > 1 && (
           <div className="flex items-center justify-center gap-2 mt-10">
             <Button size="sm" variant="outline" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={!meta.hasPreviousPage || isLoading}>
-              Precedent
+              {t('reviews.previous')}
             </Button>
             <span className="text-sm text-muted-foreground px-2">{meta.page} / {meta.totalPages}</span>
             <Button size="sm" onClick={() => setPage(p => meta.hasNextPage ? p + 1 : p)} disabled={!meta.hasNextPage || isLoading}>
-              Suivant
+              {t('reviews.next')}
             </Button>
           </div>
         )}

@@ -1,5 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
   Fuel,
@@ -25,14 +26,8 @@ import ImageCarousel from "@/components/ImageCarousel";
 import { reviewsService } from "@/lib/api/services";
 import { useAuth } from "@/contexts/AuthContext";
 
-const energieLabels: Record<string, string> = {
-  ESSENCE: "Essence",
-  DIESEL: "Diesel",
-  ELECTRIQUE: "Électrique",
-  // HYBRIDE: "Hybride",
-};
-
 export default function VehiculeDetail() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const { vehicles, isLoading } = useVehiclesCatalog();
   const { user, isAuthenticated } = useAuth();
@@ -59,7 +54,7 @@ export default function VehiculeDetail() {
         <TopBar />
         <Header />
         <div className="pt-40 pb-16 max-w-5xl mx-auto px-4 text-center text-muted-foreground">
-          Chargement du véhicule...
+          {t('vehiculeDetail.loading')}
         </div>
         <Footer />
       </div>
@@ -72,10 +67,10 @@ export default function VehiculeDetail() {
         <Header />
         <div className="pt-24 pb-16 max-w-5xl mx-auto px-4 text-center">
           <h1 className="font-display text-2xl font-bold mb-4">
-            Véhicule introuvable
+            {t('vehiculeDetail.notFound')}
           </h1>
           <Link to="/vehicules">
-            <Button variant="outline">Retour au catalogue</Button>
+            <Button variant="outline">{t('vehiculeDetail.backToCatalog')}</Button>
           </Link>
         </div>
         <Footer />
@@ -91,10 +86,10 @@ export default function VehiculeDetail() {
     .slice(0, 3);
 
   const inclus = [
-    "Assurance tous risques",
-    `${vehicule.kmInclus} km/jour inclus`,
-    "Assistance 24h/24",
-    "Entretien et nettoyage",
+    t('vehiculeDetail.allRiskInsurance'),
+    t('vehiculeDetail.kmIncluded', { km: vehicule.kmInclus }),
+    t('vehiculeDetail.support24h'),
+    t('vehiculeDetail.maintenanceAndCleaning'),
   ];
 
   return (
@@ -107,7 +102,7 @@ export default function VehiculeDetail() {
             to="/vehicules"
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6"
           >
-            <ArrowLeft className="h-4 w-4" /> Retour au catalogue
+            <ArrowLeft className="h-4 w-4" /> {t('vehiculeDetail.backToCatalog')}
           </Link>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
@@ -131,7 +126,7 @@ export default function VehiculeDetail() {
                       : ""
                   }
                 >
-                  {vehicule.disponible ? "Disponible" : "Indisponible"}
+                  {vehicule.disponible ? t('vehiculeDetail.available') : t('vehiculeDetail.unavailable')}
                 </Badge>
                 <h1 className="font-display text-3xl md:text-4xl font-bold mt-3">
                   {vehicule.nom}
@@ -144,13 +139,13 @@ export default function VehiculeDetail() {
                 </p>
               </div>
 
-              {/* <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5">
                 <Star className="h-4 w-4 fill-primary text-primary" />
                 <span className="font-semibold">{vehicule.note}</span>
                 <span className="text-muted-foreground text-sm">
                   ({vehicule.nbAvis} avis)
                 </span>
-              </div> */}
+              </div>
 
               <p className="text-muted-foreground leading-relaxed">
                 {vehicule.description}
@@ -161,36 +156,41 @@ export default function VehiculeDetail() {
                   <Settings2 className="h-4 w-4 text-primary" />
                   <span>
                     {vehicule.transmission === "AUTOMATIQUE"
-                      ? "Automatique"
-                      : "Manuelle"}
+                      ? t('vehiculeDetail.automatic')
+                      : t('vehiculeDetail.manual')}
                   </span>
 
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Fuel className="h-4 w-4 text-primary" />
-                  <span>{energieLabels[vehicule.energie]}</span>
+                  <span>
+                    {vehicule.energie === "ESSENCE" ? t('vehicules.petrol') :
+                     vehicule.energie === "DIESEL" ? t('vehicules.diesel') :
+                     vehicule.energie === "ELECTRIQUE" ? t('vehicules.electric') :
+                     vehicule.energie}
+                  </span>
                   {vehicule.isHybride && (
-                    <Badge variant="outline" className="text-[12px] px-2 py-1 bg-green-500/30 text-green-700 border-green-200">Hybride</Badge>
+                    <Badge variant="outline" className="text-[12px] px-2 py-1 bg-green-500/30 text-green-700 border-green-200">{t('vehiculeDetail.hybrid')}</Badge>
                   )}
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Users className="h-4 w-4 text-primary" />
-                  <span>{vehicule.nbPlaces} places</span>
+                  <span>{vehicule.nbPlaces} {t('vehiculeDetail.places')}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Gauge className="h-4 w-4 text-primary" />
-                  <span>{vehicule.kmInclus} km/jour</span>
+                  <span>{vehicule.kmInclus} {t('vehiculeDetail.kmPerDay')}</span>
                 </div>
               </div>
 
               <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                 <MapPin className="h-4 w-4 text-primary" />
-                Disponible à : {vehicule.villes.join(", ")}
+                {t('vehiculeDetail.availableAt')} {vehicule.villes.join(", ")}
               </div>
 
               <div className="bg-secondary rounded-xl p-5">
                 <h3 className="font-display font-semibold mb-3">
-                  Inclus dans la location
+                  {t('vehiculeDetail.includedInRental')}
                 </h3>
                 <ul className="space-y-2">
                   {inclus.map((item) => (
@@ -204,12 +204,12 @@ export default function VehiculeDetail() {
 
               <div className="flex items-end justify-between p-5 bg-card border border-border rounded-xl">
                 <div>
-                  <p className="text-sm text-muted-foreground">À partir de</p>
+                  <p className="text-sm text-muted-foreground">{t('vehiculeDetail.startingFrom')}</p>
                   <div className="flex items-baseline gap-1">
                     <span className="text-4xl font-display font-bold text-primary">
                       {vehicule.prixJour}&euro;
                     </span>
-                    <span className="text-muted-foreground">/jour</span>
+                    <span className="text-muted-foreground">{t('vehiculeDetail.perDay')}</span>
                   </div>
                 </div>
                 <ReservationDialog
@@ -222,7 +222,7 @@ export default function VehiculeDetail() {
                   vehiculeAdditionalFees={vehicule.autreFraisLibelle}
                 >
                   <Button size="lg" disabled={!vehicule.disponible}>
-                    Réserver ce véhicule
+                    {t('vehiculeDetail.bookVehicle')}
                   </Button>
                 </ReservationDialog>
               </div>
@@ -232,7 +232,7 @@ export default function VehiculeDetail() {
                 <div>
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     <Info className="h-4 w-4 text-primary" />
-                    <p className="text-sm text-muted-foreground">CAUTION</p>
+                    <p className="text-sm text-muted-foreground">{t('vehiculeDetail.caution')}</p>
                   </div>
                   <div className="flex items-baseline gap-1">
                     <span className="text-4xl font-display font-bold text-primary">
@@ -247,7 +247,7 @@ export default function VehiculeDetail() {
           {similaires.length > 0 && (
             <div className="mt-20">
               <h2 className="font-display text-2xl font-bold mb-6">
-                Véhicules similaires
+                {t('vehiculeDetail.similarVehicles')}
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {similaires.map((v, i) => (
@@ -259,7 +259,7 @@ export default function VehiculeDetail() {
 
           {vehicleReviews?.items?.length ? (
             <div className="mt-20">
-              <h2 className="font-display text-2xl font-bold mb-6">Avis sur ce vehicule</h2>
+              <h2 className="font-display text-2xl font-bold mb-6">{t('vehiculeDetail.reviewsTitle')}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {vehicleReviews.items.map((review) => (
                   <article key={review.id} className="border border-border rounded-xl p-4 bg-card">
@@ -267,7 +267,7 @@ export default function VehiculeDetail() {
                       <p className="font-semibold text-sm">{review.authorName}</p>
                       <p className="text-xs text-muted-foreground">{new Date(review.createdAt).toLocaleDateString("fr-FR")}</p>
                     </div>
-                    <p className="text-sm font-medium mb-1">{review.title || "Avis client"}</p>
+                    <p className="text-sm font-medium mb-1">{review.title || t('vehiculeDetail.clientReview')}</p>
                     <div className="flex items-center gap-1 mb-2">
                       {Array.from({ length: 5 }).map((_, idx) => (
                         <Star

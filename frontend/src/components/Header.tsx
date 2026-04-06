@@ -1,29 +1,32 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, LogOut, LayoutDashboard, Globe } from "lucide-react";
+import { Menu, X, LogOut, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/useLanguageHook";
 import { isBackofficeUser } from "@/lib/auth/roles";
+import { useTranslation } from "react-i18next";
 
-const navLinks = [
-  { label: "Accueil", href: "/", anchor: "#hero" },
-  { label: "Particulier", href: "/particulier", anchor: null },
-  { label: "Entreprise", href: "/entreprise", anchor: null },
-  { label: "Nos Véhicules", href: "/vehicules", anchor: null },
-  { label: "Blog", href: "/blog", anchor: null },
-  { label: "Avis clients", href: "/reviews", anchor: null },
-  { label: "Nous contacter", href: "/contact", anchor: null },
+const navLinksKeys = [
+  { labelKey: "nav.home", href: "/", anchor: "#hero" },
+  { labelKey: "nav.particulier", href: "/particulier", anchor: null },
+  { labelKey: "nav.entreprise", href: "/entreprise", anchor: null },
+  { labelKey: "nav.vehicles", href: "/vehicules", anchor: null },
+  { labelKey: "nav.blog", href: "/blog", anchor: null },
+  { labelKey: "nav.reviews", href: "/reviews", anchor: null },
+  { labelKey: "nav.contact", href: "/contact", anchor: null },
 ];
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [lang, setLang] = useState<"FR" | "EN">("FR");
   const location = useLocation();
   const navigate = useNavigate();
   const isHome = location.pathname === "/";
   const { user, logout } = useAuth();
+  const { language, setLanguage } = useLanguage();
+  const { t } = useTranslation();
 
   const sanitizeProfileValue = (value?: string | null): string => {
     if (typeof value !== "string") return "";
@@ -38,21 +41,13 @@ export default function Header() {
     return normalized;
   };
 
-  const handleNavClick = (link: (typeof navLinks)[0]) => {
-    setMobileOpen(false);
-    if (isHome && link.anchor) {
-      const el = document.querySelector(link.anchor);
-      el?.scrollIntoView({ behavior: "smooth" });
-    }
-  };
-
   const firstName = sanitizeProfileValue(user?.prenom);
   const lastName = sanitizeProfileValue(user?.nom);
   const email = sanitizeProfileValue(user?.email);
   const accountRoute = isBackofficeUser(user) ? "/boss" : "/espace";
   const fullName =
     [firstName, lastName].filter(Boolean).join(" ") ||
-    (email ? email.split("@")[0] : "Utilisateur");
+    (email ? email.split("@")[0] : "User");
   const initials =
     fullName
       .split(/\s+/)
@@ -63,12 +58,24 @@ export default function Header() {
 
   const LangToggle = () => (
     <button
-      onClick={() => setLang(lang === "FR" ? "EN" : "FR")}
-      className="flex items-center gap-1 text-xs font-medium text-foreground/70 hover:text-foreground transition-colors px-2 py-1 rounded-md border border-border bg-background"
-      aria-label="Changer de langue"
+      onClick={() => setLanguage(language === "fr" ? "en" : "fr")}
+      className="flex items-center gap-1.5 text-xs font-medium text-foreground/70 hover:text-foreground transition-colors px-2 py-1 rounded-md border border-border bg-background"
+      aria-label={t("nav.changeLanguage")}
     >
-      <Globe className="h-3.5 w-3.5" />
-      {lang}
+      {language === "fr" ? (
+        <svg width="20" height="14" viewBox="0 0 3 2" xmlns="http://www.w3.org/2000/svg" className="rounded">
+          <rect width="1" height="2" fill="#002395" />
+          <rect x="1" width="1" height="2" fill="white" />
+          <rect x="2" width="1" height="2" fill="#F31830" />
+        </svg>
+      ) : (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" id="Gb-England--Streamline-Flagpack" height="20" width="20" className="rounded">
+          <desc>GB England Streamline Icon</desc>
+          <path fill="#f7fcff" fillRule="evenodd" d="M0 3v18h24V3H0Z" clipRule="evenodd" strokeWidth="0.75"></path>
+          <path fill="#f50302" fillRule="evenodd" d="M13.5 3h-3v7.5H0v3h10.5v7.5h3V13.5h10.5v-3H13.5V3Z" clipRule="evenodd" strokeWidth="0.75"></path>
+        </svg>
+      )}
+      {language.toUpperCase()}
     </button>
   );
 
@@ -93,19 +100,23 @@ export default function Header() {
           className="hidden lg:flex items-center gap-6"
           aria-label="Navigation principale"
         >
-          {navLinks.map((link) => {
+          {navLinksKeys.map((link) => {
             const isActive =
               link.href === "/"
                 ? location.pathname === "/"
                 : location.pathname.startsWith(link.href);
+            function handleNavClick(link: { labelKey: string; href: string; anchor: string; }): void {
+              throw new Error("Function not implemented.");
+            }
+
             return (
               <Link
-                key={link.label}
+                key={link.labelKey}
                 to={isHome && link.anchor ? "/" : link.href}
                 onClick={() => handleNavClick(link)}
                 className={`text-sm font-medium transition-colors ${isActive ? "text-primary font-semibold" : "text-foreground/70 hover:text-foreground"}`}
               >
-                {link.label}
+                {t(link.labelKey)}
               </Link>
             );
           })}
@@ -149,7 +160,7 @@ export default function Header() {
                         }}
                         className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-secondary transition-colors"
                       >
-                        <LayoutDashboard className="h-4 w-4" /> Mon espace
+                        <LayoutDashboard className="h-4 w-4" /> {t("header.myAccount")}
                       </button>
                       <button
                         onClick={() => {
@@ -159,7 +170,7 @@ export default function Header() {
                         }}
                         className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-destructive hover:bg-secondary transition-colors"
                       >
-                        <LogOut className="h-4 w-4" /> Déconnexion
+                        <LogOut className="h-4 w-4" /> {t("header.logout")}
                       </button>
                     </motion.div>
                   </>
@@ -169,7 +180,7 @@ export default function Header() {
           ) : (
             <Link to="/inscription">
               <Button size="sm" className="font-medium">
-                Créer un compte
+                {t("header.login")}
               </Button>
             </Link>
           )}
@@ -192,7 +203,7 @@ export default function Header() {
           ) : (
             <Link to="/inscription">
               <Button size="sm" className="font-medium text-xs px-3">
-                Créer un compte
+                {t("header.login")}
               </Button>
             </Link>
           )}
@@ -231,14 +242,18 @@ export default function Header() {
                 className="flex flex-col p-4 gap-1"
                 aria-label="Navigation mobile"
               >
-                {navLinks.map((link) => {
+                {navLinksKeys.map((link) => {
                   const isActive =
                     link.href === "/"
                       ? location.pathname === "/"
                       : location.pathname.startsWith(link.href);
+                  function handleNavClick(link: { labelKey: string; href: string; anchor: string; }): void {
+                    throw new Error("Function not implemented.");
+                  }
+
                   return (
                     <Link
-                      key={link.label}
+                      key={link.labelKey}
                       to={isHome && link.anchor ? "/" : link.href}
                       onClick={() => handleNavClick(link)}
                       className={`text-sm font-medium py-3 px-3 rounded-lg transition-colors ${
@@ -247,7 +262,7 @@ export default function Header() {
                           : "text-foreground/70 hover:text-foreground hover:bg-muted"
                       }`}
                     >
-                      {link.label}
+                      {t(link.labelKey)}
                     </Link>
                   );
                 })}
@@ -266,7 +281,7 @@ export default function Header() {
                       onClick={() => setMobileOpen(false)}
                     >
                       <button className="w-full flex items-center gap-2 px-3 py-2.5 text-sm rounded-lg hover:bg-muted transition-colors">
-                        <LayoutDashboard className="h-4 w-4" /> Mon espace
+                        <LayoutDashboard className="h-4 w-4" /> {t("header.myAccount")}
                       </button>
                     </Link>
                     <button
@@ -277,7 +292,7 @@ export default function Header() {
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2.5 text-sm rounded-lg text-destructive hover:bg-muted transition-colors"
                     >
-                      <LogOut className="h-4 w-4" /> Déconnexion
+                      <LogOut className="h-4 w-4" /> {t("header.logout")}
                     </button>
                   </div>
                 )}

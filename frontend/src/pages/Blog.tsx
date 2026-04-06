@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { blogService, BlogArticleDto, BlogListResponse } from "@/lib/api/services";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,7 @@ function paginateStatic(items: BlogArticle[], page: number, limit: number, categ
 }
 
 export default function Blog() {
+  const { t } = useTranslation();
   const [page, setPage] = useState(1);
   const [category, setCategory] = useState("");
   const [search, setSearch] = useState("");
@@ -76,15 +78,14 @@ export default function Blog() {
         <div className="max-w-5xl mx-auto px-4 text-center">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
             <h1 className="font-display text-4xl md:text-5xl font-bold mb-4">
-              Blog Mobilité & Astuces voiture
+              {t('blog.title')}
             </h1>
             <p className="text-background/70 text-lg max-w-2xl mx-auto mb-8">
-              Conseils, actualités et retours d'expérience pour optimiser votre location de voiture
-              et mieux gérer vos déplacements en Île-de-France.
+              {t('blog.subtitle')}
             </p>
             <Link to="/vehicules">
               <Button size="lg" className="gap-2 text-base px-8">
-                Voir les véhicules disponibles <ChevronRight className="h-4 w-4" />
+                {t('blog.viewVehicles')} <ChevronRight className="h-4 w-4" />
               </Button>
             </Link>
           </motion.div>
@@ -99,7 +100,7 @@ export default function Blog() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Rechercher un article…"
+              placeholder={t('blog.searchPlaceholder')}
               value={search}
               onChange={e => handleSearch(e.target.value)}
               className="pl-9"
@@ -110,7 +111,7 @@ export default function Blog() {
             onChange={e => handleCategory(e.target.value)}
             className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-56"
           >
-            <option value="">Toutes les catégories</option>
+            <option value="">{t('blog.allCategories')}</option>
             {categories.map(cat => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
@@ -119,10 +120,10 @@ export default function Blog() {
 
         {/* Chargement uniquement si pas d'articles à afficher */}
         {isLoading && articles.length === 0 && (
-          <p className="text-sm text-muted-foreground mb-6">Chargement des articles...</p>
+          <p className="text-sm text-muted-foreground mb-6">{t('blog.loading')}</p>
         )}
         {isError && articles.length === 0 && (
-          <p className="text-sm text-destructive mb-6">Impossible de charger les articles pour le moment.</p>
+          <p className="text-sm text-destructive mb-6">{t('blog.error')}</p>
         )}
 
         {/* Grille articles */}
@@ -153,7 +154,7 @@ export default function Blog() {
                   <div className="text-sm text-muted-foreground mb-4 flex-1 leading-relaxed prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: article.excerpt }} />
                   <Link to={`/blog/${article.slug}`}>
                     <Button variant="outline" size="sm" className="gap-1 w-full sm:w-auto">
-                      Lire l'article <ChevronRight className="h-3.5 w-3.5" />
+                      {t('blog.readMore')} <ChevronRight className="h-3.5 w-3.5" />
                     </Button>
                   </Link>
                 </div>
@@ -163,7 +164,7 @@ export default function Blog() {
         ) : (
           !isLoading && (
             <p className="text-center text-sm text-muted-foreground py-16">
-              Aucun article ne correspond à votre recherche.
+              {t('blog.noArticles')}
             </p>
           )
         )}
@@ -176,16 +177,16 @@ export default function Blog() {
               disabled={!meta.hasPreviousPage}
               onClick={() => setPage(p => Math.max(1, p - 1))}
             >
-              Précédent
+              {t('blog.previous')}
             </Button>
             <span className="text-sm text-muted-foreground">
-              Page {meta.page} / {meta.totalPages}
+              {t('blog.pageInfo', { page: meta.page, totalPages: meta.totalPages })}
             </span>
             <Button
               disabled={!meta.hasNextPage}
               onClick={() => setPage(p => p + 1)}
             >
-              Suivant
+              {t('blog.next')}
             </Button>
           </div>
         )}

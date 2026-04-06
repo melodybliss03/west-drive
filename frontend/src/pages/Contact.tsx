@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { MapPin, Phone, Mail, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,7 @@ import TopBar from "@/components/TopBar";
 import ScrollToTop from "@/components/ScrollToTop";
 
 export default function Contact() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -31,14 +33,14 @@ export default function Contact() {
       });
 
       toast({
-        title: "Message envoye",
-        description: "Nous vous repondrons dans les plus brefs delais.",
+        title: t('contact.success'),
+        description: t('contact.successDesc'),
       });
       form.reset();
     } catch {
       toast({
-        title: "Envoi impossible",
-        description: "Le message n'a pas pu etre envoye. Merci de reessayer.",
+        title: t('contact.error'),
+        description: t('contact.errorDesc'),
         variant: "destructive",
       });
     } finally {
@@ -52,36 +54,36 @@ export default function Contact() {
       <Header />
       <main className="pt-40 pb-16">
         <div className="max-w-5xl mx-auto px-4">
-          <h1 className="font-display text-3xl md:text-4xl font-bold mb-2">Nous contacter</h1>
-          <p className="text-muted-foreground mb-10">Une question ? N'hésitez pas à nous écrire.</p>
+          <h1 className="font-display text-3xl md:text-4xl font-bold mb-2">{t('contact.title')}</h1>
+          <p className="text-muted-foreground mb-10">{t('contact.subtitle')}</p>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
             <div className="lg:col-span-2">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label htmlFor="nom" className="text-sm font-medium">Nom</label>
-                    <Input id="nom" name="nom" required placeholder="Votre nom" />
+                    <label htmlFor="nom" className="text-sm font-medium">{t('contact.name')}</label>
+                    <Input id="nom" name="nom" required placeholder={t('contact.namePlaceholder')} />
                   </div>
                   <div className="space-y-1.5">
-                    <label htmlFor="email" className="text-sm font-medium">Email</label>
-                    <Input id="email" name="email" type="email" required placeholder="votre@email.com" />
+                    <label htmlFor="email" className="text-sm font-medium">{t('contact.email')}</label>
+                    <Input id="email" name="email" type="email" required placeholder={t('contact.emailPlaceholder')} />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label htmlFor="telephone" className="text-sm font-medium">Telephone (optionnel)</label>
-                  <Input id="telephone" name="telephone" type="tel" placeholder="06 00 00 00 00" />
+                  <label htmlFor="telephone" className="text-sm font-medium">{t('contact.phone')}</label>
+                  <Input id="telephone" name="telephone" type="tel" placeholder={t('contact.phonePlaceholder')} />
                 </div>
                 <div className="space-y-1.5">
-                  <label htmlFor="sujet" className="text-sm font-medium">Sujet</label>
-                  <Input id="sujet" name="sujet" required placeholder="Sujet de votre message" />
+                  <label htmlFor="sujet" className="text-sm font-medium">{t('contact.subject')}</label>
+                  <Input id="sujet" name="sujet" required placeholder={t('contact.subjectPlaceholder')} />
                 </div>
                 <div className="space-y-1.5">
-                  <label htmlFor="message" className="text-sm font-medium">Message</label>
-                  <Textarea id="message" name="message" required rows={6} placeholder="Votre message..." />
+                  <label htmlFor="message" className="text-sm font-medium">{t('contact.message')}</label>
+                  <Textarea id="message" name="message" required rows={6} placeholder={t('contact.messagePlaceholder')} />
                 </div>
                 <Button type="submit" disabled={loading} className="gap-2">
-                  {loading ? <><Spinner className="mr-1" />Envoi en cours...</> : <><Send className="h-4 w-4" />Envoyer</>}
+                  {loading ? <><Spinner className="mr-1" />{t('contact.sending')}</> : <><Send className="h-4 w-4" />{t('contact.send')}</>}
                 </Button>
               </form>
             </div>
@@ -90,21 +92,21 @@ export default function Contact() {
               <div className="flex items-start gap-3">
                 <MapPin className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-semibold text-sm">Adresse</p>
-                  <p className="text-sm text-muted-foreground">Paris Ouest île-de-France</p>
+                  <p className="font-semibold text-sm">{t('contact.addressSection')}</p>
+                  <p className="text-sm text-muted-foreground">{t('contact.addressText')}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <Phone className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-semibold text-sm">Téléphone</p>
+                  <p className="font-semibold text-sm">{t('contact.telephoneLabel')}</p>
                   <p className="text-sm text-muted-foreground">06 43 66 08 09</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <Mail className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-semibold text-sm">Email</p>
+                  <p className="font-semibold text-sm">{t('contact.emailLabel')}</p>
                   <p className="text-sm text-muted-foreground">contact@pariswestdrive.fr</p>
                 </div>
               </div>
